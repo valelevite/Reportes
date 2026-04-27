@@ -1,0 +1,4 @@
+"0",""
+"0","Tax_free <- read_excel(paste0(""Tax free/Tax free armado/Tax free_Cesar_inicio hasta "", fecha_tax_free, "".xlsx""))"
+"0","#Tax_free <- read_excel(paste0(""Tax free/Tax free armado/Tax free_"", mes, "".xlsx""))"
+"0",""

@@ -1,0 +1,5 @@
+"0",""
+"0","fecha_stock <- strftime(""2025/06/24"",""%Y%m%d"")"
+"0",""
+"0","Stock_final <- read_excel(paste0(""Stock/Stock final/Stock_"", fecha_stock, "".xlsx""))"
+"0",""

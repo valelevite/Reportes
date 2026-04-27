@@ -1,0 +1,6 @@
+"0",""
+"0","fecha_hasta <- strftime(""2026/03/31"",""%Y%m%d"")"
+"0",""
+"0","fecha_desde <- strftime(""2025/12/09"", ""%Y%m%d"")"
+"0",""
+"0","fecha_base_articulos <- strftime(""2026/04/01"", ""%Y%m%d"")"

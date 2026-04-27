@@ -1,0 +1,7 @@
+Tienda	WeekdayName	IssuingDate	IssuedStatus	IssuingTime	TFSStatus	DeskID	TouristCountry	InvoiceNumber	DocumentIdentifier	TotalGrossAmount	TotalRefundAmount
+Güemes	jueves	6/2/2025	Voided	15:34:59	Voided	1425383	VENEZUELA	00038-00000056	1,10654E+19	100	13
+Güemes	jueves	13/2/2025	Issued	10:17:26	Issued	1425383	UNITED ARAB EMIRATES	00038-00000062	1,10654E+19	89.990,00	11.698,70
+Güemes	viernes	14/2/2025	Issued	12:14:30	Processed by Global Blue	1425383	HUNGARY	00038-00000067	1,10654E+19	82.980,00	10.787,40
+Güemes	jueves	6/3/2025	Issued	16:08:55	Processed by Global Blue	1425383	CYPRUS	00038-00000090	1,10654E+19	99.990,00	12.998,70
+Güemes	lunes	7/4/2025	Issued	15:30:42	Issued	1425383	ITALY	00038-00000131	1,10654E+19	189.990,00	24.698,70
+Güemes	miércoles	16/4/2025	Issued	15:18:23	Issued	1425383	SPAIN	00038-00000138	1,10654E+19	65.990,00	8.578,70

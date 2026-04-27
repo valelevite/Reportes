@@ -1,0 +1,3 @@
+"0",""
+"0","Odoo_precio_unitario <- Odoo_facturas_registrado_completa %>% "
+"0","  mutate(PRECIO_UNITARIO_CON_IMP = PRODUCTO_TOTAL/PRODUCTO_CANTIDAD)"

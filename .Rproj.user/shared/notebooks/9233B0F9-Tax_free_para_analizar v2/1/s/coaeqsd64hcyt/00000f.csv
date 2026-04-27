@@ -1,0 +1,46 @@
+"0",""
+"0","datos_torta_CENTRO <- Resultado_cruce_TF %>%"
+"0","  filter(!NACIONALIDAD_UNIFICADA %in% c(""Argentina"", ""Desconocida"")) %>%  # Solo clientes extranjeros"
+"0","  filter()"
+"0","  group_by(DEPOSITO) %>%"
+"0","  summarise("
+"0","    Con_TaxFree = sum(!is.na(HORA_TF)),"
+"0","    Sin_TaxFree = sum(is.na(HORA_TF)),"
+"0","    Total_Extranjeros = n()"
+"0","  ) %>%"
+"0","  mutate(Porcentaje_TF = (Con_TaxFree / Total_Extranjeros) * 100,"
+"0","         Porcentaje_Sin_TF = (Sin_TaxFree / Total_Extranjeros) * 100,"
+"0","         DEPOSITO_LABEL = paste0(DEPOSITO, "" (N="", Total_Extranjeros, "")"")) %>% "
+"0","  pivot_longer(cols = c(Porcentaje_TF, Porcentaje_Sin_TF),"
+"0","               names_to = ""Categoria"","
+"0","               values_to = ""Porcentaje"") %>% "
+"0","  mutate(Categoria = recode(Categoria,"
+"0","                            ""Porcentaje_TF"" = ""Con Tax Free"","
+"0","                            ""Porcentaje_Sin_TF"" = ""Sin Tax Free""))"
+"2","G1;H1;Errorh: objeto 'DEPOSITO' no encontrado
+Error durante el wrapup: no hay tantas estructuras en la pila
+Error: no more error handlers available (recursive errors?); invoking 'abort' restart
+g"
+"0","# Gráfico"
+"0","grafico_tf_x_tienda <- ggplot(datos_torta, aes(x = """", y = Porcentaje, fill = Categoria)) +"
+"0","  geom_bar(stat = ""identity"", width = 1) +"
+"0","  coord_polar(""y"") +"
+"0","  facet_wrap(~ DEPOSITO_LABEL) +"
+"0","  theme_void() +"
+"0","  labs(title = ""Distribución ventas con Tax Free entre ventas a extranjeros por tienda.\nAbril 2025\n"") +"
+"0","  scale_fill_manual(values = c(""Con Tax Free"" = ""skyblue"", ""Sin Tax Free"" = ""gray70"")) +"
+"0","  theme(plot.title = element_text(hjust = 0.5)) +"
+"0","  geom_text(aes(label = ifelse(Categoria == ""Con Tax Free"", "
+"0","                               paste0(round(Porcentaje, 1), ""%""), "
+"0","                               """")),"
+"0","            position = position_stack(vjust = 0.5),"
+"0","            size = 3)"
+"2","G1;H1;Errorh: objeto 'datos_torta' no encontrado
+Error durante el wrapup: no hay tantas estructuras en la pila
+Error: no more error handlers available (recursive errors?); invoking 'abort' restart
+g"
+"0","print(grafico_tf_x_tienda)"
+"2","G1;H1;Errorh: objeto 'grafico_tf_x_tienda' no encontrado
+Error durante el wrapup: no hay tantas estructuras en la pila
+Error: no more error handlers available (recursive errors?); invoking 'abort' restart
+g"

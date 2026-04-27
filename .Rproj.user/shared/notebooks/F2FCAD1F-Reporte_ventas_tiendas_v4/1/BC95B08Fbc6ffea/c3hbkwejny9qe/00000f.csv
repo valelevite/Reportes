@@ -1,0 +1,8 @@
+"0",""
+"0","fecha_stock <- strftime(""2025/11/03"",""%Y%m%d"")"
+"0",""
+"0","#fecha_maestro <- strftime(""2025/08/22"", ""%Y%m%d"")"
+"0","fecha_lista_precios <- strftime(""2025/11/03"", ""%Y%m%d"")"
+"0",""
+"0","fecha_filtro <- as.Date(""2025-11-12"")"
+"0",""

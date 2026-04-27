@@ -1,0 +1,7 @@
+"0","#Gastos
+FACTURAS_TIENDAS <- read_excel(""Reporte_gastos/gastos desde 2025-05.xlsx"", 
+    col_types = c(""text"", ""text"", 
+        ""text"", ""text"", ""date"", ""numeric"", ""numeric"", ""numeric"")) 
+"
+"2","Error: Sheet 1 has 9 columns, but `col_types` has length 8.
+"

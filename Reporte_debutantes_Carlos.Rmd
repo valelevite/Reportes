@@ -1,0 +1,199 @@
+---
+title: "Reporte_debutantes"
+output: html_document
+date: "2025-04-03"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r paso a fecha el corte de la base}
+
+FECHA_BASE <- as.Date(fecha_hasta, format = "%Y%m%d")
+
+```
+
+
+```{r filtro por los artículos que le interesan seguir a Carlos}
+
+#filtro por los productos elegidos
+PRODUCTOS_A_SEGUIR <- FACTURAS_ARTICULOS2 %>%
+  filter(str_starts(DESCRIPCION, "MOCHILA TECH|MEDIA|MEDIAS|REMERA")) %>% 
+  mutate(CATEGORIA = case_when(
+    str_starts(DESCRIPCION, "MOCHILA TECH") ~ "MOCHILA TECH",
+    str_starts(DESCRIPCION, "MEDIA") | str_starts(DESCRIPCION, "MEDIAS") ~ "MEDIAS",
+    str_starts(DESCRIPCION, "REMERA") ~ "REMERA")) 
+
+
+```
+
+
+```{r creo tabla de cantidad de debutantes}
+
+# 1. Definir parámetros
+orden_cronologico <- c("diciembre", "enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre")
+
+# 2. Procesamiento seguro que conserva todas las categorías
+TABLA_CANTIDAD_PRODUCTOS <- PRODUCTOS_A_SEGUIR %>%
+  # Asegurar formato de fecha
+  mutate(FECHA_EMISION = as.Date(FECHA_EMISION)) %>%
+  
+  # Filtrado CONDICIONAL (importante el OR entre condiciones)
+  filter(
+    # Caso 1: MEDIAS con fecha >= 2025-01-01
+    (CATEGORIA == "MEDIAS" & FECHA_EMISION >= as.Date("2025-01-01")) |
+    
+    # Caso 2: REMERAS con fecha >= 2024-12-01
+    (CATEGORIA == "REMERA" & FECHA_EMISION >= as.Date("2024-12-01")) |
+    
+    # Caso 3: TODAS LAS OTRAS CATEGORÍAS (sin filtro de fecha)
+    (!CATEGORIA %in% c("MEDIAS", "REMERA"))
+  ) %>%
+  
+  # Continuar con el procesamiento normal
+  mutate(
+    MES = case_when(
+      month(FECHA_EMISION) == 1 ~ "enero",
+      month(FECHA_EMISION) == 2 ~ "febrero",
+      month(FECHA_EMISION) == 3 ~ "marzo",
+      month(FECHA_EMISION) == 4 ~ "abril",
+      month(FECHA_EMISION) == 5 ~ "mayo",
+      month(FECHA_EMISION) == 6 ~ "junio",
+      month(FECHA_EMISION) == 7 ~ "julio",
+      month(FECHA_EMISION) == 8 ~ "agosto",
+      month(FECHA_EMISION) == 9 ~ "septiembre",
+      month(FECHA_EMISION) == 10 ~ "octubre",
+      month(FECHA_EMISION) == 12 ~ "diciembre",
+      TRUE ~ NA_character_
+    ),
+    MES = factor(MES, levels = orden_cronologico)
+  ) %>%
+  filter(!is.na(MES)) %>%
+  
+  group_by(CATEGORIA, MES) %>%
+  summarise(TOTAL = sum(PRODUCTO_CANTIDAD, na.rm = TRUE), .groups = 'drop') %>%
+  
+  pivot_wider(names_from = MES, values_from = TOTAL, values_fill = 0)
+
+write.xlsx(TABLA_CANTIDAD_PRODUCTOS, paste0("Reporte_debutantes/TABLA CANTIDAD PRODUCTOS ", FECHA_BASE, ".xlsx"))
+```
+
+
+```{r creo tabla de ventas $ de debutantes}
+
+TABLA_VENTA_PRODUCTOS <- PRODUCTOS_A_SEGUIR %>%
+  # Asegurar formato de fecha
+  mutate(FECHA_EMISION = as.Date(FECHA_EMISION)) %>%
+  
+  # Filtrado CONDICIONAL (importante el OR entre condiciones)
+  filter(
+    # Caso 1: MEDIAS con fecha >= 2025-01-01
+    (CATEGORIA == "MEDIAS" & FECHA_EMISION >= as.Date("2025-01-01")) |
+    
+    # Caso 2: REMERAS con fecha >= 2024-12-01
+    (CATEGORIA == "REMERA" & FECHA_EMISION >= as.Date("2024-12-01")) |
+    
+    # Caso 3: TODAS LAS OTRAS CATEGORÍAS (sin filtro de fecha)
+    (!CATEGORIA %in% c("MEDIAS", "REMERA"))
+  ) %>%
+  
+  # Continuar con el procesamiento normal
+  mutate(
+    MES = case_when(
+      month(FECHA_EMISION) == 1 ~ "enero",
+      month(FECHA_EMISION) == 2 ~ "febrero",
+      month(FECHA_EMISION) == 3 ~ "marzo",
+      month(FECHA_EMISION) == 4 ~ "abril",
+      month(FECHA_EMISION) == 5 ~ "mayo",
+      month(FECHA_EMISION) == 6 ~ "junio",
+      month(FECHA_EMISION) == 7 ~ "julio",
+      month(FECHA_EMISION) == 8 ~ "agosto",
+      month(FECHA_EMISION) == 9 ~ "septiembre",
+      month(FECHA_EMISION) == 10 ~ "octubre",
+      month(FECHA_EMISION) == 12 ~ "diciembre",
+      TRUE ~ NA_character_
+    ),
+    MES = factor(MES, levels = orden_cronologico)
+  ) %>%
+  filter(!is.na(MES)) %>%
+  
+  group_by(CATEGORIA, MES) %>%
+  summarise(TOTAL = sum(PRODUCTO_TOTAL, na.rm = TRUE), .groups = 'drop') %>%
+  
+  pivot_wider(names_from = MES, values_from = TOTAL, values_fill = 0)
+
+
+#Calculo las ventas totales de esos meses
+
+VENTAS_TOTALES <- FACTURAS_ARTICULOS2 %>%
+  mutate(FECHA_EMISION = as.Date(FECHA_EMISION)) %>%
+  filter(FECHA_EMISION >= as.Date("2024-12-01")) %>%
+  distinct(CODIGO, .keep_all = TRUE) %>% 
+  mutate(
+    MES = case_when(
+      month(FECHA_EMISION) == 1 ~ "enero",
+      month(FECHA_EMISION) == 2 ~ "febrero",
+      month(FECHA_EMISION) == 3 ~ "marzo",
+      month(FECHA_EMISION) == 4 ~ "abril",
+      month(FECHA_EMISION) == 5 ~ "mayo",
+      month(FECHA_EMISION) == 6 ~ "junio",
+      month(FECHA_EMISION) == 7 ~ "julio",
+      month(FECHA_EMISION) == 8 ~ "agosto",
+      month(FECHA_EMISION) == 9 ~ "septiembre",
+      month(FECHA_EMISION) == 10 ~ "octubre",
+      month(FECHA_EMISION) == 12 ~ "diciembre",
+      TRUE ~ NA_character_
+    ),
+    MES = factor(MES, levels = orden_cronologico)
+  ) %>%
+  filter(!is.na(MES)) %>%
+  
+  group_by(MES) %>%
+  summarise(TOTAL_VENTAS = sum(TOTAL_FACTURA, na.rm = TRUE), .groups = 'drop') %>%
+  
+  pivot_wider(names_from = MES, values_from = TOTAL_VENTAS, values_fill = 0)
+
+
+#Creo valores participación
+ventas_cat_long <- TABLA_VENTA_PRODUCTOS %>%
+  pivot_longer(cols = -CATEGORIA, names_to = "MES", values_to = "VENTAS")
+
+ventas_tot_long <- VENTAS_TOTALES %>%
+  pivot_longer(cols = everything(), names_to = "MES", values_to = "TOTAL")
+
+
+TABLA_PARTICIPACION <- ventas_cat_long %>%
+  left_join(ventas_tot_long, by = "MES") %>%
+  group_by(CATEGORIA) %>%
+  filter(VENTAS > 0) %>%
+  summarise(
+    MESES_CONSIDERADOS = paste(MES, collapse = ", "),
+    VENTA_PRODUCTO = sum(VENTAS),
+    TOTAL_GENERAL = sum(TOTAL),
+    PARTICIPACION = VENTA_PRODUCTO / TOTAL_GENERAL
+  )
+
+write.xlsx(TABLA_PARTICIPACION, paste0("Reporte_debutantes/TABLA PARTICIPACION ", FECHA_BASE, ".xlsx"))
+
+```
+
+
+```{r tablas nacionalidad}
+
+NACIONALIDAD_PRODUCTOS <- PRODUCTOS_A_SEGUIR %>% 
+  filter(case_when(CATEGORIA == "REMERA" ~ FECHA_EMISION >="2024-12-01", CATEGORIA == "MEDIAS" ~ FECHA_EMISION >= "2025-01-01", TRUE ~ TRUE)) %>% 
+  group_by(CATEGORIA, NACIONALIDAD) %>% 
+  summarise(Total = sum(PRODUCTO_CANTIDAD)) %>% 
+  arrange(CATEGORIA, -Total) %>% 
+  ungroup()
+
+write.xlsx(NACIONALIDAD_PRODUCTOS, paste0("Reporte_debutantes/Nacionalidad productos seleccionados ", FECHA_BASE, ".xlsx"))
+```
+
+
+#Escribo el excel
+```{r escribo el excel}
+
+```
+

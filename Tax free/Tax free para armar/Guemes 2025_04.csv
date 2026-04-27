@@ -1,0 +1,4 @@
+﻿WeekdayName,IssuedStatus,IssuingDate,TFSStatus,DeskID,TouristCountryNumIsoCode,InvoiceNumber,DocumentIdentifier,TotalGrossAmount,TotalRefundAmount
+"lunes, 7/4/2025",Issued,15:30:42,Issued,1425383,ITALY,00038-00000131,11065408328117124609,"189,990.00","24,698.70"
+"miércoles, 16/4/2025",Issued,15:18:23,Issued,1425383,SPAIN,00038-00000138,11065408328117138946,"65,990.00","8,578.70"
+

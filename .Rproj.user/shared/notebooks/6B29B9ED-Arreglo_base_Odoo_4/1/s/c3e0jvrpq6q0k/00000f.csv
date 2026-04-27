@@ -1,0 +1,8 @@
+"0",""
+"0","#Completo con ""sin datos"" las estado factura = Registrado porque no tienen varios y sino se completan esos datos faltantes con los datos de la factura anterior"
+"0",""
+"0","Odoo_facturas_registrado_completa <- Odoo_Facturas2 %>% "
+"0","  mutate(NOMBRE_FACTURA = if_else(ESTADO_FACTURA == ""Registrado"", ""Sin datos"", NOMBRE_FACTURA),"
+"0","         NRO_FACTURA = if_else(ESTADO_FACTURA == ""Registrado"", ""Sin datos"", NRO_FACTURA),"
+"0","         TIPO_FACTURA = if_else(ESTADO_FACTURA == ""Registrado"", ""Sin datos"", TIPO_FACTURA))"
+"0",""

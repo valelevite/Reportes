@@ -1,0 +1,4 @@
+"0",""
+"0","FACTURAS_ARTICULOS_AS <- facturas_AS %>% "
+"0","  left_join(ARTICULOS_AS, by = c(""PRODUCTO_REFERENCIA"" = ""CODIGO""))"
+"0","  "

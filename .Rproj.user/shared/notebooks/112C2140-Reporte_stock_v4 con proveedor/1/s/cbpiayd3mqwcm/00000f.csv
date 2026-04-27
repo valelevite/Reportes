@@ -1,0 +1,12 @@
+"0",""
+"0","tabla_item_cantidad_agrupada <- Stock %>% "
+"0","  filter(condición %in% c(""activos"", ""discontinuados"")) %>% "
+"0","  filter(""clasificación stock"" != ""0-6"") %>% "
+"0","  group_by(RUBRO, condición, `stock unidades`) %>% "
+"0","  summarise(Cantidad = n()) %>% "
+"0","  ungroup() %>% "
+"0","  mutate(`stock unidades` = factor(`stock unidades`, levels = c(""hasta 10 u."", ""entre 11 y 20 u."", ""más de 20 u."")))"
+"2","[38;5;232m`summarise()` has grouped output by 'RUBRO', 'condición'. You can override using the `.groups`
+argument.[39m
+"
+"0","  "

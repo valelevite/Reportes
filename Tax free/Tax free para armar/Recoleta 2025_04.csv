@@ -1,0 +1,22 @@
+Tienda	WeekdayName	IssuingDate	IssuedStatus	IssuingTime	TFSStatus	DeskID	TouristCountry	InvoiceNumber	TotalGrossAmount	TotalRefundAmount
+Recoleta	martes	1/4/2025	Issued	17:47:24	Processed by Global Blue	1425387	PERU	00020-00008174	60970	7926,1
+Recoleta	miércoles	2/4/2025	Issued	14:46:29	Issued	1425387	TURKEY	8179	172960	22484,8
+Recoleta	miércoles	2/4/2025	Issued	14:50:55	Issued	1425387	TURKEY	8180	51990	6758,7
+Recoleta	sábado	5/4/2025	Issued	16:43:29	Issued	1425387	ECUADOR	8191	89990	11698,7
+Recoleta	domingo	6/4/2025	Issued	11:34:47	Issued	1425387	PERU	8198	19990	2598,7
+Recoleta	martes	8/4/2025	Issued	12:49:48	Issued	1425387	UNITED STATES	8210	164940	21442,2
+Recoleta	martes	8/4/2025	Issued	17:29:50	Issued	1425387	UNITED STATES	00020-00008213	131980	17157,4
+Recoleta	miércoles	9/4/2025	Issued	11:37:59	Processed by Global Blue	1425387	UNITED STATES	00020-00008215	99990	12998,7
+Recoleta	jueves	10/4/2025	Issued	14:36:53	Processed by Global Blue	1425387	INDIA	00010-00000107	81980	10657,4
+Recoleta	viernes	11/4/2025	Issued	12:54:12	Processed by Global Blue	1425387	UNITED STATES	8228	473970	66355,8
+Recoleta	viernes	11/4/2025	Issued	13:35:20	Issued	1425387	URUGUAY	0000-8229	127990	16638,7
+Recoleta	sábado	12/4/2025	Issued	13:40:38	Processed by Global Blue	1425387	INDIA	8234	259990	33798,7
+Recoleta	miércoles	16/4/2025	Issued	14:13:14	Processed by Global Blue	1425387	ITALY	00000-8260	29990	3898,7
+Recoleta	jueves	17/4/2025	Issued	11:35:31	Issued	1425387	UNITED STATES	00020-00008266	343960	44714,8
+Recoleta	jueves	17/4/2025	Issued	14:10:56	Processed by Global Blue	1425387	BOLIVIA	00020-00008270	65990	8578,7
+Recoleta	sábado	26/4/2025	Issued	16:16:28	Issued	1425387	UNITED STATES	00000-8324	445980	62437,2
+Recoleta	sábado	26/4/2025	Voided	16:10:34	Voided	1425387	UNITED STATES	00000-8323	445980	62437,2
+Recoleta	domingo	27/4/2025	Issued	11:12:04	Refunded by Global Blue	1425387	UNITED STATES	8331	401980	56277,2
+Recoleta	domingo	27/4/2025	Issued	13:02:21	Issued	1425387	COSTA RICA	8330	201980	26257,4
+Recoleta	domingo	27/4/2025	Issued	15:16:48	Issued	1425387	CHILE	00020-00008337	399990	55998,6
+Recoleta	domingo	27/4/2025	Voided	13:01:20	Voided	1425387	COSTA RICA	8330	20198	2625,74

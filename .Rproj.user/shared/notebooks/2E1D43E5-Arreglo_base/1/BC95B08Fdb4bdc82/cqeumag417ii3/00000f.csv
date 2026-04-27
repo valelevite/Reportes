@@ -1,0 +1,49 @@
+"0",""
+"0","#para ver los na por columna"
+"0","na_por_columna <- colSums(is.na(FACTURAS_ARTICULOS2))"
+"0","print(na_por_columna)"
+"1","              FECHA_EMISION                      CODIGO 
+                          0                           0 
+               TIPO_FACTURA                ESTADO_LEGAL 
+                          0                           0 
+                     ESTADO                    DEPOSITO 
+                          0                           0 
+               CENTRO_COSTO              CLIENTE_NOMBRE 
+                      36660                           0 
+CLIENTE_TIPO_IDENTIFICACION      CLIENTE_IDENTIFICACION 
+                          0                           0 
+   CLIENTE_DOMICILIO_FISCAL            CLIENTE_TELEFONO 
+                          0                       36660 
+          CLIENTE_LOCALIDAD                      REMITO 
+                          0                       36660 
+                 PLAZO_PAGO                 VENCIMIENTO 
+                          0                           0 
+                   VENDEDOR              LISTAS_PRECIOS 
+                         92                        6747 
+                     MONEDA                 TASA_CAMBIO 
+                          0                           0 
+            PRODUCTO_NOMBRE         PRODUCTO_REFERENCIA 
+                          0                           0 
+       PRODUCTO_DESCRIPCION           PRODUCTO_CANTIDAD 
+                        228                           0 
+   PRODUCTO_PRECIO_UNITARIO       PRODUCTO_BONIFICACION 
+                          0                           0 
+          PRODUCTO_IMPUESTO      PRODUCTO_IMPUESTO_PORC 
+                          0                           0 
+    PRODUCTO_IMPUESTO_VALOR              PRODUCTO_TOTAL 
+                          0                           0 
+         SUBTOTAL_PRODUCTOS               TOTAL_FACTURA 
+                          0                           0 
+                      NOTAS                        HORA 
+                         83                         136 
+                        NAC                NACIONALIDAD 
+                        116                         277 
+                  PROVEEDOR                       RUBRO 
+                          0                           0 
+                    FAMILIA                 DESCRIPCION 
+                          0                           0 
+                   MATERIAL                       COLOR 
+                          0                           0 
+"
+"0","#REVISAR QUE RUBRO, FAMILIA, DESCRIPCION Y PROVEEDOR TENGAN DATOS COMPLETOS"
+"0",""

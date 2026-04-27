@@ -1,0 +1,33 @@
+"0",""
+"0","REPORTE_1 <- venta_stock_combinado %>%"
+"0","  left_join(VENTA_LUCERO_PARA_JOIN, by = ""CODIGO"") %>% "
+"0","  arrange(TIENDA, RUBRO, FAMILIA, CODIGO) %>% "
+"0","  mutate(""NUEVO ESTADO"" = NA) %>% "
+"0","  relocate(""NUEVO ESTADO"", .after = COLOR) %>% "
+"0","  filter(!(STOCK == 0 & is.na(RUBRO))) #elimino las filas sin stock ni venta"
+"2","G1;H1;Errorh: objeto 'venta_stock_combinado' no encontrado
+Error durante el wrapup: no hay tantas estructuras en la pila
+Error: no more error handlers available (recursive errors?); invoking 'abort' restart
+g"
+"0","#le agrego la info que le falta a los códigos sin ventas"
+"0","ARTICULOS_SIN_PROVEEDOR <- ARTICULOS %>% "
+"0","  select(CODIGO = CODIGO_ARTICULO, RUBRO, FAMILIA, DESCRIPCION, MATERIAL, COLOR)"
+"0",""
+"0","REPORTE_2 <- REPORTE_1 |>"
+"0","  left_join(ARTICULOS_SIN_PROVEEDOR, by = ""CODIGO"", suffix = c("""", ""_art"")) |>"
+"0","  mutate("
+"0","    RUBRO       = coalesce(RUBRO, RUBRO_art),"
+"0","    FAMILIA     = coalesce(FAMILIA, FAMILIA_art),"
+"0","    DESCRIPCION = coalesce(DESCRIPCION, DESCRIPCION_art),"
+"0","    MATERIAL    = coalesce(MATERIAL, MATERIAL_art),"
+"0","    COLOR       = coalesce(COLOR, COLOR_art)"
+"0","  ) |>"
+"0","  select(-ends_with(""_art"")) %>% "
+"0","  mutate(RUBRO = if_else(is.na(RUBRO) & str_starts(CODIGO, ""OUT""),"
+"0","      ""OUTLET"", RUBRO)) %>% #Completo datos para los casos de código outlet"
+"0","  mutate(FAMILIA = if_else(is.na(FAMILIA) & str_starts(CODIGO, ""OUT""),"
+"0","      ""OUTLET"", FAMILIA))"
+"2","G1;H1;Errorh: objeto 'REPORTE_1' no encontrado
+Error durante el wrapup: no hay tantas estructuras en la pila
+Error: no more error handlers available (recursive errors?); invoking 'abort' restart
+g"

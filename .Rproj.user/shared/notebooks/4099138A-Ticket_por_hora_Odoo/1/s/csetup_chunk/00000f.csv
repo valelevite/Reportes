@@ -1,0 +1,2 @@
+"0","knitr::opts_chunk$set(echo = FALSE) # FALSE para que el código no aparezca en el pdf"
+"0",""

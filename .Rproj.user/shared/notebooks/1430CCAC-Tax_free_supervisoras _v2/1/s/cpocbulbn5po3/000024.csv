@@ -1,0 +1,5 @@
+"0","ggsave("
+"0","    filename = paste0(""Tax free/Imagenes/Reintegros TF Centro_"", mes, "".png""),"
+"0","    plot = GRAFICO_REINTEGROS_CENTRO, height = 4, dpi = 300)"
+"2","[38;5;232mSaving 6.88 x 4 in image[39m
+"

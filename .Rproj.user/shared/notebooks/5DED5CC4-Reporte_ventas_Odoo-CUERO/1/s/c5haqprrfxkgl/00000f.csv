@@ -1,0 +1,6 @@
+"0",""
+"0","FACTURAS_MES2 <- FACTURAS_MES %>% "
+"0","  filter(PRECIO_UNITARIO>100) |> "
+"0","  mutate(RUBRO = if_else(SUBFAMILIA== ""OUTLET"", ""OUTLET"", RUBRO),"
+"0","         FAMILIA = if_else(SUBFAMILIA== ""OUTLET"", ""OUTLET"", FAMILIA))"
+"0",""

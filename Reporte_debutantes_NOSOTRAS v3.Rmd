@@ -1,0 +1,319 @@
+---
+title: "Reporte_debutantes"
+output: html_document
+date: "2025-04-03"
+---
+
+#OJO, está tomando los artículos que no tuvieron venta en las semanas cerradas pero sí luego (y no está cerrada)
+#Actualizar lista de debutantes
+#Correr arreglo base
+#AJUSTAR LOS FILTROS PARA LAS TABLAS POR PRODUCTO (50 DÍAS) Y PARA LISTA DEBUTANTES (100 DÍAS)
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r leo el archivo de lista de debutantes y paso a fecha el corte de la base}
+
+fecha_stock <- strftime("2025/11/03","%Y%m%d")
+
+
+Lista_debutantes <- read_excel("Reporte_debutantes/Lista_debutantes.xlsx")
+
+FECHA_BASE <- as.Date(fecha_hasta, format = "%Y%m%d")
+
+```
+
+
+```{r cargo el stock}
+
+Stock_final <- read_excel(paste0("Stock/Stock final/Stock_", fecha_stock, ".xlsx"))
+
+#sumo el stock por depósitos y tiendas
+STOCK_RESUMEN <- Stock_final %>% 
+  rename(CODIGO = CODIGO_ARTICULO) %>% 
+  mutate(`STOCK DEPOSITOS` = BARRACAS + `OF FLORIDA`,
+         `STOCK TIENDAS` = FLORIDA +`SAN TELMO` + RECOLETA + FRENCH + GUEMES + `SAN TELMO 2`,
+    STOCK_TOTAL = `STOCK DEPOSITOS` + `STOCK TIENDAS`)
+
+
+#creo datasets para cruzar
+STOCK_SKU <- select(STOCK_RESUMEN, CODIGO, STOCK = STOCK_TOTAL)
+
+```
+
+
+```{r filtro por fecha de ingreso para eliminar los que ya cumplieron 1 mes}
+
+Lista_debutantes <- Lista_debutantes %>% 
+  filter(FECHA_BASE- as.Date(FECHA_INGRESO)<=30)
+```
+
+
+```{r uno a los debutantes los datos de ventas y corrijo fechas de emisión que son anteriores a las de ingreso}
+
+#cruzo diciendo que la descripción en Lista_debutantes sea el texto con el que inicia en FACTURAS_ARTICULOS2 porque a veces no está completo el nombre
+#Uso SUBTOTAL_PRODUCTOS para computar los descuentos que se hayan hecho. Además, de esta forma no me afecta que hayan precios distintos para un mismo producto.
+
+#Antes del join le quito los acentos a todo para que haya problemas
+#Le cambio el nombre a Lucero Galería Guemes para que coincida con lista debutantes
+library(stringi)
+Lista_debutantes_normalizada <- Lista_debutantes %>%
+  mutate(DESCRIPCION_NORM = stri_trans_general(DESCRIPCION, "Latin-ASCII"),
+         DESCRIPCION_NORM = case_when(
+    str_detect(DESCRIPCION_NORM, "^MOCHILA TECH") ~ "MOCHILA TECH",
+    TRUE ~ DESCRIPCION_NORM
+  ))%>% 
+  select(DESCRIPCION_NORM, FECHA_INGRESO) %>% 
+  distinct()
+
+
+FACTURAS_ARTICULOS2_normalizada <- FACTURAS_ARTICULOS2 %>%
+  mutate(DESCRIPCION_NORM = stri_trans_general(DESCRIPCION, "Latin-ASCII"),
+         DEPOSITO = case_when(DEPOSITO =="Lucero Galeria Guemes" ~ "Güemes", TRUE ~ DEPOSITO),
+         DESCRIPCION_NORM = case_when(
+    str_detect(DESCRIPCION_NORM, "^LLAVERO CALADO ZODIACO") ~ "LLAVERO CALADO ZODIACO",
+    str_detect(DESCRIPCION_NORM, "^LLAVERO CALADO FRASES") ~ "LLAVERO CALADO FRASES",
+    str_detect(DESCRIPCION_NORM, "^TAG CALADO ZODIACO") ~ "TAG CALADO ZODIACO",
+    str_detect(DESCRIPCION_NORM, "^TAG CALADO INICIAL") ~ "TAG CALADO INICIAL",
+    str_detect(DESCRIPCION_NORM, "^MOCHILA TECH") ~ "MOCHILA TECH",
+    TRUE ~ DESCRIPCION_NORM
+  ))
+
+
+#library(fuzzyjoin)
+
+#Debutantes_dias_fuzzy <- Lista_debutantes_normalizada %>%
+ # fuzzy_left_join(FACTURAS_ARTICULOS2_normalizada, by = c("DESCRIPCION_NORM" = "DESCRIPCION_NORM"),
+ #   match_fun = function(x, y) str_starts(y, fixed(x))  # "y empieza con x"
+#  )
+  
+Debutantes_dias <- Lista_debutantes_normalizada %>%
+  left_join(FACTURAS_ARTICULOS2_normalizada, by = "DESCRIPCION_NORM") %>%
+  
+  # Reemplazo NA en columnas clave que usaré para agrupar
+  mutate(
+    PROVEEDOR = replace_na(PROVEEDOR, "SIN DATO"),
+    RUBRO = replace_na(RUBRO, "SIN DATO"),
+    FAMILIA = replace_na(FAMILIA, "SIN DATO"),
+    MATERIAL = replace_na(MATERIAL, "SIN DATO"),
+    COLOR = replace_na(COLOR, "SIN DATO"),
+    PRODUCTO_REFERENCIA = replace_na(PRODUCTO_REFERENCIA, "SIN DATO")
+  ) %>%
+  
+  filter(!is.na(FECHA_INGRESO)) %>% 
+  mutate(
+    # Estas operaciones generarán NA en las columnas calculadas para productos sin ventas
+    FECHA_EMISION = as.Date(FECHA_EMISION), 
+    FECHA_INGRESO = as.Date(FECHA_INGRESO), 
+    FECHA_EMISION = if_else(FECHA_EMISION < FECHA_INGRESO, FECHA_INGRESO, FECHA_EMISION, missing = FECHA_EMISION),
+    dias_diferencia = as.numeric(FECHA_EMISION - FECHA_INGRESO + 1),
+    
+    SEMANA_1 = ifelse(dias_diferencia >= 1 & dias_diferencia <= 7, PRODUCTO_CANTIDAD, NA),
+    SEMANA_2 = ifelse(dias_diferencia >= 8 & dias_diferencia <= 14, PRODUCTO_CANTIDAD, NA),
+    SEMANA_3 = ifelse(dias_diferencia >= 15 & dias_diferencia <= 21, PRODUCTO_CANTIDAD, NA),
+    SEMANA_4 = ifelse(dias_diferencia >= 22 & dias_diferencia <= 28, PRODUCTO_CANTIDAD, NA),
+    
+    PRODUCTO_TOTAL = ifelse(is.na(PRODUCTO_TOTAL), 0, PRODUCTO_TOTAL) # Reemplazar NA en total para evitar errores
+  )
+
+```
+
+#Creo tabla. Filtro para llegar sólo al día 28
+```{r SKU}
+
+SKU <- Debutantes_dias %>% 
+  #filter(dias_diferencia >= 7 | is.na(FECHA_EMISION)) %>% #para que haya pasado por lo menos una semana
+  filter(dias_diferencia <= 28 | is.na(dias_diferencia)) %>% #MANTENER los productos sin ventas (donde dias_diferencia es NA)
+  group_by(PROVEEDOR, RUBRO, FAMILIA, DESCRIPCION, DESCRIPCION_NORM, MATERIAL, COLOR, PRODUCTO_REFERENCIA) %>% 
+  mutate(
+         dias_totales_mercado = as.numeric(FECHA_BASE - first(FECHA_INGRESO) + 1)) %>%
+  summarise(
+    # Si la semana está completa y no hubo ventas (NA), la suma será 0. 
+    SEMANA_1 = if_else(first(dias_totales_mercado) >= 7,  sum(SEMANA_1, na.rm = TRUE), NA_real_),
+    SEMANA_2 = if_else(first(dias_totales_mercado) >= 14, sum(SEMANA_2, na.rm = TRUE), NA_real_),
+    SEMANA_3 = if_else(first(dias_totales_mercado) >= 21, sum(SEMANA_3, na.rm = TRUE), NA_real_),
+    SEMANA_4 = if_else(first(dias_totales_mercado) >= 28, sum(SEMANA_4, na.rm = TRUE), NA_real_),
+    # Si no hay ventas, PRODUCTO_CANTIDAD es NA y el filtro interno no encontrará nada, por lo que sum(..., na.rm=TRUE) devolverá 0.
+    semanas_completas = floor(first(dias_totales_mercado) / 7),
+    max_dias_computables = semanas_completas * 7,
+    `TOTAL U` = sum(PRODUCTO_CANTIDAD[dias_diferencia <= max_dias_computables], na.rm = TRUE),
+    `TOTAL $` = round(sum(PRODUCTO_TOTAL[dias_diferencia <= max_dias_computables], na.rm = TRUE)),
+    PRECIO = if_else(`TOTAL U` > 0, round(`TOTAL $` / `TOTAL U`), NA)
+  ) %>% 
+  rename("CODIGO" = PRODUCTO_REFERENCIA) %>% 
+  relocate(PRECIO, .after = COLOR) %>% 
+  relocate(CODIGO, .after = FAMILIA) %>% 
+  select(-semanas_completas, -max_dias_computables) %>%
+  arrange(DESCRIPCION) %>% 
+  ungroup() %>% 
+  mutate(DESCRIPCION = ifelse(is.na(DESCRIPCION), DESCRIPCION_NORM, DESCRIPCION))
+
+
+# Le agrego el stock
+SKU_STOCK <-  left_join(SKU, STOCK_SKU, by= "CODIGO")
+
+# Calculo S/D
+SKU_STOCK <- SKU_STOCK %>% 
+  mutate("D/S" =round(STOCK/`TOTAL U`*30, digits = 0))
+
+
+# Creo la fila con los totales
+totales_sku <- tibble(
+  PROVEEDOR = "TOTAL",
+  RUBRO = NA, 
+  FAMILIA = NA,
+  CODIGO = NA,
+  DESCRIPCION = NA,
+  MATERIAL = NA,
+  COLOR = NA,
+  PRECIO = NA,
+  SEMANA_1 = NA,
+  SEMANA_2 = NA,
+  SEMANA_3 = NA,
+  SEMANA_4 = NA,
+  `TOTAL U` = sum(SKU_STOCK$`TOTAL U`),
+  `TOTAL $` = sum(SKU_STOCK$`TOTAL $`),
+  STOCK = NA,
+  `D/S` = NA)
+
+
+# DefinO las columnas a sumar en los subtotales
+columnas_a_sumar <- c("SEMANA_1", "SEMANA_2", "SEMANA_3", "SEMANA_4", "TOTAL U", "TOTAL $", "STOCK")
+
+# Aplicar la lógica de subtotales
+SKU_STOCK_con_subtotales <- SKU_STOCK %>%
+  group_by(DESCRIPCION_NORM) %>%
+  do({
+    grupo_actual <- .  # '.' representa el dataframe del grupo actual
+      
+    fila_subtotal <- grupo_actual %>%  # Se calcula la fila de subtotal para el grupo actual
+      # Nos quedamos solo con las columnas a sumar
+      select(all_of(columnas_a_sumar)) %>%
+      # Sumamos cada columna. 'na.rm = TRUE' es una buena práctica por si hay NAs
+      summarise(across(everything(), \(x) sum(x, na.rm = TRUE))) %>%
+      # Añadimos la descripción del subtotal y dejamos las otras en blanco
+      mutate(
+        DESCRIPCION = paste0("Total ", first(grupo_actual$DESCRIPCION_NORM)),
+        .before = 1 # Coloca esta nueva columna al principio
+      )
+      
+    # Combinamos el data frame del grupo original con su fila de subtotal
+    bind_rows(grupo_actual, fila_subtotal)
+    
+  }) %>%
+  # Es importante desagrupar al final para que futuras operaciones no se vean afectadas
+  ungroup() %>%
+  select(-DESCRIPCION_NORM)
+
+
+
+# Agrego la fila al inicio del marco de datos
+SKU_total <- bind_rows(totales_sku, SKU_STOCK_con_subtotales)
+
+```
+
+
+
+#Escribo el excel
+```{r doy forma y escribo el excel}
+
+titulo_reporte <- paste0("SKU de debutantes. Fecha de análisis: ", FECHA_BASE)
+
+# Crear un libro de trabajo (workbook)
+wb <- createWorkbook()
+
+# Añadir una hoja
+addWorksheet(wb, "Reporte SKU")
+
+# --- Creación de Estilos ---
+estilo_titulo <- createStyle(fontSize = 14, textDecoration = "bold")
+estilo_header <- createStyle(fontColour = "white", fgFill = "#4F81BD", textDecoration = "bold")
+estilo_fila_subtotal <- createStyle(textDecoration = "bold")
+
+# Estilo para las celdas de TEXTO en la fila TOTAL
+estilo_fila_total <- createStyle(fontColour = "white", fgFill = "#F79646", textDecoration = "bold")
+
+# Estilos numéricos para las filas de DATOS (que NO son la fila TOTAL)
+formato_pesos_datos <- createStyle(numFmt = "$ #,##0")
+formato_entero_datos <- createStyle(numFmt = "#,##0")
+
+# Estilos COMBINADOS que incluyen el relleno naranja Y el formato numérico
+estilo_total_pesos <- createStyle(fontColour = "white", fgFill = "#F79646", textDecoration = "bold", numFmt = "$ #,##0")
+estilo_total_entero <- createStyle(fontColour = "white", fgFill = "#F79646", textDecoration = "bold", numFmt = "#,##0")
+
+# -------------------------------------------------------------------------
+
+# --- Escritura y Aplicación de Formatos ---
+
+# 1. Escribir el título
+writeData(wb, "Reporte SKU", x = titulo_reporte, startCol = 1, startRow = 1)
+mergeCells(wb, "Reporte SKU", cols = 1:ncol(SKU_total), rows = 1)
+addStyle(wb, "Reporte SKU", style = estilo_titulo, rows = 1, cols = 1)
+
+# 2. Escribir la tabla
+writeData(wb, "Reporte SKU", x = SKU_total, startRow = 3, headerStyle = estilo_header)
+
+# Localizar las columnas numéricas para usarlas varias veces
+col_precio <- which(names(SKU_total) == "PRECIO")
+col_total_pesos <- which(names(SKU_total) == "TOTAL $")
+col_total_u <- which(names(SKU_total) == "TOTAL U")
+col_stock <- which(names(SKU_total) == "STOCK")
+col_ds <- which(names(SKU_total) == "D/S")
+cols_numericas <- c(col_precio, col_total_pesos, col_total_u, col_stock, col_ds)
+cols_texto <- setdiff(1:ncol(SKU_total), cols_numericas)
+
+# 3. Aplicar estilos a la fila TOTAL (Fila 4 de Excel) de forma diferenciada
+#    3a. Celdas de texto de la fila TOTAL
+addStyle(wb, "Reporte SKU", style = estilo_fila_total, rows = 4, cols = cols_texto, gridExpand = TRUE)
+#    3b. Celdas de PESOS de la fila TOTAL
+addStyle(wb, "Reporte SKU", style = estilo_total_pesos, rows = 4, cols = c(col_precio, col_total_pesos), gridExpand = TRUE)
+#    3c. Celdas de ENTEROS de la fila TOTAL
+addStyle(wb, "Reporte SKU", style = estilo_total_entero, rows = 4, cols = c(col_total_u, col_stock, col_ds), gridExpand = TRUE)
+
+# 4. Encontrar los índices de las filas de subtotal Y de las filas de datos normales
+filas_subtotal_indices <- which(startsWith(SKU_total$DESCRIPCION, "Total"))
+# Las filas en Excel están desplazadas por el título y los encabezados (+3).
+
+# Obtenemos los índices de las filas que NO son de subtotal
+filas_datos_normales_indices <- setdiff(1:nrow(SKU_total), filas_subtotal_indices)
+
+# 5. Aplicar formatos de número SOLO a las filas de datos normales
+# Sumamos 3 para obtener la fila correcta en Excel.
+addStyle(wb, "Reporte SKU", style = formato_pesos_datos, 
+         rows = filas_datos_normales_indices + 3, 
+         cols = c(col_precio, col_total_pesos), 
+         gridExpand = TRUE, stack = TRUE)
+
+addStyle(wb, "Reporte SKU", style = formato_entero_datos, 
+         rows = filas_datos_normales_indices + 3, 
+         cols = c(col_total_u, col_stock, col_ds), 
+         gridExpand = TRUE, stack = TRUE)
+
+
+# 6. Aplicar estilos COMBINADOS a las filas de SUBTOTALES
+estilo_subtotal_pesos <- createStyle(textDecoration = "bold", numFmt = "$ #,##0")
+estilo_subtotal_entero <- createStyle(textDecoration = "bold", numFmt = "#,##0")
+
+for (i in filas_subtotal_indices) {
+  fila_excel <- i + 3 # Calculamos la fila correspondiente en Excel
+  addStyle(wb, "Reporte SKU", style = estilo_fila_subtotal, rows = fila_excel, cols = cols_texto, gridExpand = TRUE)
+  # Aplicar estilo de negrita + pesos a las celdas de moneda
+  addStyle(wb, "Reporte SKU", style = estilo_subtotal_pesos, rows = fila_excel, cols = c(col_precio, col_total_pesos), gridExpand = TRUE)
+  # Aplicar estilo de negrita + entero a las celdas numéricas
+  addStyle(wb, "Reporte SKU", style = estilo_subtotal_entero, rows = fila_excel, cols = c(col_total_u, col_stock, col_ds), gridExpand = TRUE)
+}
+
+# -------------------------------------------------------------------------
+
+# 7. Ajustar el ancho de las columnas
+setColWidths(wb, "Reporte SKU", cols = 1:ncol(SKU_total), widths = "auto")
+
+
+
+# 8. Guardar el libro de trabajo en un archivo.
+saveWorkbook(wb, paste0("Reporte_debutantes/Reporte_SKU_Debutantes_", FECHA_BASE, ".xlsx"), overwrite = TRUE)
+
+#VER QUE LE FALTAN NEGRITAS A COLUMNAS DE SUBTOTALES
+```
+

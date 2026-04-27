@@ -1,0 +1,821 @@
+---
+title: "Tickets por hora"
+output: pdf_document
+date: "2025-06-19" # Updated date
+---
+
+
+TERMINAR LA PARTE DE TICKETS PROMEDIO (DIVIDIR LA TABLA POR TIENDA Y AGREGAR AL EXCEL. VER SI HACER UN GRÁFICO)
+
+1. Correr Arreglo_base_Odoo
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE) # FALSE para que el código no aparezca en el pdf
+
+```
+
+# 1. LIBRERÍAS y ASIGNACIÓN DE FECHA PARA ARCHIVOS
+```{r}
+
+#Fecha para archivos
+mes <- "2026-03"
+
+library(scales)
+library(ggh4x)
+
+```
+
+# 2. CONFIGURACIÓN INICIAL
+```{r}
+
+# Opciones de formato y configuración
+knitr::opts_chunk$set(echo = FALSE)
+knitr::opts_chunk$set(fig.width = 7.1, fig.height = 9.84)
+
+# Definición de orden para días y meses
+dias_ordenados <- c("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo")
+meses_ordenados <- c("Noviembre", "Octubre", "Septiembre", "Agosto", "Julio", "Junio", "Mayo", "Abril", "Marzo", "Febrero", "Enero")
+
+# Horarios por tienda
+horarios <- tribble(
+  ~TIENDA,   ~DIA_SEMANA, ~start_hour, ~end_hour,
+  "San Telmo 2", "lunes",    10,           18,
+  "San Telmo 2", "martes",   10,           18,
+  "San Telmo 2", "miércoles",10,           18,
+  "San Telmo 2", "jueves",   10,           18,
+  "San Telmo 2", "viernes",  10,           18,
+  "San Telmo 2", "sábado",   10,           18,
+  "San Telmo 2", "domingo",  10,           18,
+  "San Telmo",   "lunes",    10,           18,
+  "San Telmo",   "martes",   10,           18,
+  "San Telmo",   "miércoles",10,           18,
+  "San Telmo",   "jueves",   10,           18,
+  "San Telmo",   "viernes",  10,           18,
+  "San Telmo",   "sábado",   10,           18,
+  "San Telmo",   "domingo",  10,           18,
+  "AS San Telmo",   "lunes",    10,           18,
+  "AS San Telmo",   "martes",   10,           18,
+  "AS San Telmo",   "miércoles",10,           18,
+  "AS San Telmo",   "jueves",   10,           18,
+  "AS San Telmo",   "viernes",  10,           18,
+  "AS San Telmo",   "sábado",   10,           18,
+  "AS San Telmo",   "domingo",  10,           18,
+  "Florida",     "lunes",     10,          19,
+  "Florida",     "martes",    10,          19, 
+  "Florida",     "miércoles", 10,          19,
+  "Florida",     "jueves",    10,          19, 
+  "Florida",     "viernes",   10,          19,
+  "Florida",     "sábado",    10,          19, 
+  "Florida",     "domingo",   10,          19,
+  "Recoleta",    "lunes",     10,          20, 
+  "Recoleta",    "martes",    10,          20,
+  "Recoleta",    "miércoles", 10,          20, 
+  "Recoleta",    "jueves",    10,          20,
+  "Recoleta",    "viernes",   10,          20, 
+  "Recoleta",    "sábado",    10,          20,
+  "Recoleta",    "domingo",   10,          20,  
+  "El Solar",    "lunes",     10,          20, 
+  "El Solar",    "martes",    10,          20,
+  "El Solar",    "miércoles", 10,          20, 
+  "El Solar",    "jueves",    10,          20,
+  "El Solar",    "viernes",   10,          20, 
+  "El Solar",    "sábado",    10,          20,
+  "El Solar",    "domingo",   10,          20,  
+  "French",      "lunes",     11,          18,
+  "French",      "martes",    11,          18, 
+  "French",      "miércoles", 11,          18,
+  "French",      "jueves",    11,          18, 
+  "French",      "viernes",   11,          18,
+  "French",      "sábado",    11,          18, 
+  "French",      "domingo",   11,          18,
+  "Güemes",      "lunes",     9,          17, 
+  "Güemes",      "martes",    9,          17,
+  "Güemes",      "miércoles", 9,          17, 
+  "Güemes",      "jueves",    9,          17,
+  "Güemes",      "viernes",   9,          17, 
+  "Güemes 2",    "lunes",     9,          17, 
+  "Güemes 2",    "martes",    9,          17,
+  "Güemes 2",    "miércoles", 9,          17, 
+  "Güemes 2",    "jueves",    9,          17,
+  "Güemes 2",    "viernes",   9,          17,
+  "AS Güemes",   "lunes",     9,          17, 
+  "AS Güemes",   "martes",    9,          17,
+  "AS Güemes",   "miércoles", 9,          17, 
+  "AS Güemes",   "jueves",    9,          17,
+  "AS Güemes",   "viernes",   9,          17
+  )
+horarios$DIA_SEMANA <- factor(horarios$DIA_SEMANA, levels = dias_ordenados)
+
+```
+
+
+# 3. PROCESAMIENTO Y PREPARACIÓN DE DATOS
+```{r}
+
+# Filtrado inicial por fechas
+facturas_filtrado <- filter(Odoo_mas_Alegra,
+                           between(FECHA_EMISION,
+                                   as.Date("2026-01-01"),
+                                   as.Date("2026-03-31")))
+
+# Preparación del dataset principal. Elimino las notas de créditos y reembolsos
+facturas_editado <- facturas_filtrado %>%
+  filter(!is.na(HORA)) %>%
+  filter(!TIPO_FACTURA %in% c("NOTAS DE CRÉDITO A", "NOTAS DE CRÉDITO B")) |> 
+  mutate(
+    MES = factor(format(FECHA_EMISION, "%B"), levels = tolower(meses_ordenados)),
+    MES = str_to_title(MES),
+    DIA_SEMANA = weekdays(FECHA_EMISION, abbreviate = FALSE),
+    DIA_SEMANA = factor(DIA_SEMANA, levels = dias_ordenados)) |> 
+  select(MES, DIA_SEMANA, FECHA_EMISION, HORA, TIENDA, NOMBRE_FACTURA, NRO_FACTURA, TIPO_FACTURA, TOTAL_FACTURA, HORA_COMPLETA) |> 
+    distinct()
+
+# Ajuste de horas fuera del horario (apertura y cierre), usando horarios como fuente única
+facturas_editado <- facturas_editado %>%
+  mutate(HORA = as.integer(sub(":.*", "", HORA))) %>%
+  left_join(horarios %>% select(TIENDA, DIA_SEMANA, start_hour, end_hour),
+            by = c("TIENDA", "DIA_SEMANA")) %>%
+  mutate(
+    HORA = case_when(
+      HORA < start_hour ~ as.integer(start_hour),
+      HORA > end_hour   ~ as.integer(end_hour),
+      TRUE              ~ HORA
+    )
+  ) %>%
+  select(-start_hour, -end_hour)
+
+# Cálculo de facturación por hora
+Facturacion_dia_completo <- facturas_editado %>%
+  group_by(MES, TIENDA, DIA_SEMANA) %>%
+  summarise(Total_dia = sum(TOTAL_FACTURA), .groups = 'drop')
+
+Facturacion_hora <- facturas_editado %>%
+  select(MES, TIENDA, DIA_SEMANA, HORA, TOTAL_FACTURA) %>%
+  left_join(Facturacion_dia_completo, by = c("MES", "TIENDA", "DIA_SEMANA")) %>%
+  group_by(MES, TIENDA, DIA_SEMANA, HORA) %>%
+  summarise(
+    `Tickets por hora` = n(),
+    Venta_mediana = round(median(TOTAL_FACTURA)),
+    Venta_total = round(sum(TOTAL_FACTURA)),
+    Participación = round(sum(TOTAL_FACTURA) / first(Total_dia), 3),
+    .groups = 'drop'
+  ) %>%
+  distinct() %>%
+  rename(Tickets_por_hora = `Tickets por hora`)
+
+
+# Cálculo de participación agrupada
+Facturacion_mes <- Facturacion_hora %>%
+   group_by(MES, TIENDA) %>%
+   summarise(Total_mes = sum(Venta_total), .groups = 'drop')
+
+venta_por_hora <- Facturacion_hora %>%
+  mutate(Dia_grupo = ifelse(DIA_SEMANA %in% c("sábado", "domingo"), "Sábados y domingos", "Lunes a viernes")) %>%
+  group_by(MES, TIENDA, HORA, Dia_grupo) %>%
+  summarise(Venta_hora = sum(Venta_total, na.rm = TRUE), .groups = 'drop')
+
+participacion <- venta_por_hora %>%
+  left_join(Facturacion_mes, by = c("MES", "TIENDA")) %>%
+  mutate(Participacion = Venta_hora / Total_mes) %>%
+  select(-Venta_hora, -Total_mes) %>%
+  pivot_wider(names_from = c(MES, Dia_grupo), values_from = Participacion, values_fill = 0)
+
+tablas_por_TIENDA <- participacion %>% group_split(TIENDA)
+nombres_TIENDAs <- unique(participacion$TIENDA)
+tablas_por_TIENDA <- setNames(tablas_por_TIENDA, nombres_TIENDAs)
+
+formatear_tabla <- function(df) {
+  df %>% select(-TIENDA) %>% rename(Hora = HORA) %>% arrange(Hora) %>% mutate(across(where(is.numeric) & !Hora, ~ round(., 3))) %>% as.data.frame()
+}
+tablas_formateadas <- lapply(tablas_por_TIENDA, formatear_tabla)
+
+```
+
+
+
+# 4. GENERACIÓN DE GRÁFICOS
+##4.1 Gráfico 1: Facturación y Mediana por Hora
+```{r Gráfico de facturación y mediana}
+
+cant_meses <- length(unique(Facturacion_hora$MES))
+altura_grafico_barras <- 10 * (cant_meses / 3)
+
+
+for (tienda_actual in nombres_TIENDAs) {
+  df_filtrado <- Facturacion_hora %>% filter(TIENDA == tienda_actual)
+  if(nrow(df_filtrado) == 0) next
+  
+  df_filtrado$MES <- factor(df_filtrado$MES, levels = meses_ordenados)
+  df_filtrado$HORA_FACTOR <- factor(df_filtrado$HORA, levels = sort(unique(df_filtrado$HORA)))
+  
+ # Factor de escala para que los puntos de mediana sean visibles junto a las barras
+  sf <- df_filtrado %>%
+    filter(Venta_mediana > 0, Venta_total > 0) %>%
+    summarise(sf = median(Venta_total / Venta_mediana, na.rm = TRUE)) %>%
+    pull(sf)
+
+  grafico_final <- ggplot(df_filtrado, aes(x = HORA_FACTOR)) +
+    geom_bar(aes(y = Venta_total), stat = "identity", fill = "lightblue", alpha = 0.3) +
+    geom_point(aes(y = Venta_mediana * sf, color = "Mediana de Factura"), size = 2.0) +
+    facet_grid2(MES ~ DIA_SEMANA, scales = "free_y", axes = "x", strip = strip_vanilla()) +
+    scale_y_continuous(
+      name = "Total facturado (en miles de $)",
+      labels = dollar_format(prefix = "$", big.mark = ".", decimal.mark = ",", scale = 1/1000),
+      sec.axis = sec_axis(
+        transform = ~ . / sf,
+        name = "Mediana de factura (en miles de $)",
+        labels = dollar_format(prefix = "$", big.mark = ".", decimal.mark = ",", scale = 1/1000)
+      )
+    ) +
+    scale_color_manual(name = "", values = c("Mediana de Factura" = "#FF3333")) +
+    labs(
+      title = paste("Análisis de Ventas por Hora para", tienda_actual),
+      subtitle = "Desglose por Mes y Día de la Semana.",
+      x = "Hora del Día"
+    ) +
+    theme_minimal() +
+    theme(
+      legend.position = "top", plot.title = element_text(size = 16, face = "bold"),
+      strip.text = element_text(face = "bold", size = 9), axis.text.x = element_text(angle = 0, vjust = 0.5),
+      strip.placement = "outside",
+      strip.text.y = element_text(face = "bold", size = 12)
+    )
+    
+  ggsave(
+    filename = paste0("Tickets por hora/imagenes/Facturacion_hora_", tienda_actual, "_", mes, ".png"),
+    plot = grafico_final, width = 18, height = altura_grafico_barras, dpi = 300
+  )
+}
+```
+
+
+##4.2 Gráfico 2: Heatmap de Tickets por Hora
+```{r}
+
+all_combinations <- expand.grid(
+  MES = unique(Facturacion_hora$MES), TIENDA = unique(Facturacion_hora$TIENDA),
+  DIA_SEMANA = factor(dias_ordenados, levels = dias_ordenados),
+  HORA = min(Facturacion_hora$HORA):max(Facturacion_hora$HORA)
+)
+Facturacion_hora_completo <- left_join(all_combinations, Facturacion_hora, by = c("MES", "TIENDA", "DIA_SEMANA", "HORA")) %>%
+  mutate(Tickets_por_hora = replace_na(Tickets_por_hora, 0))
+Facturacion_hora_completo$HORA_FACTOR <- factor(Facturacion_hora_completo$HORA, levels = rev(sort(unique(Facturacion_hora_completo$HORA))))
+
+altura_grafico_heatmap <- 6 * (cant_meses / 3)
+
+for (tienda_actual in nombres_TIENDAs) {
+  df_filtrado2 <- Facturacion_hora_completo %>% filter(TIENDA == tienda_actual) %>%
+    left_join(horarios, by = c("TIENDA", "DIA_SEMANA")) %>%
+    mutate(HORA_NUM = as.numeric(as.character(HORA_FACTOR))) %>%
+    filter(HORA_NUM >= start_hour & HORA_NUM <= end_hour)
+    
+  if(nrow(df_filtrado2) == 0) next
+
+  df_filtrado2$MES <- factor(df_filtrado2$MES, levels = meses_ordenados)
+  
+  if (tienda_actual == "AS San Telmo") {
+    df_filtrado2 <- df_filtrado2 %>%
+      mutate(Color_Grupo = case_when(
+        Tickets_por_hora <= 4       ~ "0-4",
+        Tickets_por_hora <= 14      ~ "5-14",
+        Tickets_por_hora <= 24      ~ "15-24",
+        Tickets_por_hora <= 34      ~ "25-34",
+        TRUE                        ~ ">34"
+      )) %>%
+      mutate(Color_Grupo = factor(Color_Grupo, levels = c("0-4", "5-14", "15-24", "25-34", ">34")))
+    fill_scale <- scale_fill_manual(
+      values = c("0-4" = "#F8766D", "5-14" = "#FFBE00", "15-24" = "#FFFF00", "25-34" = "#7CAE00", ">34" = "#1B7837"),
+      name = "Tickets por Hora", na.value = "grey90", drop = FALSE
+    )
+  } else {
+    df_filtrado2 <- df_filtrado2 %>%
+      mutate(Color_Grupo = case_when(
+        Tickets_por_hora == 0                        ~ "0",
+        Tickets_por_hora > 0 & Tickets_por_hora <= 3 ~ "1-3",
+        Tickets_por_hora > 3                         ~ ">3"
+      )) %>%
+      mutate(Color_Grupo = factor(Color_Grupo, levels = c("0", "1-3", ">3")))
+    fill_scale <- scale_fill_manual(
+      values = c("0" = "#F8766D", "1-3" = "#FFFF00", ">3" = "#7CAE00"),
+      name = "Tickets por Hora", na.value = "grey90", drop = FALSE
+    )
+  }
+
+  heatmap_plot <- ggplot(df_filtrado2, aes(x = DIA_SEMANA, y = HORA_FACTOR, fill = Color_Grupo)) +
+    geom_tile(color = "white", linewidth = 0.5) +
+    geom_text(aes(label = Tickets_por_hora), color = "black", size = 2.5) +
+    fill_scale +
+    scale_x_discrete(position = "top") +
+    scale_y_discrete(breaks = levels(df_filtrado2$HORA_FACTOR)) +
+    labs(title = paste0("Heatmap de Tickets por Hora y Día. ", tienda_actual), x = "", y = "") +
+    theme_minimal() +
+    theme(legend.position = "none", panel.grid.major = element_blank()) +
+    facet_grid(MES~., scales = "free", space = "free_y")
+    
+  ggsave(paste0("Tickets por hora/imagenes/Tickets_hora_", tienda_actual, "_", mes,".png"), plot = heatmap_plot, width = 8, height = altura_grafico_heatmap, units = "in", dpi = 300)
+}
+
+```
+
+
+
+##4.3 Gráfico 3: Heatmap de Tickets por Hora para cada día para el último mes
+```{r}
+
+mes_formateado <- format(as.Date(paste0(mes, "-01")), "%B %Y")
+
+# 1. Filtramos las facturas para el mes en cuestión
+facturas_heatmap_x_dia <- facturas_editado %>%
+  filter(startsWith(as.character(FECHA_EMISION), mes))
+
+# 2. Establecemos el locale para los nombres de los días de la semana
+Sys.setlocale("LC_TIME", "es_ES.UTF-8") 
+
+# 3. Calculamos los tickets por hora
+tickets_x_hora <- facturas_heatmap_x_dia %>%
+  rename(FECHA = FECHA_EMISION) %>%
+  group_by(TIENDA, FECHA, HORA) %>%
+  summarise(Nro_tickets = n(), .groups = 'drop')
+
+# 4. Creamos una tabla completa con todas las combinaciones posibles
+all_combinations_2 <- expand.grid(
+  TIENDA = unique(tickets_x_hora$TIENDA),
+  FECHA = seq(min(tickets_x_hora$FECHA), max(tickets_x_hora$FECHA), by = "day"),
+  HORA = min(tickets_x_hora$HORA):max(tickets_x_hora$HORA)
+)
+
+# 5. Unimos los datos, calculamos las variables adicionales y preparamos para el gráfico
+tickets_x_hora_completo <- left_join(all_combinations_2, tickets_x_hora, by = c("TIENDA", "FECHA", "HORA")) %>%
+  mutate(Nro_tickets = replace_na(Nro_tickets, 0)) %>%
+  mutate(
+    DIA_SEMANA_etiqueta = factor(
+      tolower(weekdays(FECHA)),
+      levels = c("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo")),
+    FECHA_etiqueta = factor(format(FECHA, "%d/%m")),
+    HORA_FACTOR = factor(HORA, levels = rev(sort(unique(HORA)))),
+    fecha_inicio_semana = floor_date(FECHA, unit = "week", week_start = 1),
+    fecha_fin_semana = fecha_inicio_semana + days(6),
+    semana_del_anio = isoweek(fecha_inicio_semana),
+    semana_etiqueta = sprintf("Semana %d\n(%s al %s)",
+                              semana_del_anio,
+                              format(fecha_inicio_semana, "%d/%m"),
+                              format(fecha_fin_semana, "%d/%m"))
+  ) %>%
+  mutate(
+    Color_Grupo = case_when(
+      Nro_tickets == 0 ~ "0",
+      Nro_tickets > 0 & Nro_tickets <= 3 ~ "1-3",
+      Nro_tickets > 3 ~ ">3"
+    ),
+    Color_Grupo = factor(Color_Grupo, levels = c("0", "1-3", ">3"))
+  ) %>% 
+  mutate(
+  DIA_NUM_SEMANA = as.integer(factor(DIA_SEMANA_etiqueta,
+                                     levels = c("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo"))))
+
+
+# Ordenar semana_etiqueta cronológicamente (evita orden alfabético)
+semana_levels <- tickets_x_hora_completo %>%
+  distinct(semana_del_anio, semana_etiqueta) %>%
+  arrange(semana_del_anio) %>%
+  pull(semana_etiqueta)
+
+tickets_x_hora_completo <- tickets_x_hora_completo %>%
+  mutate(semana_etiqueta = factor(semana_etiqueta, levels = semana_levels))
+
+# El bucle para generar los gráficos
+nombres_TIENDAs <- unique(tickets_x_hora_completo$TIENDA)
+
+for (tienda_actual in nombres_TIENDAs) {
+  df_filtrado3 <- tickets_x_hora_completo %>%
+    filter(TIENDA == tienda_actual) %>% 
+    left_join(horarios, by = c("TIENDA" = "TIENDA", "DIA_SEMANA_etiqueta" = "DIA_SEMANA")) %>%
+    mutate(HORA_NUM = as.numeric(as.character(HORA_FACTOR))) %>%
+    filter(HORA_NUM >= start_hour & HORA_NUM <= end_hour)
+  
+  if (nrow(df_filtrado3) == 0) next
+  
+   # ---- Totales por día (para fila "Total")
+total_dia <- df_filtrado3 %>%
+  group_by(FECHA, DIA_NUM_SEMANA, semana_etiqueta) %>%
+  summarise(Nro_tickets = sum(Nro_tickets), .groups = 'drop') %>%
+  mutate(HORA_FACTOR = "Total")
+
+# ---- Totales por hora (para columna "Total")
+total_hora <- df_filtrado3 %>%
+  group_by(semana_etiqueta, HORA_FACTOR) %>%
+  summarise(Nro_tickets = sum(Nro_tickets), .groups = 'drop') %>%
+  mutate(DIA_NUM_SEMANA = 8)  # Día ficticio "Total"
+
+# ---- Total general (opcional, puede duplicar valores)
+total_general <- df_filtrado3 %>%
+  group_by(semana_etiqueta) %>%
+  summarise(Nro_tickets = sum(Nro_tickets), .groups = 'drop') %>%
+  mutate(DIA_NUM_SEMANA = 8, HORA_FACTOR = "Total")
+
+# ---- Unimos los datos
+df_filtrado3_con_totales <- bind_rows(df_filtrado3, total_dia, total_hora, total_general)
+
+# --- Para darle distinto relleno a las celdas según sean totales o no
+df_normales <- df_filtrado3_con_totales %>%
+  filter(HORA_FACTOR != "Total" & DIA_NUM_SEMANA != 8)
+
+df_totales <- df_filtrado3_con_totales %>%
+  filter(HORA_FACTOR == "Total" | DIA_NUM_SEMANA == 8)
+
+
+# Asegurar que 'Total' quede como último nivel de HORA_FACTOR
+niveles_hora <- levels(df_filtrado3$HORA_FACTOR)
+df_filtrado3_con_totales$HORA_FACTOR <- factor(as.character(df_filtrado3_con_totales$HORA_FACTOR),
+                                                levels = c("Total", niveles_hora))
+
+# Lo mismo para DIA_NUM_SEMANA (lunes=1 a domingo=7, Total=8)
+df_filtrado3_con_totales$DIA_NUM_SEMANA <- as.numeric(as.character(df_filtrado3_con_totales$DIA_NUM_SEMANA))
+
+  
+  
+ heatmap_plot_2 <- ggplot() +
+  
+  # Celdas normales con fill por Color_Grupo
+  geom_tile(
+    data = df_normales,
+    aes(x = DIA_NUM_SEMANA, y = HORA_FACTOR, fill = Color_Grupo),
+    color = "white", linewidth = 0.5
+  ) +
+  
+  # Celdas de totales sin fill
+  geom_tile(
+    data = df_totales,
+    aes(x = DIA_NUM_SEMANA, y = HORA_FACTOR),
+    fill = NA, color = "black", linewidth = 0.5
+  ) +
+  
+  # Textos en todas las celdas
+  geom_text(
+    data = df_filtrado3_con_totales,
+    aes(x = DIA_NUM_SEMANA, y = HORA_FACTOR, label = Nro_tickets),
+    color = "black", size = 2.5
+  ) +
+  
+  scale_x_continuous(
+    breaks = c(1:7, 8),
+    labels = c("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo", "Total"),
+    position = "top"
+  ) +
+  
+  scale_fill_manual(
+    values = c("0" = "#F8766D", "1-3" = "#FFFF00", ">3" = "#7CAE00"),
+    name = "Tickets por Hora",
+    drop = FALSE
+  ) +
+  
+  labs(
+    title = paste0("Heatmap de Tickets por Hora y Fecha. ", tienda_actual, ", ", mes_formateado),
+    x = NULL,
+    y = "Hora"
+  ) +
+  
+  theme_minimal() +
+  theme(
+    legend.position = "none",
+    axis.text.x.top = element_text(size = 8, face = "bold"),
+    strip.text = element_text(size = 10, face = "bold")
+  ) +
+  
+  facet_grid(semana_etiqueta ~ .)
+ 
+  ggsave(paste0("Tickets por hora/imagenes/Tickets_hora_fecha_", tienda_actual, "_", mes, ".png"), plot = heatmap_plot_2, width = 8, height = 10, units = "in", dpi = 300)
+}
+
+```
+
+
+
+
+#5. GENERACIÓN DE ARCHIVOS EXCEL POR TIENDA
+##5.1 Defino estilos
+```{r}
+
+# ---- ESTILOS DE CELDA ----
+# Estilo para los títulos de mes (ej. "ABRIL")
+month_title_style <- createStyle(fontSize = 14, textDecoration = "bold")
+
+# Estilo para los encabezados de tabla (con bordes)
+header_style <- createStyle(
+  textDecoration = "bold", halign = "center", valign = "center",
+  fgFill = "#D9E1F2", border = "TopBottomLeftRight"
+)
+
+# Estilo para el cuerpo de las tablas (con bordes)
+table_body_style <- createStyle(border = "TopBottomLeftRight", halign = "right", valign = "center")
+
+# Estilos de formato numérico
+currency_style <- createStyle(numFmt = "$ #,##0")
+percent_style <- createStyle(numFmt = "0.0%")
+
+# Definir el orden cronológico de todos los meses para usarlo en los bucles
+meses_ordenados_todos <- c("Diciembre", "Noviembre", "Octubre", "Septiembre",  "Agosto", "Julio", "Junio", "Mayo", "Abril", "Marzo", "Febrero", "Enero")
+
+```
+
+
+```{r ticket promedio}
+
+# Agrego la semana
+ventas <- facturas_editado %>%
+  mutate(Semana = floor_date(FECHA_EMISION, "week", week_start = 1))
+
+# 1. Calculo el promedio mensual
+resumen_mensual <- ventas %>%
+  group_by(TIENDA, MES) %>%
+  summarise(
+    tickets = n(),
+    ticket_promedio_mensual = round(sum(TOTAL_FACTURA, na.rm = TRUE)/tickets),
+    .groups = 'drop'
+  )
+
+# 2. Calculo el promedio semanal
+resumen_semanal <- ventas %>%
+  mutate(
+    MES = factor(format(Semana, "%B"), levels = tolower(meses_ordenados)),
+    MES = str_to_title(MES),
+    fecha_inicio_semana = floor_date(FECHA_EMISION, unit = "week", week_start = 1),
+    fecha_fin_semana = fecha_inicio_semana + days(6),
+    semana_del_anio = isoweek(fecha_inicio_semana),
+    semana_etiqueta = sprintf("Semana %d\n(%s al %s)",
+                              semana_del_anio,
+                              format(fecha_inicio_semana, "%d/%m"),
+                              format(fecha_fin_semana, "%d/%m"))) %>% 
+  group_by(TIENDA, MES, semana_del_anio) %>%
+    summarise(
+    tickets = n(),
+    ticket_promedio_semanal = round(sum(TOTAL_FACTURA, na.rm = TRUE)/tickets),
+    .groups = 'drop'
+  ) %>% 
+  complete(TIENDA, semana_del_anio = 1:52) %>%
+   mutate(
+    tickets = ifelse(is.na(tickets), 0, tickets),
+    ticket_promedio_semanal = ifelse(is.na(ticket_promedio_semanal), 0, ticket_promedio_semanal)
+  ) %>%
+  # Ordenar por TIENDA, MES y semana_del_anio
+  arrange(TIENDA, MES, semana_del_anio) %>% 
+  filter(!is.na(MES))
+
+
+
+# renombro las semanas
+tabla_semanal <- resumen_semanal %>%
+  group_by(TIENDA, MES) %>%
+  mutate(semana_del_mes = row_number()) %>%  # renumera semanas 1, 2, 3... dentro de cada MES
+  ungroup()
+
+# le agrego una etiqueta a la tabla mensual, antes de unirlas
+tabla_mensual <- resumen_mensual %>%
+  mutate(semana_del_mes = "Promedio mensual")  
+
+# --- Uno ambas ---
+tabla_combinada <- tabla_semanal %>%
+  select(TIENDA, MES, semana_del_mes, ticket_promedio_semanal) %>%
+  rename(ticket_promedio = ticket_promedio_semanal) %>%
+  mutate(semana_del_mes = as.character(semana_del_mes)) %>% 
+  bind_rows(
+    tabla_mensual %>%
+      select(TIENDA, MES, semana_del_mes, ticket_promedio_mensual) %>%
+      rename(ticket_promedio = ticket_promedio_mensual) %>% 
+      mutate(semana_del_mes = as.character(semana_del_mes))
+  )
+
+# --- Pivotear a tabla de doble entrada ---
+tabla_doble <- tabla_combinada %>%
+  pivot_wider(
+    names_from = MES,
+    values_from = ticket_promedio
+  ) %>%
+  arrange(TIENDA, semana_del_mes)
+
+```
+
+##Gráfico ticket promedio
+```{r}
+# Función que genera el gráfico de ticket promedio para una tienda
+grafico_ticket_promedio <- function(tienda_actual, tabla_combinada, meses_ordenados_todos) {
+  df <- tabla_combinada %>%
+    filter(TIENDA == tienda_actual) %>%
+    mutate(
+      MES = factor(MES, levels = meses_ordenados_todos),
+      es_promedio = semana_del_mes == "Promedio mensual"
+    )
+  
+  df_semanas  <- df %>% filter(!es_promedio) %>% mutate(semana_del_mes = as.integer(semana_del_mes))
+  df_promedio <- df %>% filter(es_promedio)
+  
+  ggplot(df_semanas, aes(x = semana_del_mes, y = ticket_promedio)) +
+    geom_col(fill = "#4472C4", alpha = 0.75, width = 0.6) +
+    geom_hline(data = df_promedio,
+               aes(yintercept = ticket_promedio),
+               color = "#FF3333", linetype = "dashed", linewidth = 0.8) +
+    geom_text(data = df_promedio,
+              aes(x = Inf, y = ticket_promedio,
+                  label = paste0("Prom: $", format(ticket_promedio, big.mark = ".", decimal.mark = ","))),
+              hjust = 1.05, vjust = -0.5, color = "#FF3333", size = 3) +
+    scale_x_continuous(breaks = 1:5, labels = paste("Sem.", 1:5)) +
+    scale_y_continuous(labels = dollar_format(prefix = "$", big.mark = ".", decimal.mark = ",")) +
+    facet_wrap(~ MES, ncol = 3) +
+    labs(
+      title = paste("Ticket promedio por semana —", tienda_actual),
+      x = NULL, y = "Ticket promedio"
+    ) +
+    theme_minimal() +
+    theme(
+      plot.title   = element_text(size = 14, face = "bold"),
+      strip.text   = element_text(face = "bold", size = 10),
+      axis.text.x  = element_text(size = 8),
+      panel.spacing.x = unit(1.5, "cm")
+    )
+}
+```
+
+
+##5.2 Creo excel
+```{r}
+
+# Loop principal para crear un archivo Excel por cada depósito
+for (tienda_actual in nombres_TIENDAs) { 
+  
+  #message(paste("Creando reporte para:", tienda_actual))
+  wb <- createWorkbook()
+  
+  # --- HOJA 1: Tabla fact y part ---
+  sheet1_name <- "Tabla fact y part"
+  addWorksheet(wb, sheet1_name)
+  
+  facturacion_tienda <- Facturacion_hora %>% filter(TIENDA == tienda_actual)
+  # Obtener y ordenar los meses cronológicamente
+  meses_tienda <- meses_ordenados_todos[meses_ordenados_todos %in% unique(facturacion_tienda$MES)]
+  
+  current_row <- 1
+  
+  for (mes_actual in meses_tienda) {
+    writeData(wb, sheet1_name, x = toupper(as.character(mes_actual)), startCol = 1, startRow = current_row)
+    addStyle(wb, sheet1_name, style = month_title_style, rows = current_row, cols = 1)
+    current_row <- current_row + 2
+    
+    tabla_mes <- facturacion_tienda %>% filter(MES == mes_actual)
+    
+    if (nrow(tabla_mes) > 0) {
+      dias_presentes <- dias_ordenados[dias_ordenados %in% unique(tabla_mes$DIA_SEMANA)]
+      
+      # Base con rango completo de horas del horario de la tienda
+      horario_tienda_excel <- horarios %>% filter(TIENDA == tienda_actual) %>% slice(1)
+      if (nrow(horario_tienda_excel) > 0) {
+        tabla_final_mes <- tibble(HORA = horario_tienda_excel$start_hour:horario_tienda_excel$end_hour)
+      } else {
+        warning(paste("Tienda sin horario definido:", tienda_actual, "— usando horas presentes en los datos"))
+        tabla_final_mes <- tabla_mes %>% select(HORA) %>% distinct() %>% arrange(HORA)
+      }
+
+      for (dia in dias_presentes) {
+        datos_dia <- tabla_mes %>%
+          filter(DIA_SEMANA == dia) %>%
+          select(HORA, Venta_mediana, Venta_total, Participación) %>%
+          arrange(HORA)
+        
+        colnames(datos_dia) <- c("HORA", paste0(dia, "_med"), paste0(dia, "_tot"), paste0(dia, "_part"))
+        tabla_final_mes <- full_join(tabla_final_mes, datos_dia, by = "HORA") %>%
+          mutate(across(starts_with(paste0(dia, "_")), ~replace_na(., 0)))
+      }
+      tabla_final_mes <- tabla_final_mes %>% arrange(HORA)
+      
+      # Escribir encabezados manualmente
+      header_start_row <- current_row
+      writeData(wb, sheet1_name, "HORA", startCol = 1, startRow = header_start_row + 1)
+      
+      col_start <- 2
+      for (dia in dias_presentes) {
+        writeData(wb, sheet1_name, str_to_upper(as.character(dia)), startCol = col_start, startRow = header_start_row)
+        mergeCells(wb, sheet1_name, cols = col_start:(col_start + 2), rows = header_start_row)
+        
+        metric_headers <- c("Mediana de facturación", "Facturación", "Participación")
+        writeData(wb, sheet1_name, t(metric_headers), startCol = col_start, startRow = header_start_row + 1, colNames = FALSE)
+        
+        col_start <- col_start + 3
+      }
+      
+      # Escribir datos
+      data_start_row <- header_start_row + 2
+      writeData(wb, sheet1_name, tabla_final_mes, startRow = data_start_row, colNames = FALSE)
+      
+      # --- Aplicar formatos y bordes ---
+      data_end_row <- data_start_row + nrow(tabla_final_mes) - 1
+      max_col <- ncol(tabla_final_mes)
+      
+      # Aplicar bordes a toda la tabla (encabezados y cuerpo)
+      addStyle(wb, sheet1_name, header_style, rows = header_start_row, cols = 2:(max_col), gridExpand = TRUE)
+      addStyle(wb, sheet1_name, header_style, rows = header_start_row + 1, cols = 1:(max_col), gridExpand = TRUE)
+      addStyle(wb, sheet1_name, table_body_style, rows = data_start_row:data_end_row, cols = 1:max_col, gridExpand = TRUE, stack = TRUE)
+      
+      # Aplicar formatos numéricos (moneda y porcentaje)
+      for (i in seq_along(dias_presentes)) {
+        col_offset <- 1 + (i-1)*3
+        addStyle(wb, sheet1_name, currency_style, rows = data_start_row:data_end_row, cols = col_offset + c(1, 2), gridExpand = TRUE, stack = TRUE)
+        addStyle(wb, sheet1_name, percent_style, rows = data_start_row:data_end_row, cols = col_offset + 3, gridExpand = TRUE, stack = TRUE)
+      }
+      
+      current_row <- data_end_row + 3
+    }
+  }
+  
+  # --- HOJA 2: Tabla part agrupada ---
+  sheet2_name <- "Tabla part agrupada"
+  addWorksheet(wb, sheet2_name)
+  
+  tabla_participacion <- tablas_formateadas[[tienda_actual]]
+  if (!is.null(tabla_participacion) && nrow(tabla_participacion) > 0) {
+      
+      # Ordenar las columnas de la tabla cronológicamente
+      data_cols <- colnames(tabla_participacion)[-1]
+      col_months <- sub("_.*", "", data_cols)
+      order_index <- order(factor(col_months, levels = meses_ordenados_todos))
+      tabla_participacion <- tabla_participacion[, c("Hora", data_cols[order_index])]
+      
+      # Escribir tabla con formato
+      writeData(wb, sheet2_name, tabla_participacion, startRow = 1, startCol = 1, headerStyle = header_style)
+      
+      # Aplicar bordes y formato
+      data_end_row_s2 <- nrow(tabla_participacion) + 1
+      addStyle(wb, sheet2_name, table_body_style, rows = 2:data_end_row_s2, cols = 1:ncol(tabla_participacion), gridExpand = TRUE, stack = TRUE)
+      addStyle(wb, sheet2_name, percent_style, rows = 2:data_end_row_s2, cols = 2:ncol(tabla_participacion), gridExpand = TRUE, stack = TRUE)
+  }
+  
+  # --- HOJA: Ticket promedio ---
+  sheet_tp_name <- "Ticket promedio"
+  addWorksheet(wb, sheet_tp_name)
+  
+  # Tabla
+  tabla_tp <- tabla_combinada %>%
+    filter(TIENDA == tienda_actual) %>%
+    select(-TIENDA) %>%
+    pivot_wider(names_from = MES, values_from = ticket_promedio) %>%
+    rename(Semana = semana_del_mes) %>%
+    mutate(across(where(is.numeric), ~ ifelse(. == 0, NA, .)))
+  
+  # Ordenar columnas cronológicamente
+  cols_mes <- setdiff(colnames(tabla_tp), "Semana")
+  cols_ordenadas <- meses_ordenados_todos[meses_ordenados_todos %in% cols_mes]
+  tabla_tp <- tabla_tp[, c("Semana", cols_ordenadas)]
+  
+  writeData(wb, sheet_tp_name, tabla_tp, startRow = 1, startCol = 1, headerStyle = header_style)
+  addStyle(wb, sheet_tp_name, table_body_style,
+           rows = 2:(nrow(tabla_tp) + 1), cols = 1:ncol(tabla_tp),
+           gridExpand = TRUE, stack = TRUE)
+  addStyle(wb, sheet_tp_name, currency_style,
+           rows = 2:(nrow(tabla_tp) + 1), cols = 2:ncol(tabla_tp),
+           gridExpand = TRUE, stack = TRUE)
+  
+  # Gráfico ticket promedio
+  cant_meses_tp <- length(cols_ordenadas)
+  altura_tp <- max(4, ceiling(cant_meses_tp / 3) * 3.5)
+  
+  img_path_tp <- paste0("Tickets por hora/imagenes/Ticket_promedio_", tienda_actual, "_", mes, ".png")
+  ggsave(img_path_tp,
+         plot   = grafico_ticket_promedio(tienda_actual, tabla_combinada, meses_ordenados_todos),
+         width  = 10, height = altura_tp, dpi = 300)
+  insertImage(wb, sheet_tp_name, img_path_tp,
+              startRow = nrow(tabla_tp) + 4, startCol = 1,
+              width = 10, height = altura_tp, units = "in")
+  
+  showGridLines(wb, sheet_tp_name, showGridLines = FALSE)
+  
+  
+
+  # --- HOJA 3, 4 y 5: Gráficos ---
+  sheet3_name <- "Gráfico tickets x hora agrup"; addWorksheet(wb, sheet3_name)
+  img_path_tickets <- paste0("Tickets por hora/imagenes/Tickets_hora_", tienda_actual,  "_", mes, ".png")
+  if (file.exists(img_path_tickets)) insertImage(wb, sheet3_name, img_path_tickets, width = 8, height = altura_grafico_heatmap, units = "in")
+
+ sheet4_name <- "Gráfico tickets x hora y fecha"; addWorksheet(wb, sheet4_name)
+  img_path_tickets2 <- paste0("Tickets por hora/imagenes/Tickets_hora_fecha_", tienda_actual,  "_", mes, ".png")
+  if (file.exists(img_path_tickets2)) insertImage(wb, sheet4_name, img_path_tickets2, width = 8, height = 10, units = "in")
+  
+  
+  sheet5_name <- "Gráfico fact por hora"; addWorksheet(wb, sheet5_name)
+  img_path_fact <- paste0("Tickets por hora/imagenes/Facturacion_hora_", tienda_actual,  "_", mes, ".png")
+  if (file.exists(img_path_fact)) insertImage(wb, sheet5_name, img_path_fact, width = 18, height = altura_grafico_barras, units = "in")
+
+  # Ocultar las líneas de la cuadrícula
+  showGridLines(wb, sheet1_name, showGridLines = FALSE)
+  showGridLines(wb, sheet2_name, showGridLines = FALSE)
+  showGridLines(wb, sheet3_name, showGridLines = FALSE)
+  showGridLines(wb, sheet4_name, showGridLines = FALSE)
+  showGridLines(wb, sheet5_name, showGridLines = FALSE)
+  
+  # Guardar el libro de Excel
+  excel_filename <- paste0("Tickets por hora/reportes/Reporte_tickets_", tienda_actual,  "_", mes, ".xlsx")
+  saveWorkbook(wb, excel_filename, overwrite = TRUE)
+}
+
+message("¡Proceso completado! Todos los reportes han sido generados.")  
+
+
+```
+

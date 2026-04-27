@@ -1,0 +1,3 @@
+"0",""
+"0","Resultado_cruce_TF <- read_excel(paste0(""Tax free/Resultado cruce/Resultado_cruce_"", fecha_resultado_cruce, "".xlsx""))"
+"0",""

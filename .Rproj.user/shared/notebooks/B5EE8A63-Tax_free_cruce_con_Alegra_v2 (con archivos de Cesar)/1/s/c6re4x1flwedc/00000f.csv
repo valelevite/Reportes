@@ -1,0 +1,7 @@
+"0",""
+"0","TAX_FREE_SIN_MATCH <- anti_join(TAX_FREE_EDITADO, resultado, by= ""InvoiceNumber"")"
+"2","G1;H1;Errorh: objeto 'TAX_FREE_EDITADO' no encontrado
+Error durante el wrapup: no hay tantas estructuras en la pila
+Error: no more error handlers available (recursive errors?); invoking 'abort' restart
+g"
+"0","#write.xlsx(TAX_FREE_SIN_MATCH, ""Tax free/TF sin match 20250526.xlsx"")"

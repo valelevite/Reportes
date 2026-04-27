@@ -1,0 +1,61 @@
+---
+title: "Untitled"
+format: html
+editor: visual
+---
+
+#Cargo archivo
+```{r}
+library(tidyverse)
+taylor_albums <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2023/2023-10-17/taylor_albums.csv') |> 
+  filter(!ep)
+taylor_albums 
+
+```
+
+#Unifico columnas de puntaje con pivot_longer
+```{r}
+taylor_longer <- taylor_albums |> 
+  pivot_longer(
+    cols = c(metacritic_score, user_score),
+    names_to = 'score_type',
+    values_to = 'score'
+  )
+taylor_longer
+
+
+```
+
+#Le cambio el nombre a las categorías de tipo de puntaje (antes columnas)
+```{r}
+taylor_longer <- taylor_longer |> 
+  mutate(score_type = score_type |> str_remove_all('_score') |> str_to_title() 
+  )
+```
+
+
+#Creo gráfico dividido por tipo de puntaje (metacritic y usuario)
+```{r}
+taylor_longer |> 
+  ggplot(aes(x = album_release, y = score, color = score_type)) +
+  geom_line() +
+  geom_point() +
+  facet_wrap(vars(score_type), scales = 'free_y') +
+  theme_minimal(base_size = 14, base_family = 'Source Sans Pro') +
+  labs(x = element_blank(),
+       y = 'Score',
+      color = 'Type')
+
+```
+#Acá pivot_longer con los cambios incluidos (sin el paso extra)
+```{r}
+taylor_albums <- taylor_albums |> 
+  pivot_longer(
+    cols = c(metacritic_score, user_score),
+    names_to = 'score_type',
+    values_to = 'score',
+    names_pattern = '(.+)_score',
+    names_transform = str_to_title
+  )
+```
+

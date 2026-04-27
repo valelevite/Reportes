@@ -1,0 +1,356 @@
+---
+title: "Reporte_ventas"
+output: word_document
+date: "2025-04-06"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+
+library(ggrepel)  # Para evitar superposición de etiquetas en gráficos
+library(ggplot2)
+library(scales)
+
+```
+
+#1. Actualizo BASE_ARTICULOS, MAESTRO O LISTA DE PRECIOS (DE ALEGRA)
+#2.Corro Arreglo_base
+#3.Corro Stock (si el archivo xlsx no estaba creado de antes)
+#4.Corro este
+#5.Chequear que no haber cambiado de lugar las columnas de meses para la suma
+
+```{r pongo fechas}
+
+fecha_stock <- strftime("2025/12/10","%Y%m%d")
+
+#fecha_maestro <- strftime("2025/08/22", "%Y%m%d")
+fecha_lista_precios <- strftime("2025/12/10", "%Y%m%d")
+
+fecha_filtro <- as.Date("2025-11-30")
+
+```
+
+
+
+```{r elijo las columnas que necesito}
+
+FACTURAS_FILTRADO <- FACTURAS_ARTICULOS2 %>% 
+select(CODIGO = PRODUCTO_REFERENCIA, TIENDA = DEPOSITO, FECHA_EMISION, RUBRO, FAMILIA, DESCRIPCION, MATERIAL, COLOR, PRODUCTO_CANTIDAD, PRODUCTO_TOTAL) %>% 
+  mutate(TIENDA = ifelse(TIENDA == "Lucero Galeria Guemes", "Güemes", TIENDA))
+
+```
+
+
+#Adapto el archivo de ventas para poder analizarla por los últimos 6 meses, mensualmente
+```{r}
+#Calculo la fecha de inicio del período de 6 meses.
+fecha_periodo <- floor_date(fecha_filtro, "month") %m-% months(5)
+
+#Filtro los 6 meses
+VENTAS_TIENDAS <- FACTURAS_FILTRADO %>%
+  mutate(FECHA_EMISION = as.Date(FECHA_EMISION)) %>%
+  filter(
+    FECHA_EMISION >= fecha_periodo,
+    FECHA_EMISION <= fecha_filtro) %>%
+  mutate(
+    MES = floor_date(FECHA_EMISION, "month"),  
+    MES_ETIQUETA = format(FECHA_EMISION, "%B %Y"))   #etiqueta "junio 2025"
+  
+
+#Calculo las ventas de cada artículo
+VENTAS_ARTICULOS <- VENTAS_TIENDAS %>%
+  group_by(TIENDA, CODIGO, RUBRO, FAMILIA, DESCRIPCION, MATERIAL, COLOR, 
+    MES, MES_ETIQUETA) %>%  
+    summarise(CANTIDAD = sum(PRODUCTO_CANTIDAD)) %>%
+  ungroup() %>% 
+  arrange(MES) %>%
+  select(-MES) %>%
+  pivot_wider(
+    names_from = MES_ETIQUETA,   # Nombres de las nuevas columnas.
+    values_from = CANTIDAD,      # Valores para esas columnas.
+    values_fill = 0              # Rellenar meses sin ventas con 0.
+  ) %>% 
+  mutate(Total = rowSums(across(8:13))) #OJO SI CAMBIO DE LUGAR LAS COLUMNAS
+
+```
+
+##Calculo la facturación de tiendas
+```{r}
+#Calculo la facturación
+VENTAS_ARTICULOS_FACTURACION <- VENTAS_TIENDAS %>% 
+  group_by(TIENDA, CODIGO) %>%  
+    summarise(Facturación = round(sum(PRODUCTO_TOTAL))) %>%
+  ungroup()
+
+#Le agrego la facturación al dataset principal
+VENTA_FINAL_TIENDAS <- VENTAS_ARTICULOS %>% 
+  left_join(VENTAS_ARTICULOS_FACTURACION, by= c("TIENDA", "CODIGO"))
+
+```
+
+##Calculo la facturación de El Lucero
+```{r}
+VENTA_LUCERO <- VENTAS_TIENDAS %>%
+  group_by(CODIGO, MES, MES_ETIQUETA) %>%  
+    summarise(TOTAL_LUCERO = sum(PRODUCTO_TOTAL)) %>%
+  ungroup() %>% 
+  arrange(MES) %>%
+  select(-MES) %>%
+  pivot_wider(
+    names_from = MES_ETIQUETA,   # Nombres de las nuevas columnas.
+    values_from = TOTAL_LUCERO,      # Valores para esas columnas.
+    values_fill = 0              # Rellenar meses sin ventas con 0.
+  )
+```
+
+#80% de la venta por mes para El Lucero
+```{r}
+
+# --- PASO 1: PREPARO LOS DATOS PARA LA UNIÓN ---
+
+# A. Preparo VENTA_LUCERO para evitar nombres de columna duplicados
+#    Le agrego un sufijo "_LUCERO" a las columnas de meses.
+VENTA_LUCERO_PARA_JOIN <- VENTA_LUCERO %>%
+  rename_with(~ paste0(., "_LUCERO"), -CODIGO) # Renombra todas las columnas excepto CODIGO
+
+
+# --- PASO 2: CALCULO EL FORMATO PARETO ---
+# Este cálculo lo hago sólo una vez sobre el total de la empresa.
+formato_pareto <- VENTA_LUCERO %>%
+  pivot_longer(cols = -CODIGO, names_to = "MES", values_to = "VENTA") %>%
+  filter(VENTA > 0) %>%
+  group_by(MES) %>%
+  arrange(desc(VENTA)) %>%
+  mutate(
+    ES_PARETO = lag(cumsum(VENTA) / sum(VENTA), default = 0) <= 0.8
+  ) %>%
+  ungroup() %>%
+  select(CODIGO, MES, ES_PARETO) %>%
+  pivot_wider(names_from = MES, values_from = ES_PARETO, values_fill = FALSE)
+
+
+
+```
+
+#Cargo el stock
+```{r}
+
+Stock_final <- read_excel(paste0("Stock/Stock final/Stock_", fecha_stock, ".xlsx"))
+
+#elimino filas sin stock porque hay artículos con error en el código y sumo el stock por depósitos y tiendas
+STOCK_RESUMEN <- Stock_final %>% 
+  rename(CODIGO = CODIGO_ARTICULO) %>% 
+  mutate(`STOCK DEPOSITOS` = BARRACAS + `OF FLORIDA`,
+         `STOCK TIENDAS` = FLORIDA +`SAN TELMO` + RECOLETA + FRENCH + GUEMES + `SAN TELMO 2`,
+    STOCK_TOTAL = `STOCK DEPOSITOS` + `STOCK TIENDAS`) %>% 
+  filter(STOCK_TOTAL > 0)
+
+
+#creo datasets para cruzar
+STOCK_SKU <- STOCK_RESUMEN %>% 
+  select(CODIGO, Florida = FLORIDA, "San Telmo" = "SAN TELMO", Recoleta = RECOLETA, French = FRENCH, "San Telmo 2" = "SAN TELMO 2", Güemes = GUEMES)
+
+```
+
+#Le agrego el stock, manteniendo ese dato cuando no hay ventas
+```{r}
+
+# Paso 1: Pivotear STOCK_SKU a formato largo
+stock_largo <- STOCK_SKU |>
+  pivot_longer(
+    cols = -CODIGO,
+    names_to = "TIENDA",
+    values_to = "STOCK"
+  )
+
+# Paso 2: Unir con VENTA_FINAL_TIENDAS
+venta_stock_combinado <- VENTA_FINAL_TIENDAS |>
+  full_join(stock_largo, by = c("TIENDA", "CODIGO"))
+
+# Paso 3: Llenar los NA en columnas de venta si el producto estaba solo en stock
+venta_stock_combinado <- venta_stock_combinado |>
+  mutate(STOCK = replace_na(STOCK, 0)) %>% 
+  relocate(STOCK, .after = COLOR)
+
+```
+
+
+
+```{r Uno la info de ventas por artículo/tienda con la venta total de Lucero}
+
+REPORTE_1 <- venta_stock_combinado %>%
+  left_join(VENTA_LUCERO_PARA_JOIN, by = "CODIGO") %>% 
+  arrange(TIENDA, RUBRO, FAMILIA, CODIGO) %>% 
+  mutate("NUEVO ESTADO" = NA) %>% 
+  relocate("NUEVO ESTADO", .after = COLOR) %>% 
+  filter(!(STOCK == 0 & is.na(RUBRO))) #elimino las filas sin stock ni venta
+
+#le agrego la info que le falta a los códigos sin ventas
+ARTICULOS_SIN_PROVEEDOR <- ARTICULOS %>% 
+  select(CODIGO = CODIGO_ARTICULO, RUBRO, FAMILIA, DESCRIPCION, MATERIAL, COLOR)
+
+REPORTE_2 <- REPORTE_1 |>
+  left_join(ARTICULOS_SIN_PROVEEDOR, by = "CODIGO", suffix = c("", "_art")) |>
+  mutate(
+    RUBRO       = coalesce(RUBRO, RUBRO_art),
+    FAMILIA     = coalesce(FAMILIA, FAMILIA_art),
+    DESCRIPCION = coalesce(DESCRIPCION, DESCRIPCION_art),
+    MATERIAL    = coalesce(MATERIAL, MATERIAL_art),
+    COLOR       = coalesce(COLOR, COLOR_art)
+  ) |>
+  select(-ends_with("_art")) %>% 
+  mutate(RUBRO = if_else(is.na(RUBRO) & str_starts(CODIGO, "OUT"),
+      "OUTLET", RUBRO)) %>% #Completo datos para los casos de código outlet
+  mutate(FAMILIA = if_else(is.na(FAMILIA) & str_starts(CODIGO, "OUT"),
+      "OUTLET", FAMILIA))
+
+```
+
+#Le agrego los precios, previa adaptación de la descripción para la unión
+```{r}
+#Leo el maestro para los precios
+# Maestro <- read_excel(paste0("Maestro/Maestro Lucero ", fecha_maestro ,".xlsx")) %>% 
+#   select(CODIGO = CODIGO_ARTICULO, Precio = precio) %>% 
+#   distinct()
+
+#Leo la lista de precios
+Lista_precios <- read_excel(paste0("Maestro/Lista_precios_Alegra_", fecha_lista_precios ,".xlsx")) %>% 
+  select(CODIGO = Referencia, Precio = "Precio total") %>% 
+  distinct()
+Lista_precios <- Lista_precios %>% 
+  mutate(Precio = as.numeric(sub(",.*$", "", Precio)))
+
+columnas_numericas <- colnames(REPORTE_2)[10:ncol(REPORTE_2)]
+
+#Corrijo códigos de la lista de precios
+Lista_precios <- Lista_precios |> 
+  mutate(CODIGO = case_when(CODIGO == "AS-MG100871101" ~ "MG100871101",
+                            CODIGO == "AS-MG100901501" ~ "MG100901501",
+                            CODIGO == "AS-MG100901562" ~ "MG100901562",
+                            CODIGO == "AS-MG100902129" ~ "MG100902129",
+                            TRUE ~ CODIGO))
+
+#Le agrego los precios
+REPORTE_COMPLETO <- REPORTE_2 %>% 
+  left_join(Lista_precios, by="CODIGO", relationship = "many-to-many") %>% 
+  mutate(Precio = case_when(is.na(Precio) & str_starts(CODIGO, "OUT") ~
+      as.numeric(str_extract(CODIGO, "[0-9]+$")), TRUE ~ Precio)) %>%
+  relocate(Precio, .after = Total) %>% 
+  filter(RUBRO != "OTROS") %>% 
+  mutate(
+    across(all_of(columnas_numericas), ~ replace_na(.x, 0))
+  ) #completo con 0 las celdas vacías
+
+```
+
+
+# Divido el dataframe gigante en una lista de dataframes, uno por cada tienda
+```{r}
+
+LISTA_POR_TIENDA <- split(REPORTE_COMPLETO, REPORTE_COMPLETO$TIENDA)
+
+```
+
+
+#Escribo el excel
+```{r}
+
+wb <- createWorkbook()
+estilo_header_tienda <- createStyle(fontColour = "#000000", fgFill = "#C6E0B4", halign = "center", valign = "center", textDecoration = "bold")
+estilo_header_lucero <- createStyle(fontColour = "#FFFFFF", fgFill = "#008000", halign = "center", valign = "center", textDecoration = "bold")
+estilo_nombres <- createStyle(fontColour = "white", fgFill = "darkblue", textDecoration = "bold")
+estilo_violeta_moneda <- createStyle(fgFill = "#C9B3F0", numFmt = "$#,##0")
+estilo_moneda <- createStyle(numFmt = "$#,##0")
+
+# Loop a través de la lista de tiendas
+for (nombre_tienda in names(LISTA_POR_TIENDA)) {
+  
+  # 1. Añadir una hoja para la tienda actual
+  addWorksheet(wb, nombre_tienda)
+  
+  datos_tienda <- LISTA_POR_TIENDA[[nombre_tienda]] %>%
+    select(-TIENDA)
+  
+  # Creamos el texto del encabezado dinámico
+  header_texto_tienda <- paste("Info de", nombre_tienda)
+  
+   # 2. Definir y escribir los encabezados combinados
+  fin_col_tienda <- which(names(datos_tienda) == "Facturación")
+  inicio_col_lucero <- fin_col_tienda + 1
+  fin_col_lucero <- ncol(datos_tienda)
+  
+  # Escribir textos de los headers (usando el texto dinámico)
+  writeData(wb, nombre_tienda, header_texto_tienda, startCol = 1, startRow = 1)
+  writeData(wb, nombre_tienda, "Info de Lucero (total tiendas)", startCol = inicio_col_lucero, startRow = 1)
+  
+  # Combinar las celdas para los headers
+  mergeCells(wb, nombre_tienda, cols = 1:fin_col_tienda, rows = 1)
+  mergeCells(wb, nombre_tienda, cols = inicio_col_lucero:fin_col_lucero, rows = 1)
+  
+  # Aplicar estilos a los headers
+  addStyle(wb, nombre_tienda, estilo_header_tienda, rows = 1, cols = 1:fin_col_tienda)
+  addStyle(wb, nombre_tienda, estilo_header_lucero, rows = 1, cols = inicio_col_lucero:fin_col_lucero)
+  
+  # 3. Escribir los datos de la tienda (ya no tienen la columna TIENDA)
+  writeData(wb, nombre_tienda, datos_tienda, startRow = 2, headerStyle = estilo_nombres)
+  
+    # 3.A Aplicar formato de moneda
+# Identificar dinámicamente las columnas a formatear
+cols_moneda <- which(names(datos_tienda) %in% c("Precio", "Facturación") | endsWith(names(datos_tienda), "_LUCERO"))
+
+  
+# Aplicar el estilo a todas las filas de datos para esas columnas
+if (length(cols_moneda) > 0) {
+  addStyle(
+    wb,
+    sheet = nombre_tienda,
+    style = estilo_moneda,
+    rows = 3:(nrow(datos_tienda) + 2), # Desde la primera fila de datos hasta la última
+    cols = cols_moneda,
+    gridExpand = TRUE # Asegura que se aplique a todas las celdas de la grilla
+  )
+}
+
+  
+  # 4. Aplicar el formato de color violeta (Pareto)
+    for (i in 1:nrow(datos_tienda)) {
+    codigo_actual <- datos_tienda$CODIGO[i]
+    fila_formato <- which(formato_pareto$CODIGO == codigo_actual)
+    
+    if (length(fila_formato) > 0) {
+      for (j in 2:ncol(formato_pareto)) {
+        if (isTRUE(formato_pareto[[j]][fila_formato])) {
+          nombre_col_formato <- names(formato_pareto)[j]
+          col_a_colorear <- which(names(datos_tienda) == paste0(nombre_col_formato, "_LUCERO"))
+          
+          if(length(col_a_colorear) > 0){
+             addStyle(wb, nombre_tienda, estilo_violeta_moneda, rows = i + 2, cols = col_a_colorear)
+          }
+        }
+      }
+    }
+    }
+
+# Defino el vector de anchos
+anchos_especificos <- c(rep("auto", 15), 10, 12, 9.73, 10.82, 9.82, 9, 9.55, 9.36)
+
+# Aplica los anchos a las columnas correspondientes
+setColWidths(
+  wb,
+  sheet = nombre_tienda,
+  cols = 1:23,
+  widths = anchos_especificos,
+  ignoreMergedCells = TRUE
+)
+}
+
+
+# 6. Guardar el archivo final
+saveWorkbook(wb, paste0("Reporte_venta_tienda/Reporte_ventas_por_Tienda ", fecha_hasta, ".xlsx"), overwrite = TRUE)
+
+
+```
+

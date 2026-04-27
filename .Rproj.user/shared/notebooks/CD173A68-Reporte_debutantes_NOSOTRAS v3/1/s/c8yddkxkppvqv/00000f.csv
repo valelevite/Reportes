@@ -1,0 +1,3 @@
+"0",""
+"0","Lista_debutantes <- Lista_debutantes %>% "
+"0","  filter(FECHA_BASE- as.Date(FECHA_INGRESO)<=30)"

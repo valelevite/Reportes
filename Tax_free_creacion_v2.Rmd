@@ -1,0 +1,58 @@
+---
+title: "Tax free"
+output: html_document
+date: "2025-05-08"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#SI VOY A CRUZAR CON ALEGRA, PRIMERO CORRER "Arreglo_base"
+
+```{r}
+mes <- "2026-03"
+mes_arch <- str_replace(mes, "-", "_")
+
+library(tidyverse)
+library(openxlsx)
+```
+
+#Leo los archivos y los unifico
+```{r}
+
+ruta <- "C:/Users/PC/Documents/Valeria/Reportes/Tax free/Tax free para armar"
+archivos <- list.files(ruta, pattern = paste0(mes_arch, "\\.csv$"), full.names = TRUE)
+
+
+Tax_free <- map(archivos, function(archivo) {
+  
+  tienda <- basename(archivo) |> str_remove(paste0(" ", mes_arch, "\\.csv$"))
+  
+  read_csv(archivo, show_col_types = FALSE) |>
+    mutate(Tienda = tienda, .before = 1) |>
+    select(-DocumentIdentifier, -DeskID) |>
+    mutate(IssuingTime = as.character(IssuingDate),
+           IssuingDate = str_extract(WeekdayName, "[\\d/]+$") |> as.Date(format = "%d/%m/%Y"),
+           WeekdayName = str_extract(WeekdayName, "^[^,]+"),
+           TotalGrossAmount = as.numeric(TotalGrossAmount),
+           TotalRefundAmount = as.numeric(TotalRefundAmount)
+)  |>
+    select(Tienda, WeekdayName, IssuedStatus, IssuingDate, IssuingTime,
+           TFSStatus, TouristCountryNumIsoCode, InvoiceNumber,
+           TotalGrossAmount, TotalRefundAmount)
+  
+}) |> bind_rows()
+
+
+```
+
+#lo escribo en excel
+```{r}
+
+write.xlsx(Tax_free, paste0("Tax free/Tax free armado/Tax free_", mes, ".xlsx"))
+
+```
+
+#----------------------------------------------------------
+

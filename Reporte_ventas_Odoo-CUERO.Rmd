@@ -1,0 +1,1628 @@
+---
+title: "Reporte_ventas"
+output: word_document
+date: "2025-04-06"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+
+library(ggrepel)  # Para evitar superposición de etiquetas en gráficos
+library(ggplot2)
+library(scales)
+library(janitor)
+
+```
+VER SI PROVEEDORES LO CRUZO CON DESCRIPCIÓN (SE LLAMA NOMBRE EN ODOO) EN VEZ DE CON EL CÓDIGO DE BARRAS. ASÍ ME ASEGURO EL PROVEEDOR EN EL CASO DE QUE ALGUNA VARIEDAD NO TENGA EL DATO DE PROVEEDOR EN ODOO
+#1.Preparo Tax Free
+#2.Corro Arreglo_base_Odoo
+#3.Corro este y REVISO CONSERJES
+
+```{r filtro para el mes a analizar}
+
+fecha_inicio_mes <- as.Date("2026/03/01") 
+fecha_fin_mes <- as.Date("2026/03/31")
+
+mes <- "2026-03"
+
+fecha_stock <- strftime("2026/04/08","%Y%m%d")
+
+fecha_precios <- strftime("2026/04/06","%Y%m%d")
+
+fecha_proveedores <- strftime("2026/03/12","%Y%m%d")
+
+fecha_maestro <- strftime("2025/08/22", "%Y%m%d")
+
+#fecha_precios <- "Agosto 20250806"
+#fecha_lista_precios <- strftime("2025/12/10", "%Y%m%d")
+
+```
+
+```{r filtro las facturas por fecha y tiendas}
+
+FACTURAS_MES <- Odoo_mas_Alegra %>%
+  select(-PRECIO_UNITARIO_SIN_IMP) %>% 
+  filter(as.Date(FECHA_EMISION) >= fecha_inicio_mes,
+         as.Date(FECHA_EMISION) <= fecha_fin_mes,
+         TIENDA %in% c("San Telmo", "San Telmo 2", "Florida", "French", "Güemes", "Recoleta"))
+
+```
+
+```{r elimino las facturas y/o notas de crédito que tienen sólo una diferencia mínima ante un cambio para que no lo compute como un artículo y completo datos de Rubroy Familia}
+
+FACTURAS_MES2 <- FACTURAS_MES %>% 
+  filter(PRECIO_UNITARIO>100) |> 
+  mutate(RUBRO = if_else(SUBFAMILIA== "OUTLET", "OUTLET", RUBRO),
+         FAMILIA = if_else(SUBFAMILIA== "OUTLET", "OUTLET", FAMILIA))
+
+```
+
+```{r le agrego los proveedores}
+
+proveedores_odoo_LUCERO <- read_excel(paste0("Proveedores/proveedores_odoo_LUCERO_", fecha_proveedores, ".xlsx")) |> 
+  rename(CODIGO_BARRAS = "Código de barras", PRODUCTO = Producto, PROVEEDOR = Proveedores)
+
+FACTURAS_MES2$PROVEEDOR <- proveedores_odoo_LUCERO$PROVEEDOR[match(FACTURAS_MES2$CODIGO_BARRAS, proveedores_odoo_LUCERO$CODIGO_BARRAS)]
+
+FACTURAS_MES2 <- FACTURAS_MES2 |> 
+  mutate(PROVEEDOR = case_when(str_starts(DESCRIPCION, "PRODUCTO OUTLET|PRODUCTOS OUTLET") ~ "OUTLET", 
+                               PROVEEDOR == "SUCCESSFUL BOXES S.R.L." ~ "SUCCESSFUL BOXES S.R.L., PERDRIEL",
+                               TRUE ~ PROVEEDOR))
+
+```
+
+
+```{r reviso que estén los datos mínimos}
+
+#para ver los na por columna
+na_por_columna <- colSums(is.na(FACTURAS_MES2))
+print(na_por_columna)
+
+#REVISAR QUE RUBRO, FAMILIA, DESCRIPCION Y PROVEEDOR TENGAN DATOS COMPLETOS
+
+```
+
+
+```{r}
+#leo el archivo que creé de Tax free
+Tax_free <- read_excel(paste0("Tax free/Tax free armado/Tax free_", mes, ".xlsx")) %>%
+  filter(TFSStatus!="Voided" | is.na(TFSStatus)) %>%
+  filter(as.Date(IssuingDate) >= fecha_inicio_mes, IssuingDate <= fecha_fin_mes)
+
+```
+
+
+#Creo cada una de las solapas
+###1ro calculo el total de descuento y el dto por tienda
+```{r}
+DESCUENTO <- FACTURAS_MES2 %>% 
+  select(NRO_FACTURA, DESCUENTO) %>% 
+  distinct()
+
+DESCUENTO_X_TIENDA <- FACTURAS_MES2 |> 
+  select(TIENDA, NRO_FACTURA, DESCUENTO) %>% 
+  distinct() |> 
+  group_by(TIENDA) |> 
+  summarise(DTO_X_TIENDA = sum(DESCUENTO, na.rm = TRUE)) |> 
+  ungroup()
+
+DESCUENTO_TOTAL <- sum(DESCUENTO$DESCUENTO, na.rm = TRUE)
+
+```
+
+TERMINAR DE COMPLETAR RUBRO, FAMILIA, SUBFAMILIA, PROVEEDOR, ETC DE PRODUCTOS ALEGRA
+
+## SKU
+```{r solapa SKU}
+
+SKU <- FACTURAS_MES2 %>% 
+  group_by(PROVEEDOR, RUBRO, FAMILIA, SUBFAMILIA, DESCRIPCION, MATERIAL, COLOR, TALLE, VARIANTE, CODIGO_BARRAS, PRODUCTO_STOCK) %>% 
+  summarise(VENTA = sum(PRODUCTO_CANTIDAD, na.rm = TRUE), TOTAL = round(sum(PRODUCTO_TOTAL, na.rm = TRUE)), PRECIO = round(TOTAL/VENTA, digits=0)) %>% 
+  rename("CODIGO"=CODIGO_BARRAS) %>% 
+  filter(VENTA != 0) |> 
+  arrange(desc(TOTAL)) %>% 
+  ungroup() |> 
+  rename(STOCK = PRODUCTO_STOCK) |> 
+  relocate(PRECIO, .after = VENTA) |> 
+  relocate(STOCK, .after = TOTAL)
+
+# Calculo S/D
+SKU_SD <- SKU %>% 
+  mutate("D/S" = if_else(VENTA>0, round(STOCK/VENTA*30, digits = 0), NA_real_))
+
+#Le agrego la condición de los artículos
+Maestro <- read_excel(paste0("Maestro/Maestro Lucero ", fecha_maestro, ".xlsx")) %>% 
+   select(CODIGO = CODIGO_ARTICULO, CONDICION = `condición`) %>%
+   mutate(CONDICION = case_when(CONDICION == "2X1" ~ "2x1", 
+                                CONDICION == "Baja" ~ "Discontinuado", 
+                                TRUE ~ CONDICION),
+          CODIGO = ifelse(CODIGO == "MG010711210", "MG010711210", CODIGO))
+
+
+SKU_STOCK <- SKU_SD %>% 
+  left_join(Maestro, by ="CODIGO") %>% 
+  mutate(CONDICION = case_when(str_detect(MATERIAL, "LANA") & CONDICION != "discontinuado" ~ "fuera de venta",
+                               str_starts(DESCRIPCION, "CAMISA") & is.na(CONDICION) ~ "2x1",
+                               str_starts(CODIGO, "OUT") | FAMILIA == "OUTLET" | SUBFAMILIA == "OUTLET" ~ "outlet",
+                               str_detect(CODIGO, "^[0-9]") & is.na(CONDICION) ~ "activo",
+                               TRUE~CONDICION)
+         )
+
+
+# Creo la fila con descuento
+descuento_sku <- tibble(
+  PROVEEDOR = "DESCUENTO",
+  RUBRO = NA, 
+  FAMILIA = NA,
+  SUBFAMILIA = NA,
+  DESCRIPCION = NA,
+  MATERIAL = NA,
+  COLOR = NA,
+  TALLE = NA,
+  VARIANTE = NA,
+  CODIGO = NA,
+  VENTA = NA,
+  PRECIO = NA,
+  TOTAL = DESCUENTO_TOTAL,
+  STOCK = NA,
+  `D/S` = NA,
+  CONDICION = NA)
+
+# Agrego la fila con valor de descuento
+SKU_desc <- bind_rows(descuento_sku, SKU_STOCK)
+
+
+# Creo la fila con los totales
+totales_sku <- tibble(
+  PROVEEDOR = "TOTAL",
+  RUBRO = NA, 
+  FAMILIA = NA,
+  SUBFAMILIA = NA,
+  DESCRIPCION = NA,
+  MATERIAL = NA,
+  COLOR = NA,
+  TALLE = NA,
+  VARIANTE = NA,
+  CODIGO = NA,
+  VENTA = sum(SKU_STOCK$VENTA, na.rm = TRUE),
+  PRECIO = NA,
+  TOTAL = sum(SKU_STOCK$TOTAL, na.rm = TRUE)-DESCUENTO_TOTAL,
+  STOCK = sum(SKU_STOCK$STOCK, na.rm = TRUE),
+  `D/S` = NA,
+  CONDICION = NA)
+
+# Agregar la fila al inicio de los datos
+SKU_total <- bind_rows(totales_sku, SKU_desc)
+
+
+# Agrego columna "En producción"
+SKU_total <- SKU_total %>% 
+  mutate(`EN PRODUCCIÓN` = NA) |> 
+  relocate(`EN PRODUCCIÓN`, .after = STOCK)
+
+```
+
+
+##SKU-FAMILIA
+```{r}
+SKU_FAMILIA <- SKU_STOCK %>%
+  select(PROVEEDOR, RUBRO, FAMILIA, SUBFAMILIA, CODIGO, DESCRIPCION, MATERIAL, COLOR, TALLE, VARIANTE, VENTA, PRECIO, TOTAL, STOCK, `D/S`, CONDICION)
+
+# 1. Ordenar los datos originales
+SKU_FAMILIA_ordenado <- SKU_FAMILIA %>%
+  arrange(RUBRO, FAMILIA, SUBFAMILIA, desc(TOTAL))
+
+# 2. Crear los totales por familia - VERSIÓN CORREGIDA
+totales_por_familia <- SKU_FAMILIA %>%
+  group_by(RUBRO, FAMILIA, SUBFAMILIA) %>%
+  summarise(
+    PROVEEDOR = "",
+    CODIGO = "",
+    DESCRIPCION = paste("Total", first(FAMILIA), first(SUBFAMILIA)),
+    MATERIAL = "", 
+    COLOR = "",
+    TALLE = "",
+    VARIANTE = "",
+    PRECIO = NA_real_,
+    `D/S` = NA_real_,
+    VENTA = sum(VENTA, na.rm = TRUE),
+    TOTAL = round(sum(TOTAL, na.rm = TRUE)),
+    STOCK = sum(STOCK, na.rm = TRUE),
+    .groups = "drop",
+    CONDICION = ""
+  ) %>%
+  distinct(RUBRO, FAMILIA, SUBFAMILIA, DESCRIPCION, .keep_all = TRUE) %>% # Asegura un único total
+  select(names(SKU_FAMILIA))
+
+# 3. Combinar y ordenar
+SKU_FAMILIA_final <- bind_rows(
+  SKU_FAMILIA_ordenado,
+  totales_por_familia
+) %>%
+  mutate(
+    tipo_fila = ifelse(str_detect(DESCRIPCION, "^Total"), 1, 0)
+  ) %>%
+  arrange(
+    RUBRO,
+    FAMILIA,
+    SUBFAMILIA,
+    tipo_fila,  # 0=productos primero, 1=totales al final
+    desc(TOTAL)
+  ) %>%
+  select(-tipo_fila) %>% 
+  mutate(RUBRO = ifelse(str_detect(DESCRIPCION, "^Total"), "", RUBRO),
+         FAMILIA = ifelse(str_detect(DESCRIPCION, "^Total"), "", FAMILIA),
+          SUBFAMILIA = ifelse(str_detect(DESCRIPCION, "^Total"), "", SUBFAMILIA))
+
+SKU_FAMILIA_final <- SKU_FAMILIA_final %>% 
+  mutate(CONDICION = ifelse(RUBRO == "OUTLET", "outlet", CONDICION))
+  
+```
+
+## Modelos
+```{r solapa Modelos}
+
+#los modelos pueden tener distinto precio por color o por inflación, entonces se muestra el precio unitario calculado Total/venta
+
+Modelos <- SKU_total %>% 
+  filter(PROVEEDOR != "TOTAL" & PROVEEDOR != "DESCUENTO") %>% 
+  group_by(PROVEEDOR, RUBRO, FAMILIA, SUBFAMILIA, DESCRIPCION) %>% 
+  summarise(VENTA = sum(VENTA, na.rm = TRUE), TOTAL = sum(TOTAL, na.rm = TRUE), PRECIO = round(TOTAL/VENTA), STOCK = sum(STOCK, na.rm = TRUE), "D/S" = round(STOCK/VENTA*30)) %>%
+  distinct() %>% 
+  arrange(desc(TOTAL)) %>% 
+  ungroup() %>% 
+  relocate(PRECIO, .after = VENTA)
+
+# Creo la fila con el descuento
+desc_modelos <- tibble(
+  PROVEEDOR = "DESCUENTO",
+  RUBRO = NA, 
+  FAMILIA = NA,
+  SUBFAMILIA = NA,
+  DESCRIPCION = NA,
+  PRECIO = NA,
+  VENTA = NA,
+  TOTAL = DESCUENTO_TOTAL,
+  STOCK = NA,
+  `D/S` = NA)
+
+# Agregar la fila al inicio del marco de datos
+Modelos_desc <- bind_rows(desc_modelos, Modelos)
+
+# Creo la fila con los totales
+totales_modelos <- tibble(
+  PROVEEDOR = "TOTAL",
+  RUBRO = NA, 
+  FAMILIA = NA,
+  SUBFAMILIA = NA,
+  DESCRIPCION = NA,
+  PRECIO = NA,
+  VENTA = sum(Modelos$VENTA, na.rm = TRUE),
+  TOTAL = sum(Modelos$TOTAL, na.rm = TRUE)-DESCUENTO_TOTAL,
+  STOCK = sum(Modelos$STOCK, na.rm = TRUE),
+  `D/S` = NA)
+
+# Agregar la fila al inicio del marco de datos
+Modelos_total <- bind_rows(totales_modelos, Modelos_desc)
+
+# Ordeno columnas
+Modelos_total <- Modelos_total %>% 
+  relocate(PRECIO, .after = VENTA)
+```
+
+
+##Rubros y familias
+###Rubros
+```{r hoja Rubros y familias}
+
+#TABLA RUBRO
+tabla_vta_rubro <- FACTURAS_MES2 %>%
+  group_by(RUBRO) %>%
+  summarise(Unidades = sum(PRODUCTO_CANTIDAD, na.rm = TRUE), 
+            "Facturación" = sum(PRODUCTO_TOTAL, na.rm = TRUE)) %>%
+  complete(RUBRO = unique(FACTURAS_MES2$RUBRO),  # Lista completa de rubros
+           fill = list(Unidades = 0, Facturación = 0)) %>%
+  arrange(desc(Facturación)) %>% 
+  mutate(Participación = round(Facturación/sum(Facturación), digits = 4))
+
+totales_venta_rubro <- tabla_vta_rubro %>%
+  summarise(RUBRO = "TOTAL",
+            Unidades = sum(Unidades, na.rm = TRUE),
+            Facturación = sum(Facturación, na.rm = TRUE)-DESCUENTO_TOTAL,
+            Participación = 1)
+
+
+fila_descuento_rubro <- tibble(
+  RUBRO = "DESCUENTO",
+  Unidades = NA,
+  Facturación = DESCUENTO_TOTAL,
+  Participación = NA)
+
+tabla_venta_rubro <- bind_rows(fila_descuento_rubro, tabla_vta_rubro)
+
+tabla_venta_rubro <- bind_rows(totales_venta_rubro, tabla_venta_rubro)
+
+
+```
+
+
+```{r para gráficos rubros}
+
+graficos_rubro_unidades <- FACTURAS_MES2 %>%
+  filter(
+    FECHA_EMISION >= "2025-01-01",
+    FECHA_EMISION <= fecha_fin_mes
+  ) %>%
+  mutate(MES = month(FECHA_EMISION)) %>%
+  group_by(RUBRO, MES) %>%
+  summarise(
+    Unidades = sum(PRODUCTO_CANTIDAD, na.rm = TRUE),
+    Facturación = sum(PRODUCTO_TOTAL, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  arrange(desc(Facturación)) %>%
+  mutate(
+    Participación = round(Facturación / sum(Facturación), 4)
+  ) %>%
+  select(-Facturación)
+
+
+```
+
+
+###Familias
+```{r}
+
+# TABLA RUBRO/FAMILIA 
+tabla_venta_familia <- FACTURAS_MES2 %>% 
+  group_by(RUBRO, FAMILIA) %>% 
+  summarise(Unidades = sum(PRODUCTO_CANTIDAD, na.rm = TRUE), 
+            "Facturación" = round(sum(PRODUCTO_TOTAL, na.rm = TRUE))) %>% 
+# complete(FAMILIA = unique(FACTURAS_ARTICULOS2$FAMILIA),  # Lista completa de familias
+ #         fill = list(Unidades = 0, Facturación = 0)) %>%
+  ungroup()
+
+# Calcular totales por rubro para usarlos en el cálculo de participación de familias
+totales_rubro <- tabla_venta_familia %>%
+  group_by(RUBRO) %>%
+  summarise(Facturación_Rubro = sum(Facturación, na.rm = TRUE))
+
+# Unir con los totales de rubro y calcular participación de cada familia dentro de su rubro
+tabla_venta_familia <- tabla_venta_familia %>%
+  left_join(totales_rubro, by = "RUBRO") %>%
+  mutate(Participación = round(Facturación/Facturación_Rubro, digits = 4))
+
+## 1. Preparación de datos ---- 
+# Calcular total general 
+total_general <- tabla_venta_familia %>% 
+  summarise(
+    `Rubro/Familia` = "TOTAL", 
+    Unidades = sum(Unidades, na.rm = TRUE), 
+    Facturación = sum(Facturación, na.rm = TRUE)-DESCUENTO_TOTAL,
+    Participación = 1.0000  # Siempre es 100%
+  )
+
+# Calcular la participación de cada rubro sobre el total
+total_facturacion <- sum(tabla_venta_familia$Facturación, na.rm = TRUE)
+
+## 2. Identificar y ordenar rubros ---- 
+rubros_ordenados <- tabla_venta_familia %>% 
+  group_by(RUBRO) %>% 
+  summarise(
+    Facturación_Total = sum(Facturación, na.rm = TRUE),
+    Participación_total = round(sum(Facturación, na.rm = TRUE)/total_facturacion, digits = 4),
+    .groups = "drop"
+  ) %>% 
+  arrange(desc(Participación_total)) %>% 
+  pull(RUBRO)
+
+## 3. Función para construir secciones ---- 
+crear_seccion_rubro <- function(rubro) {
+  datos_rubro <- tabla_venta_familia %>% filter(RUBRO == rubro)
+  
+  # Detectar si el rubro existe también como familia
+  es_tambien_familia <- rubro %in% unique(tabla_venta_familia$FAMILIA)
+  
+  # Calcular participación del rubro sobre el total general
+  participacion_rubro <- sum(datos_rubro$Facturación, na.rm = TRUE) / total_facturacion
+  
+  # Fila del rubro
+  fila_rubro <- datos_rubro %>% 
+    summarise(
+      `Rubro/Familia` = RUBRO[1], 
+      Unidades = sum(Unidades, na.rm = TRUE), 
+      Facturación = sum(Facturación, na.rm = TRUE),
+      Participación = round(participacion_rubro, digits = 4)  # Participación respecto al total
+    )
+  
+  # Filas de familias (excluyendo el caso donde familia = rubro)
+  filas_familias <- datos_rubro %>% 
+    filter(!(FAMILIA == rubro & es_tambien_familia)) %>% # Excluye la fila donde familia = rubro
+    arrange(desc(Participación)) %>% 
+    mutate(`Rubro/Familia` = paste0(" ", FAMILIA)) %>% # Indentación con 1 espacio
+    select(`Rubro/Familia`, Unidades, Facturación, Participación)
+  
+  # Si el rubro también es familia, agregamos una fila especial
+  if(es_tambien_familia) {
+    fila_rubro_familia <- datos_rubro %>% 
+      filter(FAMILIA == rubro) %>% 
+      mutate(`Rubro/Familia` = paste0(" ", FAMILIA)) %>% # Indentada como familia
+      select(`Rubro/Familia`, Unidades, Facturación, Participación)
+    bind_rows(fila_rubro, fila_rubro_familia, filas_familias)
+  } else {
+    bind_rows(fila_rubro, filas_familias)
+  }
+}
+
+## 4. Construir tabla final ---- 
+tabla_rubro_familia <- bind_rows(
+  total_general, 
+  map_dfr(rubros_ordenados, crear_seccion_rubro)
+)
+```
+
+
+##Materiales y colores
+###Marro grande
+```{r marro grande materiales y colores}
+
+#MARRO GRANDE
+##Materiales
+MARRO_GRANDE_MATERIALES <- FACTURAS_MES2 %>%
+  filter(RUBRO == "MARRO GRANDE") %>% 
+  group_by(MATERIAL) %>% 
+  summarise(Facturación = sum(PRODUCTO_TOTAL, na.rm = TRUE), .groups = 'drop') %>% 
+  mutate(Participación = round((Facturación / sum(Facturación, na.rm = TRUE)), 4)) %>% 
+  arrange(desc(Facturación))
+
+##Colores
+MARRO_GRANDE_COLORES <- FACTURAS_MES2 %>%
+  filter(RUBRO == "MARRO GRANDE") %>% 
+  group_by(COLOR) %>% 
+  summarise(Facturación = sum(PRODUCTO_TOTAL, na.rm = TRUE), .groups = 'drop') %>% 
+  mutate(Participación = round((Facturación / sum(Facturación, na.rm = TRUE)), 4)) %>% 
+  arrange(desc(Facturación))
+
+
+```
+
+###Marro chica
+```{r marro chica materiales y colores}
+
+#MARRO CHICA
+##Materiales
+MARRO_CHICA_MATERIALES <- FACTURAS_MES2 %>%
+  filter(RUBRO == "MARRO CHICA") %>% 
+  group_by(MATERIAL) %>% 
+  summarise(Facturación = sum(PRODUCTO_TOTAL, na.rm = TRUE), .groups = 'drop') %>% 
+  mutate(Participación = round((Facturación / sum(Facturación, na.rm = TRUE)), 4)) %>% 
+  arrange(desc(Facturación))
+
+##Colores
+MARRO_CHICA_COLORES <- FACTURAS_MES2 %>%
+  filter(RUBRO == "MARRO CHICA") %>% 
+  group_by(COLOR) %>% 
+  summarise(Facturación = sum(PRODUCTO_TOTAL, na.rm = TRUE), .groups = 'drop') %>% 
+  mutate(Participación = round((Facturación / sum(Facturación, na.rm = TRUE)), 4)) %>% 
+  arrange(desc(Facturación))
+
+
+```
+
+
+```{r material+color}
+
+#Marro grande
+MARRO_GRANDE_MATERIAL_COLOR <- FACTURAS_MES2 %>% 
+  filter(RUBRO == "MARRO GRANDE") %>% 
+  mutate(MATERIAL_COLOR = paste0(MATERIAL, " ", COLOR)) %>% 
+  group_by(MATERIAL_COLOR) %>% 
+  summarise(Facturación = sum(PRODUCTO_TOTAL, na.rm = TRUE), .groups = 'drop') %>% 
+  mutate(Participación = round((Facturación / sum(Facturación, na.rm = TRUE)), 4)) %>%
+  arrange(desc(Facturación)) %>% 
+  mutate(Acumulado = cumsum(Participación))
+
+fila_total_1 <- tibble(
+  MATERIAL_COLOR = "TOTAL",
+  Facturación = sum(MARRO_GRANDE_MATERIAL_COLOR$Facturación, na.rm = TRUE),
+  Participación = sum(MARRO_GRANDE_MATERIAL_COLOR$Participación, na.rm = TRUE),
+  Acumulado = NA)
+
+MARRO_GRANDE_MATERIAL_COLOR <- bind_rows(
+  fila_total_1,
+  MARRO_GRANDE_MATERIAL_COLOR)
+
+
+#Marro chica
+MARRO_CHICA_MATERIAL_COLOR <- FACTURAS_MES2 %>% 
+  filter(RUBRO == "MARRO CHICA") %>% 
+  mutate(MATERIAL_COLOR = paste0(MATERIAL, " ", COLOR)) %>% 
+  group_by(MATERIAL_COLOR) %>% 
+  summarise(Facturación = sum(PRODUCTO_TOTAL, na.rm = TRUE), .groups = 'drop') %>% 
+  mutate(Participación = round((Facturación / sum(Facturación, na.rm = TRUE)), 4)) %>%
+  arrange(desc(Facturación)) %>% 
+  mutate(Acumulado = cumsum(Participación))
+
+fila_total_2 <- tibble(
+  MATERIAL_COLOR = "TOTAL",
+  Facturación = sum(MARRO_CHICA_MATERIAL_COLOR$Facturación, na.rm = TRUE),
+  Participación = 1,
+  Acumulado = NA)
+
+MARRO_CHICA_MATERIAL_COLOR <- bind_rows(
+  fila_total_2,
+  MARRO_CHICA_MATERIAL_COLOR)
+
+
+```
+
+#Proveedores externos
+```{r}
+
+#Tabla general proveedor
+PROVEEDOR_EXTERNO <- FACTURAS_MES2 %>% 
+  filter(!PROVEEDOR %in% c("SUCCESSFUL BOXES S.R.L., PERDRIEL", "SUCCESSFUL BOXES S.R.L., CHACO", "SUCCESSFUL BOXES S.R.L., SD 2463")) %>% 
+  group_by(PROVEEDOR) %>% 
+  summarise(Unidades = sum(PRODUCTO_CANTIDAD, na.rm = TRUE),
+    Facturación = round(sum(PRODUCTO_TOTAL, na.rm = TRUE))) %>% 
+  mutate(Participación = round((Facturación / sum(Facturación, na.rm = TRUE)), 4)) %>% 
+  arrange(desc(Facturación))
+
+fila_total_proveedor <- tibble(
+  PROVEEDOR = "TOTAL",
+  Unidades = sum(PROVEEDOR_EXTERNO$Unidades, na.rm = TRUE),
+  Facturación = sum(PROVEEDOR_EXTERNO$Facturación, na.rm = TRUE),
+  Participación = 1)
+
+PROVEEDOR_EXTERNO_TOTAL <- bind_rows(fila_total_proveedor, PROVEEDOR_EXTERNO) 
+  
+  
+  
+#Tabla de rubros entre los proveedores externos  
+PROVEEDOR_EXTERNO_RUBROS <- FACTURAS_MES2 %>% 
+  filter(PROVEEDOR != "FABRICA") %>% 
+  group_by(RUBRO) %>% 
+  summarise(Unidades = sum(PRODUCTO_CANTIDAD, na.rm = TRUE),
+    Facturación = round(sum(PRODUCTO_TOTAL, na.rm = TRUE))) %>% 
+  mutate(Participación = round((Facturación / sum(Facturación, na.rm = TRUE)), 4)) %>% 
+  arrange(desc(Facturación))  
+
+fila_total_proveedor_rubros <- tibble(
+  RUBRO = "TOTAL",
+  Unidades = sum(PROVEEDOR_EXTERNO_RUBROS$Unidades, na.rm = TRUE),
+  Facturación = sum(PROVEEDOR_EXTERNO_RUBROS$Facturación, na.rm = TRUE),
+  Participación = 1)
+
+PROVEEDOR_EXTERNO_RUBROS_TOTAL <- bind_rows(fila_total_proveedor_rubros, PROVEEDOR_EXTERNO_RUBROS) 
+
+
+#Calculo qué participación tienen los proveedores externos sobre toda la venta
+TOTAL_PROVEEDORES_EXTERNOS <- sum(PROVEEDOR_EXTERNO$Facturación, na.rm = TRUE)
+TOTAL_FACTURACION_MES <- sum(FACTURAS_MES2$PRODUCTO_TOTAL, na.rm = TRUE)
+PARTICIPACION_PROVEEDORES_EXTERNOS <- round((TOTAL_PROVEEDORES_EXTERNOS/TOTAL_FACTURACION_MES)*100, 1)
+
+```
+
+#Nacionalidad
+```{r}
+#Calculo las unidades vendidas por nacionalidad y tienda
+NACIONALIDAD_X_UNIDAD <- FACTURAS_MES2 %>% 
+  group_by(NACIONALIDAD) %>% 
+  summarise(Florida = sum(if_else(TIENDA== "Florida", PRODUCTO_CANTIDAD, 0), na.rm = TRUE),
+            French = sum(if_else(TIENDA== "French", PRODUCTO_CANTIDAD, 0), na.rm = TRUE),
+            `Güemes` = sum(if_else(TIENDA== "Güemes", PRODUCTO_CANTIDAD, 0), na.rm = TRUE),
+            Recoleta = sum(if_else(TIENDA== "Recoleta", PRODUCTO_CANTIDAD, 0), na.rm = TRUE),
+            `San Telmo` = sum(if_else(TIENDA== "San Telmo", PRODUCTO_CANTIDAD, 0), na.rm = TRUE),
+            `San Telmo 2` = sum(if_else(TIENDA== "San Telmo 2", PRODUCTO_CANTIDAD, 0), na.rm = TRUE),
+            `Total cantidad` = Florida+French+`Güemes`+Recoleta+`San Telmo`+`San Telmo 2`)
+
+fila_total_nacionalidad_unidad <- tibble(
+  NACIONALIDAD = "Total general",
+  Florida = sum(NACIONALIDAD_X_UNIDAD$Florida, na.rm = TRUE),
+  French = sum(NACIONALIDAD_X_UNIDAD$French, na.rm = TRUE),
+  `Güemes`= sum(NACIONALIDAD_X_UNIDAD$Güemes, na.rm = TRUE),
+  Recoleta = sum(NACIONALIDAD_X_UNIDAD$Recoleta, na.rm = TRUE),
+  `San Telmo` = sum(NACIONALIDAD_X_UNIDAD$`San Telmo`, na.rm = TRUE),
+  `San Telmo 2` = sum(NACIONALIDAD_X_UNIDAD$`San Telmo 2`, na.rm = TRUE),
+  `Total cantidad` = sum(NACIONALIDAD_X_UNIDAD$`Total cantidad`, na.rm = TRUE))
+
+NACIONALIDAD_X_UNIDAD_TOTAL <- bind_rows(fila_total_nacionalidad_unidad, NACIONALIDAD_X_UNIDAD)
+
+
+#Calculo la facturación por nacionalidad y tienda
+NACIONALIDAD_X_FACTURACION <- FACTURAS_MES2 %>%
+  # 1. Nos aseguramos de tener 1 fila por factura
+ # distinct(TIENDA, NRO_FACTURA, .keep_all = TRUE) %>%
+  # 2. Sumamos por Nacionalidad y Tienda
+  group_by(NACIONALIDAD, TIENDA) %>%
+  summarise(TOTAL = sum(PRODUCTO_TOTAL, na.rm = TRUE), .groups = "drop") %>%
+  # 3. Pivoteamos para que cada tienda sea una columna
+  pivot_wider(names_from = TIENDA, values_from = TOTAL, values_fill = 0) %>%
+  # 4. Sumamos la fila completa para el Total
+  mutate(`Total facturación` = rowSums(select(., -NACIONALIDAD), na.rm = TRUE))
+
+
+
+# NACIONALIDAD_X_FACTURACION <- FACTURAS_MES2 %>% 
+#   select(FECHA_EMISION, NRO_FACTURA, TIENDA, TOTAL_FACTURA, NACIONALIDAD) |> 
+#   distinct() |> 
+#   group_by(NACIONALIDAD) %>% 
+#   summarise(Florida = sum(ifelse(TIENDA== "Florida", TOTAL_FACTURA, 0), na.rm = TRUE),
+#             French = sum(ifelse(TIENDA== "French", TOTAL_FACTURA, 0), na.rm = TRUE),
+#             `Güemes` = sum(ifelse(TIENDA== "Güemes", TOTAL_FACTURA, 0), na.rm = TRUE),
+#             Recoleta = sum(ifelse(TIENDA== "Recoleta", TOTAL_FACTURA, 0), na.rm = TRUE),
+#             `San Telmo` = sum(ifelse(TIENDA== "San Telmo", TOTAL_FACTURA, 0), na.rm = TRUE),
+#             `San Telmo 2` = sum(ifelse(TIENDA== "San Telmo 2", TOTAL_FACTURA, 0), na.rm = TRUE),
+#             `Total facturación` = Florida+French+`Güemes`+Recoleta+`San Telmo`+`San Telmo 2`)
+
+
+fila_total_nacionalidad_facturacion <- tibble(
+  NACIONALIDAD = "Total general",
+  Florida = sum(NACIONALIDAD_X_FACTURACION$Florida, na.rm = TRUE)- DESCUENTO_X_TIENDA$DTO_X_TIENDA[DESCUENTO_X_TIENDA$TIENDA == "Florida"],
+  French = sum(NACIONALIDAD_X_FACTURACION$French, na.rm = TRUE)-DESCUENTO_X_TIENDA$DTO_X_TIENDA[DESCUENTO_X_TIENDA$TIENDA == "French"],
+  `Güemes`= sum(NACIONALIDAD_X_FACTURACION$Güemes, na.rm = TRUE)-DESCUENTO_X_TIENDA$DTO_X_TIENDA[DESCUENTO_X_TIENDA$TIENDA == "Güemes"],
+  Recoleta = sum(NACIONALIDAD_X_FACTURACION$Recoleta, na.rm = TRUE)-DESCUENTO_X_TIENDA$DTO_X_TIENDA[DESCUENTO_X_TIENDA$TIENDA == "Recoleta"],
+  `San Telmo` = sum(NACIONALIDAD_X_FACTURACION$`San Telmo`, na.rm = TRUE)-DESCUENTO_X_TIENDA$DTO_X_TIENDA[DESCUENTO_X_TIENDA$TIENDA == "San Telmo"],
+  `San Telmo 2` = sum(NACIONALIDAD_X_FACTURACION$`San Telmo 2`, na.rm = TRUE)-DESCUENTO_X_TIENDA$DTO_X_TIENDA[DESCUENTO_X_TIENDA$TIENDA == "San Telmo 2"],
+  `Total facturación` = sum(NACIONALIDAD_X_FACTURACION$`Total facturación`, na.rm = TRUE)-sum(DESCUENTO_X_TIENDA$DTO_X_TIENDA))
+
+NACIONALIDAD_X_FACTURACION_TOTAL <- bind_rows(fila_total_nacionalidad_facturacion, NACIONALIDAD_X_FACTURACION)
+
+#Uno las dos tablas (cantidad y facturación)
+NACIONALIDAD_ENTERA <- NACIONALIDAD_X_UNIDAD_TOTAL %>% 
+  left_join(NACIONALIDAD_X_FACTURACION_TOTAL, by = "NACIONALIDAD") %>% 
+  arrange(desc(`Total facturación`))
+
+```
+
+
+```{r venta por tiendas}
+
+venta_x_tienda <- FACTURAS_MES2 |> 
+  select(FECHA_EMISION, NRO_FACTURA, TIENDA, TOTAL_FACTURA) |> 
+  distinct() |> 
+  group_by(TIENDA) |> 
+  summarise(TOTAL = sum(TOTAL_FACTURA, na.rm = TRUE)) |> 
+  ungroup()
+
+
+unidades_x_tienda <- FACTURAS_MES2 |> 
+  select(FECHA_EMISION, NRO_FACTURA, CODIGO_BARRAS,  TIENDA, PRODUCTO_CANTIDAD) |> 
+  distinct() |> 
+  group_by(TIENDA) |> 
+  summarise(CANTIDAD = sum(PRODUCTO_CANTIDAD, na.rm = TRUE)) |> 
+  ungroup()
+
+
+```
+
+
+#OTROS
+##Grabados
+```{r}
+
+productos_a_excluir <- c("BILLETERA PENY", "LLAVERO ABC", "MONEDERO AMBAR", "TOTE IRUYA", "MONEDERO LUISA", "CAMPERA CRISTINA", "BILLETERA LUCA", "MONEDERO GRACE", "PORTAHIGIENE", "BILLETERA MILO SIMPLE", "CARTERA", "CINTURON TRENZADO", "MONEDERO CORY", "CHALINA", "PORTALAPTOP", "PORTAVINO CAFAYATE") 
+
+productos_excluir_patron <- paste(productos_a_excluir, collapse = "|")
+
+GRABADOS <- FACTURAS_MES2 %>%
+  filter(GRABADO == "Sí") %>% 
+  filter(!str_detect(DESCRIPCION, productos_excluir_patron)) %>% 
+  select(PRODUCTO_NOMBRE_COMPLETO, PRODUCTO_CANTIDAD, PRODUCTO_TOTAL) %>% 
+  group_by(PRODUCTO_NOMBRE_COMPLETO) %>% 
+  summarise(Unidades= sum(PRODUCTO_CANTIDAD, na.rm = TRUE),
+            Facturación = sum(PRODUCTO_TOTAL, na.rm = TRUE)) %>%
+  ungroup() |> 
+  arrange(desc(Facturación)) |> 
+  rename(Descripción = PRODUCTO_NOMBRE_COMPLETO)
+
+fila_total_grabados <- tibble(
+  Descripción = "Total",
+  Unidades = sum(GRABADOS$Unidades, na.rm = TRUE),
+  Facturación = sum(GRABADOS$Facturación, na.rm = TRUE))
+
+GRABADOS_TOTAL <- bind_rows(fila_total_grabados, GRABADOS)
+
+```
+
+##Conserjes
+```{r}
+
+#Reviso que no hayan ventas de conserjes con 
+# REVISO_CONSERJES <- FACTURAS_MES2 %>%
+#   filter(CONSERJE == "Sí")%>%
+#   select(FECHA_EMISION, TIENDA, NACIONALIDAD, PRODUCTO_NOMBRE, PRODUCTO_CANTIDAD) %>% 
+#   rename(FECHA = FECHA_EMISION, LOCAL = TIENDA, DESCRIPCION = PRODUCTO_NOMBRE, CANTIDAD = PRODUCTO_CANTIDAD, VENTA_NETA = SUBTOTAL_PRODUCTOS)
+# 
+# CONSERJES <- REVISO_CONSERJES %>% 
+#   filter(str_detect(NOTAS, "(V|v)[[:space:][:punct:]]*$")) %>%  
+#   group_by(FECHA, LOCAL, NACIONALIDAD, DESCRIPCION) %>% 
+#   summarise(CANTIDAD= sum(CANTIDAD, na.rm = TRUE), VENTA_NETA = sum(VENTA_NETA, na.rm = TRUE)) %>% 
+#   mutate(COMISIÓN = VENTA_NETA*0.1) %>% 
+#   arrange(FECHA, LOCAL, VENTA_NETA)
+
+```
+
+
+##Tax free
+```{r}
+
+#Calculo las ventas con Tax Free
+Tax_free_VENTA_TIENDAS <- Tax_free %>% 
+  group_by(Tienda) %>% 
+  summarise("Tax Free" = sum(TotalGrossAmount, na.rm = TRUE)) |> 
+  mutate(Tienda = if_else(Tienda == "San Telmo2", "San Telmo 2", Tienda))
+
+venta_x_tienda <- FACTURAS_MES2 |> 
+  select(FECHA_EMISION, NRO_FACTURA, TIENDA, TOTAL_FACTURA) |> 
+  distinct() |> 
+  group_by(TIENDA) |> 
+  summarise(TOTAL = sum(TOTAL_FACTURA, na.rm = TRUE)) |> 
+  ungroup()
+
+
+#Selecciono de las ventas totales las columnas y me quedo con una fila por código
+VENTAS_TIENDAS <- FACTURAS_MES2 %>% 
+  select(Tienda = TIENDA, FECHA_EMISION, NRO_FACTURA, TOTAL_FACTURA, NACIONALIDAD) %>%
+  distinct(FECHA_EMISION, NRO_FACTURA, Tienda, .keep_all = TRUE) %>% 
+  group_by(Tienda) %>% 
+     summarise(`Venta total` = sum(TOTAL_FACTURA, na.rm = TRUE),
+    `Venta extranjeros` = sum(if_else(
+        !is.na(NACIONALIDAD) & 
+        NACIONALIDAD != "ARGENTINA" & 
+        NACIONALIDAD != "DESCONOCIDA",
+        TOTAL_FACTURA, 0), na.rm = TRUE))
+
+#Creo la tabla final
+TABLA_TAX_FREE <- VENTAS_TIENDAS %>% 
+  right_join(Tax_free_VENTA_TIENDAS) %>% 
+  mutate(`Participación TF` = round(`Tax Free`/`Venta total`, digits = 4),
+         `Participación Ext` = round(`Tax Free`/`Venta extranjeros`, digits = 4)) %>%
+  select(Tienda, `Venta total`, `Tax Free`, `Participación TF`, `Venta extranjeros`, `Participación Ext`)
+
+fila_total_tax_free <- tibble(
+  Tienda = "Total",
+  `Venta total` = sum(TABLA_TAX_FREE$`Venta total`, na.rm = TRUE), 
+  `Tax Free` = sum(TABLA_TAX_FREE$`Tax Free`, na.rm = TRUE), 
+  `Participación TF`= round(`Tax Free`/`Venta total`, digits = 4), 
+  `Venta extranjeros` = sum(TABLA_TAX_FREE$`Venta extranjeros`, na.rm = TRUE), 
+  `Participación Ext`= round(`Tax Free`/`Venta extranjeros`, digits = 4))
+  
+TABLA_TAX_FREE_TOTAL <- bind_rows(fila_total_tax_free, TABLA_TAX_FREE)
+
+```
+
+##Ventas agrupadas por precio unitario
+```{r}
+#Marro grande
+PRECIO_UNITARIO_MARRO_GRANDE <- FACTURAS_MES2 %>% 
+  filter(RUBRO == "MARRO GRANDE") %>% 
+  select(Precio = PRECIO_UNITARIO, CANTIDAD = PRODUCTO_CANTIDAD) %>% 
+  group_by(Precio) %>% 
+  summarise(Cantidad = sum(CANTIDAD, na.rm = TRUE), .groups = "drop") %>% 
+  mutate(Facturación = Cantidad*Precio, Participación = round((Facturación / sum(Facturación, na.rm = TRUE)), 4)) %>% 
+  arrange(desc(Participación)) %>% 
+    mutate(Acumulado = cumsum(Participación)) %>%
+  filter(Acumulado <= 0.81)
+
+#Marro chica
+PRECIO_UNITARIO_MARRO_CHICA <- FACTURAS_MES2 %>% 
+  filter(RUBRO == "MARRO CHICA") %>% 
+  select(Precio = PRECIO_UNITARIO, CANTIDAD = PRODUCTO_CANTIDAD) %>% 
+  group_by(Precio) %>% 
+  summarise(Cantidad = sum(CANTIDAD, na.rm = TRUE), .groups = "drop") %>% 
+  mutate(Facturación = Cantidad*Precio, Participación = round((Facturación / sum(Facturación, na.rm = TRUE)), 4)) %>% 
+  arrange(desc(Participación)) %>% 
+    mutate(Acumulado = cumsum(Participación)) %>%
+  filter(Acumulado <= 0.81)
+
+```
+
+#STOCK
+```{r cargo el stock de odoo}
+
+Stock <- read_excel(paste0("Stock/Stock_", fecha_stock,".xlsx")) %>% 
+  select(TIENDA = Ubicación, REFERENCIA_INTERNA = "Código de referencia de producto", PRODUCTO= Producto, CANTIDAD = "Cantidad en inventario") |> filter(TIENDA != "WHLUC/Fallado") |> 
+  mutate(TIENDA = case_when(TIENDA == "WHASG/Stock" ~ "AS Güemes",
+                            TIENDA == "WHASS/Stock" ~ "AS San Telmo",
+                            TIENDA == "WHBAS/Barracas" ~ "AS Barracas", 
+                            TIENDA == "WHBAS/Reserva" ~ "AS Reserva",
+                            TIENDA == "WHBLU/Stock" ~ "Barracas", 
+                            TIENDA == "WHFLO/Stock" ~ "Florida",
+                            TIENDA == "WHFRE/Stock" ~ "French",
+                            TIENDA == "WHGU1/Stock" ~ "Güemes",
+                            TIENDA == "WHGU2/Stock" ~ "Güemes 2",
+                            TIENDA == "WHLUC/Stock" ~ "Florida Depósito",
+                            TIENDA == "WHREC/Stock" ~ "Recoleta", 
+                            TIENDA == "WHSOL/Stock" ~ "El Solar",
+                            TIENDA == "WHST1/Stock" ~ "San Telmo 1",
+                            TIENDA == "WHST2/Stock" ~ "San Telmo 2",
+                            TRUE ~ TIENDA))
+  
+#Quito del stock lo que es AS o joyería y cambio a 0 las cantidades en negativo
+Stock_Lucero <- Stock |> 
+  filter(TIENDA %in% c("Florida", "French", "Güemes", "Recoleta", "San Telmo 1", "San Telmo 2", "Barracas", "Florida Depósito"),
+         !is.na(REFERENCIA_INTERNA)) |> 
+  mutate(CANTIDAD = if_else(CANTIDAD<0, 0, CANTIDAD))
+
+#Le agrego las columnas que necesito de los productos
+##Primero preparo los datos
+Base_para_stock <- Base_Articulos_Odoo_para_machear |> 
+  select(CODIGO_BARRAS, REFERENCIA_INTERNA, RUBRO, MATERIAL, COLOR, TALLE, VARIANTE)
+
+Stock_con_rubro <- Stock_Lucero |> 
+  left_join(Base_para_stock, by = "REFERENCIA_INTERNA") |> 
+  filter(MATERIAL != "PLATA 925" | is.na(MATERIAL),
+         !str_detect(PRODUCTO, "TIENTO CUERO|COLLAR TUBO CUERO|CHALINA OPORTUNIDAD|SCRAP")) |> 
+  mutate(RUBRO = if_else(str_detect(PRODUCTO, "PRODUCTO OUTLET"), "OUTLET", RUBRO))
+
+#Le agrego los precios desde la lista de precios de Odoo
+Precios <- read_excel(paste0("Lista_precios/Lista_precios_", fecha_precios, ".xlsx")) |> 
+  rename(PRODUCTO = "Reglas de lista de precios/Variante", PRECIO_SIN_IMP = "Reglas de lista de precios/Precio fijo") |> 
+  mutate(PRECIO = round(PRECIO_SIN_IMP*1.21)) |> 
+  select(-PRECIO_SIN_IMP) 
+
+Stock_con_precios <- Stock_con_rubro |> 
+  left_join(Precios, by = "PRODUCTO")
+
+
+REVISAR_STOCK_SIN_PRECIO <- Stock_con_precios %>% 
+filter(is.na(PRECIO)) #para eliminar las filas de productos que no están a la venta 
+
+
+STOCK_TIENDA <-  Stock_con_precios %>%
+  mutate(TOTAL = PRECIO*CANTIDAD) |> 
+  select(RUBRO, TIENDA, TOTAL) %>% 
+  group_by(RUBRO, TIENDA) %>% 
+  summarise(VALOR_STOCK = sum(TOTAL, na.rm = TRUE))
+
+
+#calculo el valor del stock por tienda y depósito
+STOCK_VALOR <- STOCK_TIENDA %>% 
+  pivot_wider(
+    id_cols = RUBRO,     # Columna que irá a las filas
+    names_from = TIENDA,       # Columna que irá a las columnas
+    values_from = VALOR_STOCK    # Columna con los valores
+  )
+
+#agrego totales de columnas y las ordeno
+STOCK_VALOR_TOTAL <- STOCK_VALOR %>% 
+  adorn_totals(where = "row") %>% 
+  relocate("Florida Depósito", .after = Barracas) %>% 
+  relocate("San Telmo 2", .after = "San Telmo 1")
+  
+```
+
+
+#STOCK SIN VENTA
+```{r}
+
+Stock_para_machear <- Stock_con_precios %>% 
+  select(TIENDA, CODIGO_BARRAS, PRODUCTO, MATERIAL, COLOR, TALLE, VARIANTE, CANTIDAD) %>% 
+  # rename_with(~ paste0(.x, "_STOCK"), c(FLORIDA, FRENCH, GUEMES, RECOLETA, `SAN TELMO`, `SAN TELMO 2`)) %>% 
+  filter(CANTIDAD >0) %>% 
+  pivot_wider(names_from = TIENDA,
+              values_from = CANTIDAD,
+              values_fill = 0) %>% 
+   mutate(`STOCK DEPOSITOS` = Barracas + `Florida Depósito`,
+          `STOCK TIENDAS` = Florida +`San Telmo 1` + Recoleta + French + `Güemes` + `San Telmo 2`,
+    STOCK_TOTAL = `STOCK DEPOSITOS` + `STOCK TIENDAS`) %>% 
+  rename_with(~ paste0(.x, "_STOCK"), c("Florida", "San Telmo 1", "Recoleta", "French", "Güemes", "San Telmo 2"))
+
+unidades_vendidas <- FACTURAS_MES2 %>% 
+  filter(PRODUCTO_CANTIDAD>0) %>% #para quitar los negativo (créditos)
+  group_by(TIENDA, CODIGO_BARRAS) %>% 
+  summarise(VENTA = sum(PRODUCTO_CANTIDAD, na.rm = TRUE)) %>% 
+  ungroup() %>% 
+  pivot_wider(names_from = TIENDA, values_from = VENTA, values_fill = 0) %>%   rename(
+    FLORIDA_VTA = Florida, 
+    FRENCH_VTA = French, 
+    GUEMES_VTA = "Güemes", 
+    RECOLETA_VTA = Recoleta, 
+    "SAN TELMO_VTA" = "San Telmo", 
+    "SAN TELMO 2_VTA" = "San Telmo 2"
+  ) %>% 
+  mutate(VENTA_TIENDAS = rowSums(across(ends_with("_VTA")), na.rm = TRUE))
+
+
+# Uno las tablas
+ventas_stock <- Stock_para_machear %>%
+  left_join(unidades_vendidas, by = "CODIGO_BARRAS") %>% 
+  mutate(across(where(is.numeric), ~ replace(., is.na(.), 0))) %>%   select(CODIGO_BARRAS, PRODUCTO, MATERIAL, COLOR, TALLE, VARIANTE, Florida_STOCK, FLORIDA_VTA, French_STOCK, FRENCH_VTA, Güemes_STOCK, GUEMES_VTA, Recoleta_STOCK, RECOLETA_VTA, "San Telmo 1_STOCK", "SAN TELMO_VTA", "San Telmo 2_STOCK", "SAN TELMO 2_VTA", VENTA_TIENDAS, `STOCK TIENDAS`, `STOCK TIENDAS`, STOCK_TOTAL) %>% 
+  arrange(VENTA_TIENDAS, desc(`STOCK TIENDAS`)) 
+
+#Divido en dos tablas
+#Ventas 0
+ventas_cero <- ventas_stock %>% 
+  filter(VENTA_TIENDAS == 0) %>% 
+   select(-ends_with("_VTA"))
+
+#VEO SI DESPUÉS QUIERO USAR EL RESTO DE LA TABLA (EN LA QUE SE VENDIÓ EN ALGUNAS SÍ Y EN OTRAS NO)
+```
+
+
+
+##AUX
+```{r}
+
+#Tabla Venta por familia
+FAMILIA_AUX <- SKU_FAMILIA %>% 
+  group_by(FAMILIA) %>% 
+  summarise(VENTA = sum(VENTA, na.rm = TRUE), FACTURACIÓN = round(sum(TOTAL, na.rm = TRUE))) %>% 
+  mutate(Participación = round(FACTURACIÓN/sum(FACTURACIÓN, na.rm = TRUE), 4)) %>% 
+  arrange(desc(Participación)) %>% 
+  ungroup()
+
+
+#Marro grande materiales 80% de la venta
+MARRO_GRANDE_MATERIALES_TOP_80 <- MARRO_GRANDE_MATERIALES %>%
+  mutate(Acumulado = cumsum(Participación)) %>%
+  filter(Acumulado <= 0.80)  # Solo los que contribuyen al 80%
+
+resto_marro_grande_materiales <- MARRO_GRANDE_MATERIALES_TOP_80 %>%
+  summarise(
+    MATERIAL = "Otros",
+    Facturación = NA,
+   Participación = 1-sum(Participación, na.rm = TRUE))
+
+MARRO_GRANDE_MATERIALES_TOP_80 <- bind_rows(MARRO_GRANDE_MATERIALES_TOP_80, resto_marro_grande_materiales)
+
+
+#Marro grande colores 80% de la venta
+MARRO_GRANDE_COLORES_TOP_80 <- MARRO_GRANDE_COLORES %>%
+  mutate(Acumulado = cumsum(Participación)) %>%
+  filter(Acumulado <= 0.8)  # Solo los que contribuyen al 80%
+
+resto_marro_grande_colores <- MARRO_GRANDE_COLORES_TOP_80 %>%
+  summarise(
+    COLOR = "Otros",
+    Facturación = NA,
+   Participación = 1-sum(Participación, na.rm = TRUE))
+
+MARRO_GRANDE_COLORES_TOP_80 <- bind_rows(MARRO_GRANDE_COLORES_TOP_80, resto_marro_grande_colores)
+
+
+#Marro chica materiales 80% de la venta
+MARRO_CHICA_MATERIALES_TOP_80 <- MARRO_CHICA_MATERIALES %>%
+  mutate(Acumulado = cumsum(Participación)) %>%
+  filter(Acumulado <= 0.85)  # Solo los que contribuyen al 80%
+
+resto_marro_chica_materiales <- MARRO_CHICA_MATERIALES_TOP_80 %>%
+  summarise(
+    MATERIAL = "Otros",
+    Facturación = NA,
+    Participación = 1-sum(Participación, na.rm = TRUE))
+
+MARRO_CHICA_MATERIALES_TOP_80 <- bind_rows(MARRO_CHICA_MATERIALES_TOP_80, resto_marro_chica_materiales)
+
+
+#Marro chica colores 80% de la venta
+MARRO_CHICA_COLORES_TOP_80 <- MARRO_CHICA_COLORES %>%
+  mutate(Acumulado = cumsum(Participación)) %>%
+  filter(Acumulado <= 0.8)  # Solo los que contribuyen al 80%
+
+resto_marro_chica_colores <- MARRO_CHICA_COLORES_TOP_80 %>%
+  summarise(
+    COLOR = "Otros",
+    Facturación = NA,
+    Participación = 1-sum(Participación, na.rm = TRUE))
+
+MARRO_CHICA_COLORES_TOP_80 <- bind_rows(MARRO_CHICA_COLORES_TOP_80, resto_marro_chica_colores)
+
+
+
+#Tabla proveedores externos
+PROVEEDOR_EXTERNO_AUX <- PROVEEDOR_EXTERNO %>% 
+  select(PROVEEDOR, Participación) %>% 
+  arrange(Participación)
+
+#Grabados por tiendas
+ GRABADOS_TIENDAS <- FACTURAS_MES2 %>%
+   filter(GRABADO == "Sí") %>%
+   filter(!str_detect(DESCRIPCION, productos_excluir_patron)) %>%   
+  group_by(TIENDA) %>% 
+   summarise(Facturación = round(sum(PRODUCTO_TOTAL, na.rm = TRUE))) %>%
+   mutate(Participación = round((Facturación / sum(Facturación, na.rm = TRUE)), 4)) %>% 
+   arrange(desc(Participación))
+
+#Nacionalidad
+NACIONALIDAD_PARA_GRAFICO <- NACIONALIDAD_X_FACTURACION %>% 
+  select(NACIONALIDAD, `Total facturación`) %>% 
+  arrange(desc(`Total facturación`)) %>% 
+  mutate(Participación = round((`Total facturación` / sum(`Total facturación`, na.rm = TRUE)), 4), Acumulado = cumsum(Participación)) %>%
+  filter(Acumulado <= 0.81) 
+
+#Tax free
+TABLA_TAX_FREE_AUX <- TABLA_TAX_FREE_TOTAL %>% 
+  select(Tienda, `Participación TF`) %>% 
+  mutate(`Venta sin TF` = 1 - `Participación TF`)
+
+#Tablas participación histórica 
+##Primero preparo los datos
+
+## Fechas ajustadas para incluir 13 meses completos
+fecha_final_historico <- as.Date(fecha_fin_mes)
+fecha_inicio_historica <- floor_date(fecha_final_historico %m-% months(12), "month")  # %m-% resta meses, le digo cuántos y "month" es para que floor_date sea hecho en el mes
+
+#esta parte es para completar con 0 los meses sin ventas para las familias
+meses_referencia <- data.frame(
+  año = year(seq(fecha_inicio_historica, fecha_final_historico, by = "month")),
+  mes = month(seq(fecha_inicio_historica, fecha_final_historico, by = "month"))
+)
+
+
+## Datos historicos
+Datos_historicos <- Odoo_mas_Alegra %>%
+  filter(TIENDA %in% c("San Telmo", "San Telmo 2", "Florida", "French", "Güemes", "Recoleta")) %>% 
+  filter(FECHA_EMISION>= fecha_inicio_historica, FECHA_EMISION <= fecha_final_historico) %>% 
+  filter(PRECIO_UNITARIO>100) |> 
+  mutate(
+    RUBRO = case_when(
+      SUBFAMILIA == "OUTLET" ~ "OUTLET",
+      TRUE ~ RUBRO),
+    FAMILIA = case_when(
+      SUBFAMILIA == "OUTLET" ~ "OUTLET", 
+      TRUE ~ FAMILIA)
+  )
+
+REVISAR_RUBRO_STOCK <- filter(Datos_historicos, is.na(RUBRO))
+REVISAR_FAMILIA_STOCK <- filter(Datos_historicos, is.na(FAMILIA))
+
+##RUBRO
+tabla_historica_RUBRO <- Datos_historicos %>% 
+  group_by(año = year(FECHA_EMISION), mes = month(FECHA_EMISION), RUBRO) %>%
+  summarise(Unidades = sum(PRODUCTO_CANTIDAD, na.rm = TRUE), 
+            "Facturación" = sum(PRODUCTO_TOTAL, na.rm = TRUE), 
+            .groups = 'drop') %>%
+  # Completamos solo con los meses de referencia
+  right_join(meses_referencia, by = c("año", "mes")) %>%
+  complete(nesting(año, mes), RUBRO, 
+           fill = list(Unidades = 0, "Facturación" = 0)) %>%
+  arrange(RUBRO) %>% 
+  group_by(año, mes) %>% 
+  mutate(Participación = round(Facturación/sum(Facturación, na.rm = TRUE), digits = 4))
+
+##FAMILIA
+tabla_historica_FAMILIA <- Datos_historicos %>% 
+  group_by(año = year(FECHA_EMISION), mes = month(FECHA_EMISION), RUBRO, FAMILIA) %>%
+  summarise(Unidades = sum(PRODUCTO_CANTIDAD, na.rm = TRUE), 
+            "Facturación" = sum(PRODUCTO_TOTAL, na.rm = TRUE),
+            .groups = 'drop') %>%
+  # Completamos solo con los meses de referencia
+  right_join(meses_referencia, by = c("año", "mes")) %>%
+  complete(nesting(año, mes), nesting(RUBRO, FAMILIA), 
+           fill = list(Unidades = 0, "Facturación" = 0)) %>%
+  arrange(RUBRO, FAMILIA, año, mes) %>% 
+  group_by(año, mes, RUBRO) %>% 
+  mutate("Participación" = round(Facturación/sum(Facturación, na.rm = TRUE), digits = 4))
+  
+  
+```
+
+#Escribo el excel
+```{r}
+
+# 1. Configuración inicial ----
+wb <- createWorkbook()
+
+# Estilos predefinidos
+headerStyle <- createStyle(
+  textDecoration = "bold",
+  border = "TopBottomLeftRight",
+  halign = "left"
+)
+
+totalStyle <- createStyle(
+  textDecoration = "bold",
+  fgFill = "#00CED1",  # Aguamarina
+  fontColour = "white",
+  border = "TopBottomLeftRight"
+)
+
+currencyStyle <- createStyle(numFmt = "$#,##0")
+percentStyle <- createStyle(numFmt = "0.0%")
+numberStyle <- createStyle(numFmt = "#,##0")
+
+# Colores para diferentes tablas
+color_codes <- list(
+  aguamarina = list(fill = "#00CED1", font = "#FFFFFF"), # Blanco
+  naranja    = list(fill = "#FFA500", font = "#FFFFFF"), # Blanco
+  celeste    = list(fill = "#87CEFA", font = "#000000"), # Negro
+  lila       = list(fill = "#D8BFD8", font = "#000000")  # Negro
+)
+
+# 2. Función para agregar tablas con formato ----
+add_formatted_table <- function(wb, sheet, df, startRow, startCol, 
+                              tableName, tableTitle = NULL, 
+                              totalRow = "TOTAL", color = "aguamarina",
+                              currencyCols = NULL, percentCols = NULL,
+                              numberCols = NULL) {
+  
+  # Verificar si hay datos
+  if (nrow(df) == 0) {
+    df <- data.frame(Mensaje = "No hay datos disponibles")
+  }
+  
+  # Limpiar nombre de tabla (sin espacios ni caracteres especiales)
+  tableName <- gsub("[^a-zA-Z0-9_]", "_", tableName)
+  
+  # Verificar si la tabla ya existe
+  existing_tables <- getTables(wb, sheet)
+  if (tableName %in% existing_tables) {
+    removeTable(wb, sheet = sheet, table = tableName)
+  }
+  
+  # Agregar título si existe
+  if (!is.null(tableTitle)) {
+    writeData(wb, sheet, tableTitle, startRow = startRow, startCol = startCol)
+    addStyle(wb, sheet, 
+             createStyle(textDecoration = "bold", halign = "left"), 
+             rows = startRow, cols = startCol)
+    startRow <- startRow + 1
+  }
+  
+  # Escribir datos
+  writeDataTable(wb, sheet, df, 
+                 startRow = startRow, startCol = startCol,
+                 tableName = tableName,
+                 headerStyle = headerStyle,
+                 tableStyle = "TableStyleLight9",
+                 withFilter = FALSE)
+  
+  # Función segura para aplicar formatos
+  safe_apply_format <- function(cols, style) {
+    if (!is.null(cols)) {
+      # Filtrar solo columnas que existen en el dataframe
+      valid_cols <- cols[cols %in% names(df)]
+      for (col in valid_cols) {
+        colIndex <- which(names(df) == col)
+        if (length(colIndex) > 0) {
+          addStyle(wb, sheet, style, 
+                   rows = (startRow + 1):(startRow + nrow(df)), 
+                   cols = startCol + colIndex - 1,
+                   gridExpand = TRUE)
+        }
+      }
+    }
+  }
+  
+  # Aplicar formatos de manera segura
+  safe_apply_format(numberCols, numberStyle)
+  safe_apply_format(currencyCols, currencyStyle)
+  safe_apply_format(percentCols, percentStyle)
+  
+ # Aplicar estilo a la fila Total si existe
+  if (!is.null(totalRow) && !is.null(color)) {
+    total_df_index <- which(grepl(paste0("^", totalRow), df[[1]], ignore.case = TRUE))
+    
+    if (length(total_df_index) > 0) {
+      excelRow <- startRow + total_df_index
+      
+      # Creamos el estilo usando los códigos de color de nuestra nueva lista
+      final_total_style <- createStyle(
+        fgFill = color_codes[[color]]$fill,
+        fontColour = color_codes[[color]]$font,
+        textDecoration = "bold"
+      )
+      
+      addStyle(wb, sheet,
+               style = final_total_style,
+               rows = excelRow,
+               cols = startCol:(startCol + ncol(df) - 1),
+               gridExpand = TRUE,
+               stack = TRUE)
+    }
+  }
+  
+  
+    # Devolver información de posición
+  list(
+    start_row = startRow,
+    end_row = startRow + nrow(df),
+    start_col = startCol,
+    end_col = startCol + ncol(df) - 1,
+    next_row = startRow + nrow(df) + 3  # Fila final + 3 filas de espacio
+  )
+}
+
+# 3. Crear hojas y agregar tablas ----
+
+# Hoja 1: Rubros y Familias
+addWorksheet(wb, "Rubros y Familias")
+mes_formatted <- format(ym(mes), "%B %Y") %>% toupper()
+title <- paste("REPORTE DE VENTA", mes_formatted)
+writeData(wb, "Rubros y Familias", title, startRow = 1)
+addStyle(wb, "Rubros y Familias", 
+         createStyle(textDecoration = "bold", fontSize = 14),
+         rows = 1, cols = 1)
+
+# Tabla 1: tabla_venta_rubro
+pos1 <- add_formatted_table(wb, "Rubros y Familias", tabla_venta_rubro, 
+                          startRow = 3, startCol = 1,
+                          tableName = "tabla_venta_rubro",
+                          currencyCols = "Facturación",
+                          percentCols = "Participación",
+                          numberCols = "Unidades",
+                          color = "aguamarina")
+
+# Tabla 2: tabla_rubro_familia (con más espacio)
+pos2 <- add_formatted_table(wb, "Rubros y Familias", tabla_rubro_familia, 
+                          startRow = pos1$end_row + 5,  startCol = 1,
+                          tableName = "tabla_rubro_familia",
+                          currencyCols = "Facturación",
+                          percentCols = "Participación",
+                          numberCols = c("Unidades", "Facturación"),
+                          color = "aguamarina")
+
+# Hoja 2: SKU
+addWorksheet(wb, "SKU")
+next_row <- add_formatted_table(wb, "SKU", SKU_total, 
+                               startRow = 1, startCol = 1,
+                               tableName = "SKU_total",
+                               currencyCols = c("PRECIO", "TOTAL"),
+                               percentCols = NULL,
+                               numberCols = c("VENTA", "STOCK"),
+                               color = "naranja")
+
+
+# Hoja 3: SKU-familia
+addWorksheet(wb, "SKU-familia")
+next_row <- add_formatted_table(wb, "SKU-familia", SKU_FAMILIA_final, 
+                               startRow = 1, startCol = 1,
+                               tableName = "SKU_FAMILIA_final",
+                               currencyCols = c("PRECIO", "TOTAL"),
+                               percentCols = NULL,
+                               numberCols = c("VENTA", "STOCK_TOTAL"),
+                               color = NULL)
+
+
+# Hoja 4: Modelos
+addWorksheet(wb, "Modelos")
+next_row <- add_formatted_table(wb, "Modelos", Modelos_total, 
+                               startRow = 1, startCol = 1,
+                               tableName = "Modelos_total",
+                               currencyCols = c("PRECIO", "TOTAL"),
+                               percentCols = NULL,
+                               numberCols = c("VENTA", "STOCK"),
+                               color = "celeste")
+
+
+# Hoja 5: Materiales y colores
+addWorksheet(wb, "Materiales y colores")
+title <- "MATERIALES Y COLORES"
+writeData(wb, "Materiales y colores", title, startRow = 1)
+addStyle(wb, "Materiales y colores", 
+         createStyle(textDecoration = "bold", fontSize = 14),
+         rows = 1, cols = 1)
+
+# Agregar tablas
+# Tabla 1
+pos1 <- add_formatted_table(wb, "Materiales y colores", MARRO_GRANDE_MATERIAL_COLOR, 
+                               startRow = 3, startCol = 1,
+                               tableName = "MARRO_GRANDE_MATERIAL_COLOR",
+                               tableTitle = "Marro grande", 
+                               currencyCols = "Facturación",
+                               percentCols = c("Participación", "Acumulado"),
+                               numberCols = NULL,
+                               color = "celeste")
+
+# Tabla 2 
+pos2 <- add_formatted_table(wb, "Materiales y colores", MARRO_CHICA_MATERIAL_COLOR, 
+                                startRow = pos1$end_row + 5, startCol = 1,
+                               tableName = "MARRO_CHICA_MATERIAL_COLOR",
+                               tableTitle = "Marro chica",
+                               currencyCols = "Facturación",
+                               percentCols = c("Participación", "Acumulado"),
+                               numberCols = NULL,
+                               color = "celeste")
+
+# # Tabla 3
+# pos3 <- add_formatted_table(wb, "Materiales y colores", CINTURON_MATERIAL_COLOR, 
+#                                 startRow = pos2$end_row + 5, startCol = 1,
+#                                tableName = "CINTURON_MATERIAL_COLOR",
+#                                tableTitle = "Cinturones",
+#                                currencyCols = "Facturación",
+#                                percentCols = c("Participación", "Acumulado"),
+#                                numberCols = NULL,
+#                                color = "celeste")
+
+
+# Hoja 6: Proveedores externos
+addWorksheet(wb, "Proveedores externos")
+title <- "PROVEEDORES EXTERNOS"
+writeData(wb, "Proveedores externos", title, startRow = 1)
+addStyle(wb, "Proveedores externos", 
+         createStyle(textDecoration = "bold", fontSize = 14),
+         rows = 1, cols = 1)
+
+# Agregar tablas
+# Tabla 1
+pos1 <- add_formatted_table(wb, "Proveedores externos", PROVEEDOR_EXTERNO_TOTAL, 
+                               startRow = 3, startCol = 1,
+                               tableName = "PROVEEDOR_EXTERNO_TOTAL",
+                               currencyCols = "Facturación",
+                               percentCols = "Participación",
+                               numberCols = "Unidades",
+                               color = "naranja")
+
+# Tabla 2 
+pos2 <- add_formatted_table(wb, "Proveedores externos", PROVEEDOR_EXTERNO_RUBROS_TOTAL, 
+                               startRow = pos1$end_row + 5, startCol = 1,
+                               tableName = "PROVEEDOR_EXTERNO_RUBROS_TOTAL",
+                               currencyCols = "Facturación",
+                               percentCols = "Participación",
+                               numberCols = "Unidades",
+                               color = "naranja")
+
+
+
+# Hoja 7: Nacionalidades
+cols_ends_with_x <- names(NACIONALIDAD_ENTERA)[endsWith(names(NACIONALIDAD_ENTERA), ".x")]
+cols_ends_with_y <- names(NACIONALIDAD_ENTERA)[endsWith(names(NACIONALIDAD_ENTERA), ".y")]
+
+addWorksheet(wb, "Nacionalidades")
+next_row <- add_formatted_table(wb, "Nacionalidades", NACIONALIDAD_ENTERA, 
+                               startRow = 1, startCol = 1,
+                               tableName = "NACIONALIDAD_ENTERA",
+                               currencyCols = c(cols_ends_with_y, "Total facturación"),
+                               percentCols = NULL,
+                               numberCols = c(cols_ends_with_x, "Total cantidad"),
+                               color = "lila")
+
+
+
+# Hoja 8: Otros
+addWorksheet(wb, "Otros")
+title <- "GRABADOS"
+writeData(wb, "Otros", title, startRow = 1)
+addStyle(wb, "Otros", 
+         createStyle(textDecoration = "bold", fontSize = 14),
+         rows = 1, cols = 1)
+
+# Tabla 1: GRABADOS_TOTAL
+pos1 <- add_formatted_table(wb, "Otros", GRABADOS_TOTAL, 
+                         startRow = 3, startCol = 1,
+                         tableName = "GRABADOS_TOTAL",
+                         currencyCols = "Facturación",
+                         percentCols = NULL,
+                         numberCols = "Unidades")
+
+# Tabla 2: CONSERJES
+# pos2 <- add_formatted_table(wb, "Otros", CONSERJES, 
+#                          startRow = pos1$end_row + 5, startCol = 1,
+#                          tableName = "CONSERJES",
+#                          tableTitle = "CONSERJES",
+#                          currencyCols = c("VENTA_NETA", "COMISIÓN"),
+#                          percentCols = NULL,
+#                          numberCols = "CANTIDAD")
+
+#Tabla 3: TABLA_TAX_FREE_TOTAL
+pos3 <- add_formatted_table(wb, "Otros", TABLA_TAX_FREE_TOTAL,
+                         startRow = pos1$end_row + 5, startCol = 1,
+                         tableName = "TABLA_TAX_FREE",
+                         tableTitle = "TAX FREE",
+                         currencyCols = c("Venta total", "Tax free", "Venta extranjeros"),
+                         percentCols = c("Participación TF", "Participación Ext"),
+                         numberCols = NULL)
+
+# Tablas 4 y 5: Precios unitarios (una al lado de la otra)
+# Tabla 4: PRECIO_UNITARIO_MARRO_GRANDE (izquierda)
+pos_left <- add_formatted_table(wb, "Otros", PRECIO_UNITARIO_MARRO_GRANDE, 
+                              startRow = pos3$end_row + 5, startCol = 1,
+                              tableName = "PRECIO_MARRO_GRANDE",
+                              tableTitle = "PRECIOS",
+                              currencyCols = c("Precio", "Facturación"),
+                              percentCols = c("Participación", "Acumulado"),
+                              numberCols = "Cantidad")
+
+# Verificamos las columnas existentes en el dataframe
+print(names(PRECIO_UNITARIO_MARRO_CHICA))
+
+# Tabla 5: PRECIO_UNITARIO_MARRO_CHICA (derecha, con columna en blanco)
+start_col_right <- pos_left$end_col + 2  # +2 para dejar 1 columna en blanco
+
+# Asegurarnos de que las columnas especificadas existen
+cols_existentes <- names(PRECIO_UNITARIO_MARRO_CHICA)
+currency_cols <- c("Precio", "Facturación")[c("Precio", "Facturación") %in% cols_existentes]
+percent_cols <- c("Participación", "Acumulado")[c("Participación", "Acumulado") %in% cols_existentes]
+number_cols <- "Cantidad"["Cantidad" %in% cols_existentes]
+
+pos_right <- add_formatted_table(wb, "Otros", PRECIO_UNITARIO_MARRO_CHICA, 
+                               startRow = pos_left$start_row, 
+                               startCol = start_col_right,
+                               tableName = "PRECIO_MARRO_CHICA",
+                               currencyCols = currency_cols,
+                               percentCols = percent_cols,
+                               numberCols = number_cols)
+
+
+# Hoja 9: Valor stock
+addWorksheet(wb, "Valor stock")
+mes_formatted <- format(ym(mes), "%B %Y") %>% toupper()
+title <- paste("STOCK A ", mes_formatted)
+writeData(wb, "Valor stock", title, startRow = 1)
+addStyle(wb, "Valor stock", 
+         createStyle(textDecoration = "bold", fontSize = 14),
+         rows = 1, cols = 1)
+
+# Tabla 1: STOCK_VALOR_TOTAL
+pos1 <- add_formatted_table(wb, "Valor stock", STOCK_VALOR_TOTAL, 
+                          startRow = 3, startCol = 1,
+                          tableName = "STOCK_VALOR_TOTAL",
+                          currencyCols = c("TIENDA", "FLORIDA", "FRENCH", "GÜEMES", "RECOLETA", "SAN TELMO", "SAN TELMO 2"),
+                          percentCols = NULL,
+                          numberCols = NULL,
+                          color = "aguamarina")
+
+
+# Hoja 10: stock sin ventas
+addWorksheet(wb, "Stock sin ventas")
+mes_formatted <- format(ym(mes), "%B %Y") %>% toupper()
+title <- paste("STOCK SIN VENTAS DURANTE ", mes_formatted)
+writeData(wb, "Stock sin ventas", title, startRow = 1)
+addStyle(wb, "Stock sin ventas", 
+         createStyle(textDecoration = "bold", fontSize = 14),
+         rows = 1, cols = 1)
+
+# Tabla 1: 
+pos1 <- add_formatted_table(wb, "Stock sin ventas", ventas_cero, 
+                          startRow = 3, startCol = 1,
+                          tableName = "ventas_cero",
+                          currencyCols = NULL,
+                          percentCols = NULL,
+                          numberCols = NULL,
+                          color = "aguamarina")
+
+
+
+# Hoja 11: AUX
+addWorksheet(wb, "AUX")
+
+## Tabla 1: FAMILIA_AUX
+pos1 <- add_formatted_table(wb, "AUX", FAMILIA_AUX, 
+                          startRow = 1, startCol = 1,
+                          tableName = "FAMILIA_AUX",
+                          currencyCols = "FACTURACIÓN",
+                          percentCols = "Participación",
+                          numberCols = "VENTA",
+                          color = "aguamarina")
+
+## Tabla 2: MARRO_GRANDE_MATERIALES_TOP_80 (a la derecha de FAMILIA_AUX)
+start_col_right <- pos1$end_col + 2  
+
+pos2 <- add_formatted_table(wb, "AUX", MARRO_GRANDE_MATERIALES_TOP_80, 
+                          startRow = 1, startCol = start_col_right,
+                          tableName = "MARRO_GRANDE_MATERIALES_TOP_80",
+                          tableTitle = "MARRO GRANDE MATERIALES (80% de la venta)",
+                          currencyCols = "Facturación",
+                          percentCols = c("Participación", "Acumulado"),
+                          numberCols = NULL,
+                          color = "celeste")
+
+## Tabla 3: MARRO_GRANDE_COLORES_TOP_80 (debajo de MARRO_GRANDE_MATERIALES_TOP_80 con 2 filas vacías)
+pos3 <- add_formatted_table(wb, "AUX", MARRO_GRANDE_COLORES_TOP_80, 
+                          startRow = pos2$end_row + 3,  # +3 para dejar 2 filas vacías
+                          startCol = start_col_right,
+                          tableName = "MARRO_GRANDE_COLORES_TOP_80",
+                          tableTitle = "MARRO GRANDE COLORES (80% de la venta)",
+                          currencyCols = "Facturación",
+                          percentCols = c("Participación", "Acumulado"),
+                          numberCols = NULL,
+                          color = "celeste")
+
+## Tabla 4: MARRO_CHICA_MATERIALES_TOP_80 (a la derecha de MARRO_GRANDE_MATERIALES_TOP_80)
+start_col_right2 <- pos2$end_col + 2  # +2 para dejar 1 columna en blanco
+
+pos4 <- add_formatted_table(wb, "AUX", MARRO_CHICA_MATERIALES_TOP_80, 
+                          startRow = 1, startCol = start_col_right2,
+                          tableName = "MARRO_CHICA_MATERIALES_TOP_80",
+                          tableTitle = "MARRO CHICA MATERIALES (80% de la venta)",
+                          currencyCols = "Facturación",
+                          percentCols = c("Participación", "Acumulado"),
+                          numberCols = NULL,
+                          color = "celeste")
+
+## Tabla 5: MARRO_CHICA_COLORES_TOP_80 (debajo de MARRO_CHICA_MATERIALES_TOP_80 con 2 filas vacías)
+pos5 <- add_formatted_table(wb, "AUX", MARRO_CHICA_COLORES_TOP_80, 
+                          startRow = pos4$end_row + 3,  # +3 para dejar 2 filas vacías
+                          startCol = start_col_right2,
+                          tableName = "MARRO_CHICA_COLORES_TOP_80",
+                          tableTitle = "MARRO CHICA COLORES (80% de la venta)",
+                          currencyCols = "Facturación",
+                          percentCols = c("Participación", "Acumulado"),
+                          numberCols = NULL,
+                          color = "celeste")
+
+## Tabla 6: CINTURON_MATERIALES_TOP_80 (a la derecha de MARRO_CHICA_MATERIALES_TOP_80)
+# start_col_right3 <- pos4$end_col + 2  # +2 para dejar 1 columna en blanco
+
+# pos6 <- add_formatted_table(wb, "AUX", CINTURON_MATERIALES_TOP_80, 
+#                           startRow = 1, startCol = start_col_right3,
+#                           tableName = "CINTURON_MATERIALES_TOP_80",
+#                           tableTitle = "CINTURONES MATERIALES (80% de la venta)",
+#                           currencyCols = "Facturación",
+#                           percentCols = c("Participación", "Acumulado"),
+#                           numberCols = NULL,
+#                           color = "celeste")
+
+## Tabla 7: CINTURON_COLORES_TOP_80 (debajo de CINTURON_MATERIALES_TOP_80 con 2 filas vacías)
+# pos7 <- add_formatted_table(wb, "AUX", CINTURON_COLORES_TOP_80, 
+#                           startRow = pos6$end_row + 3,  # +3 para dejar 2 filas vacías
+#                           startCol = start_col_right3,
+#                           tableName = "CINTURON_COLORES_TOP_80",
+#                           tableTitle = "CINTURONES COLORES (80% de la venta)",
+#                           currencyCols = "Facturación",
+#                           percentCols = c("Participación", "Acumulado"),
+#                           numberCols = NULL,
+#                           color = "celeste")
+
+## Tabla 8: NACIONALIDAD PARA GRÁFICO (debajo de todo lo anterior con 2 filas vacías)
+next_row <- max(pos1$end_row, pos3$end_row, pos5$end_row, pos5$end_row) + 3
+
+pos8 <- add_formatted_table(wb, "AUX", NACIONALIDAD_PARA_GRAFICO, 
+                          startRow = next_row, startCol = 1,
+                          tableName = "NACIONALIDAD_PARA_GRAFICO",
+                          tableTitle = "NACIONALIDADES",
+                          currencyCols = "Total facturación",
+                          percentCols = c("Participación", "Acumulado"),
+                          numberCols = NULL,
+                          color = NULL)
+
+## Tabla 9: GRABADOS_TIENDAS (debajo de NACIONALIDAD con 2 filas vacías)
+pos9 <- add_formatted_table(wb, "AUX", GRABADOS_TIENDAS, 
+                          startRow = pos8$end_row + 3, startCol = 1,
+                          tableName = "GRABADOS_TIENDAS",
+                          tableTitle = "GRABADOS POR TIENDAS",
+                          currencyCols = "Facturación",
+                          percentCols = "Participación",
+                          numberCols = NULL,
+                          color = NULL)  # Sin color especial según especificaciones
+
+## Tabla 10: GRABADOS_TIENDAS (debajo de GRABADOS con 2 filas vacías)
+pos9 <- add_formatted_table(wb, "AUX", TABLA_TAX_FREE_AUX,
+                          startRow = pos9$end_row + 3, startCol = 1,
+                          tableName = "TABLA_TAX_FREE_AUX",
+                          tableTitle = "PORCENTAJE DE VENTA CON TAX FREE",
+                          currencyCols = NULL,
+                          percentCols = c("Participación TF", "Venta sin TF"),
+                          numberCols = NULL,
+                          color = NULL)
+
+## Tabla 11: TABLA HISTÓRICA DE RUBRO (al lado de CINTURONES)
+start_col_right4 <- pos5$end_col + 2  # +2 para dejar 1 columna en blanco
+
+pos10 <- add_formatted_table(wb, "AUX", tabla_historica_RUBRO, 
+                          startRow = 1, startCol = start_col_right4,
+                          tableName = "tabla_historica_RUBRO",
+                          tableTitle = "TABLA HISTÓRICA DE PARTICIPACIÓN POR RUBRO",
+                          currencyCols = "Facturación",
+                          percentCols = "Participación",
+                          numberCols = "Unidades",
+                          color = "celeste")
+
+## Tabla 12: TABLA HISTÓRICA DE FAMILIA (a la derecha de la de RUBRO)
+start_col_right5 <- pos10$end_col + 2  # +2 para dejar 1 columna en blanco
+
+pos11 <- add_formatted_table(wb, "AUX", tabla_historica_FAMILIA, 
+                          startRow = 1, startCol = start_col_right5,
+                          tableName = "tabla_historica_FAMILIA",
+                          tableTitle = "TABLA HISTÓRICA DE PARTICIPACIÓN POR FAMILIA",
+                          currencyCols = "Facturación",
+                          percentCols = "Participación",
+                          numberCols = "Unidades",
+                          color = "celeste")
+
+
+
+# Ocultar la hoja AUX al final
+#sheetVisibility(wb)[9] <- FALSE
+
+
+
+# 4. Guardar el archivo ----
+saveWorkbook(wb, paste0("Reporte_ventas/Reporte_Ventas_", mes, ".xlsx"), overwrite = TRUE)
+```
+

@@ -1,0 +1,49 @@
+---
+title: "producto"
+output: html_document
+date: "2025-04-25"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#1 corro Arreglo base para tener corregida la base de artículos
+
+#LLAVERO ABC
+```{r creo la tabla}
+
+Venta_llaveros <- Odoo_mas_Alegra %>% 
+  #filter(FECHA_EMISION >= "2025-05-01") %>% 
+  filter(DESCRIPCION == "LLAVERO ABC") %>%
+  mutate(MES = month(FECHA_EMISION), AÑO = year(FECHA_EMISION)) %>% 
+  group_by(AÑO, MES, VARIANTE) %>% 
+  summarise(VENTA = sum(PRODUCTO_CANTIDAD)) |> 
+  ungroup()
+  
+
+  
+tabla_historica <- Venta_llaveros |>
+  mutate(periodo = sprintf("%d-%02d", AÑO, MES)) |>
+  select(-AÑO, -MES) |>
+  pivot_wider(
+    names_from = VARIANTE,
+    values_from = VENTA,
+    values_fill = 0,
+    names_sort = TRUE
+  ) |>
+  arrange(periodo)
+
+write.xlsx(tabla_historica, "Reporte_productos/Venta_llaveros_ABC_202603.xlsx")
+```
+
+```{r gráficos}
+
+Venta_llaveros |>
+ mutate(periodo = paste(AÑO, MES, sep = "-")) |>
+  ggplot(aes(periodo, VARIANTE, fill = VENTA)) +
+  geom_tile() +
+  scale_fill_gradient(low = "white", high = "steelblue")
+
+```
+

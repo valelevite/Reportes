@@ -1,0 +1,12 @@
+"0",""
+"0","participacion <- Stock %>% "
+"0","  rename(CONDICION = condición) %>% "
+"0","  group_by(RUBRO, CONDICION) %>% "
+"0","  summarise(Unidades = sum(`stock unid.`),"
+"0","            ""Valor_stock"" = sum(`stock valorizado`),"
+"0","            Items = n()) %>% "
+"0","  ungroup() %>% "
+"0","   mutate(CONDICION = factor(CONDICION, levels = c(""activos"", ""discontinuados"", ""liquidación"", ""2x1"", ""fuera de venta"")))"
+"2","[38;5;232m`summarise()` has grouped output by 'RUBRO'. You can
+override using the `.groups` argument.[39m
+"

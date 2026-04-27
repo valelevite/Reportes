@@ -1,0 +1,2 @@
+"0","names(lista_tablas) <- unique(precio_unitario_por_rubro$rubro)"
+"0","lista_tablas[[""PELO""]]"

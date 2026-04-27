@@ -1,0 +1,121 @@
+---
+title: "Base artículos"
+output: html_document
+date: "2026-03-04"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#BASE ARTICULOS
+```{r cargo la base de artículos y hago los cambios necesarios para que machee bien con las ventas y otras bases}
+
+fecha_base_articulos_CAMI <- strftime("2026/03/04", "%Y%m%d")
+
+BASE_ARTICULOS_CAMI <- read_excel(paste0("Base artículos Odoo/BASE_ARTICULOS_CAMI_", fecha_base_articulos_CAMI, ".xlsx"), 
+    col_types = c("text", "text", "text", 
+        "text", "text", "text", "text", "text", 
+        "text", "text", "text", "numeric"))
+
+#Elimino artículos que no son artículos de venta
+Base_Articulos_Odoo_limpia_CAMI <- BASE_ARTICULOS_CAMI |>
+  filter(!Nombre %in% c("Envío estándar", "ABL", "ALQUILER LOCALES", "Anticipo (PdV)", "Artículos de librería", "CADETERIA Y FRANQUEO", "COMPRAS MERCADERIA SCRAP", "Comisiones Pagadas", "Diferencia de cambio", "EQUIPOS DE COMPUTACION", "EXPENSAS", "GASTOS DE MANTENIMIENTO Y REPARACIONES", "GASTOS MEDICOS", "HONORARIOS", "Higiene y Seguridad", "INMOBILIARIO", "INTERES POR FINANCIACIÓN", "Impuesto Inmobiliario", "LIMPIEZA", "MAQUINARIAS", "MOVILIDAD Y VIATICOS", "MUNICIPAL", "Mantenimiento y Reparaciones", "Obras y remodelaciones", "PATENTES", "PUBLICIDAD", "REFRIGERIO", "Recargar monedero electrónico", "SEGUROS", "Sellados y Certificaciones", "Servicio Eléctrico", "Servicio de Agua", "Servicio de Gas", "Servicio de Internet", "Sueldos y SAC", "Tarjeta de regalo", "Descuento", "OUT799990"))
+  
+#Creo columnas de atributos
+Base_Articulos_Odoo_atributos_CAMI <- Base_Articulos_Odoo_limpia_CAMI |> 
+  mutate(
+    COLOR = if_else(
+      str_starts(`Valores del atributo`, "COLOR"),
+      str_extract(`Valores del atributo`, "(?<=COLOR: ).+"),
+      NA_character_),
+    MATERIAL = if_else(
+      str_starts(`Valores del atributo`, "MATERIAL"),
+      str_extract(`Valores del atributo`, "(?<=MATERIAL: ).+"),
+      NA_character_),
+    TALLE = if_else(
+      str_starts(`Valores del atributo`, "TALLE"),
+      str_extract(`Valores del atributo`, "(?<=TALLE: ).+"),
+      NA_character_),
+    VARIANTE = if_else(
+      str_starts(`Valores del atributo`, "VARIANTE"),
+      str_extract(`Valores del atributo`, "(?<=VARIANTE: ).+"),
+      NA_character_),
+    MATERIAL = if_else(
+      str_starts(`Valores del atributo`, "MATERIAL"),
+      str_extract(`Valores del atributo`, "(?<=MATERIAL: ).+"),
+      NA_character_),
+    MEDIDA = if_else(
+      str_starts(`Valores del atributo`, "MEDIDA"),
+      str_extract(`Valores del atributo`, "(?<=MEDIDA: ).+"),
+      NA_character_),
+    DIAMETRO = if_else(
+      str_starts(`Valores del atributo`, "DIAMETRO"),
+      str_extract(`Valores del atributo`, "(?<=DIAMETRO: ).+"),
+      NA_character_),
+    GROSOR = if_else(
+      str_starts(`Valores del atributo`, "GROSOR"),
+      str_extract(`Valores del atributo`, "(?<=GROSOR: ).+"),
+      NA_character_),
+    PESO = if_else(
+      str_starts(`Valores del atributo`, "PESO"),
+      str_extract(`Valores del atributo`, "(?<=PESO: ).+"),
+      NA_character_),
+    PIEDRA = if_else(
+      str_starts(`Valores del atributo`, "PIEDRA"),
+      str_extract(`Valores del atributo`, "(?<=PIEDRA: ).+"),
+      NA_character_),
+    TERMINACION = if_else(
+      str_starts(`Valores del atributo`, "TERMINACION"),
+      str_extract(`Valores del atributo`, "(?<=TERMINACION: ).+"),
+      NA_character_)
+  )
+
+
+#Elimino columna de atributos original
+Base_Articulos_Odoo_atributos2_CAMI <- Base_Articulos_Odoo_atributos_CAMI |> 
+  select(-"Valores del atributo")
+
+#Muevo los datos para tener una fila por artículo
+atributos <- c("COLOR", "MATERIAL", "TALLE", "VARIANTE", "MEDIDA", "DIAMETRO", "GROSOR", "PESO", "PIEDRA", "TERMINACION")
+
+#Verifico que no haya más de un proveedor por artículos
+# revisar_proveedor <- Base_Articulos_Odoo_atributos2 |> 
+#   select(`Referencia interna`, Proveedores) |> 
+#   distinct() |>
+#   filter(!is.na(`Referencia interna`)) |> 
+#   group_by(`Referencia interna`) |> 
+#   filter(n()>1)
+  
+
+Base_Articulos_Odoo_limpio_CAMI <- Base_Articulos_Odoo_atributos2_CAMI |>
+  fill(`Referencia interna`, .direction = "down") |> 
+  group_by(`Referencia interna`) |>
+  summarise(
+    across(
+      all_of(atributos),
+      ~ first(na.omit(.x))
+    ),
+    across(
+      -all_of(atributos),
+      first
+    ),
+    .groups = "drop"
+  )
+
+#Quito el rubro Accesories que sólo está para identificar que los productos son de AS
+Base_Articulos_Odoo_sin_rubro_AS_CAMI <-  Base_Articulos_Odoo_limpio_CAMI |> 
+  mutate(`Categoría del producto/Categoría principal/Categoría principal` = if_else(
+      str_starts(`Categoría del producto`, "ACCESSORIES"),
+      NA_character_,
+      `Categoría del producto/Categoría principal/Categoría principal`))
+
+
+#Cambio nombres antes del left_join
+Base_Articulos_Odoo_para_machear_CAMI <- Base_Articulos_Odoo_sin_rubro_AS_CAMI |> 
+  select(CODIGO_BARRAS = "Código de barras", REFERENCIA_INTERNA = "Referencia interna", RUBRO = "Categoría del producto/Categoría principal/Categoría principal", FAMILIA = "Categoría del producto/Categoría principal/Nombre", SUBFAMILIA = "Categoría del producto/Nombre", COLOR, MATERIAL, TALLE, VARIANTE, MEDIDA, DIAMETRO, GROSOR, PESO, PIEDRA, TERMINACION, PROVEEDOR = Proveedores, PROVEEDOR_CODIGO = `Proveedores/Código de producto del proveedor`, PRECIO_SIN_IMPUESTOS = `Precio de venta`)
+
+
+write.xlsx(Base_Articulos_Odoo_para_machear_CAMI, paste0("Base artículos Odoo/Base_R_CAMI_", fecha_base_articulos_CAMI, ".xlsx"))
+```
+

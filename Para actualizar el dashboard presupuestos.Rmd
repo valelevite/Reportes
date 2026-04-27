@@ -1,0 +1,71 @@
+---
+title: "datos para dashboard presupuesto en VS Code"
+output: html_document
+date: "2026-04-24"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Para cambiar un dato puntual:
+
+Cambiar un valor puntual — es bastante fácil. Buscás en VS Code con Ctrl+F el concepto y la tienda que necesitás corregir, encontrás el número y lo cambiás. Los datos están todos en el bloque const RAW = [...] como una lista de objetos tipo:
+
+json{"AÑO": 2026, "MES": 1, "TIENDA": "Florida", "CONCEPTO": "Alquiler", "TOTAL": 7525000}
+
+
+
+#Para agregar un mes con una nueva tabla de prespuestos
+1. Actualizo la tabla de presupuesto en R y corro este script → genera raw_data.txt
+2. Abro raw_data.txt en VS Code y copio todo el contenido (Ctrl+A → Ctrl+C)
+3. Abro dashboard.html en VS Code
+4. Busco con Ctrl+F la palabra const RAW — te va a llevar a esa línea larga
+5. Selecciono toda esa línea (clic al principio, Shift+End, o Ctrl+Shift+K para borrarla directamente)
+6. Pego el contenido copiado
+7. Guardo con Ctrl+S y abro el HTML en el navegador — listo
+
+Un tip de VS Code: cuando estoy en la línea de const RAW, puedo hacer Alt+Z para activar "word wrap" y ver la línea completa sin tener que scrollear horizontalmente. Después lo desactivo con el mismo atajo.
+
+```{r}
+library(jsonlite)
+library(readxl)
+```
+
+# ── 1. Cargo tu archivo ──────────────────────────────────────────────
+```{r}
+df <- read_excel("Presupuestos tiendas/Tabla_presupuestos.xlsx")
+
+```
+
+# ── 2. Doy formato a los campos ─────────────────────────────────────
+```{r}
+
+df$AÑO    <- as.integer(df$AÑO)
+df$MES    <- as.integer(df$MES)
+df$TIENDA <- as.character(df$TIENDA)
+df$CONCEPTO <- as.character(df$CONCEPTO)
+df$TOTAL  <- as.numeric(df$TOTAL)
+
+# Eliminá filas con NA en columnas clave
+df <- df[!is.na(df$TIENDA) & !is.na(df$CONCEPTO), ]
+
+```
+
+# ── 3. Generá el bloque para el dashboard ───────────────────────────
+```{r}
+
+json_data <- toJSON(df, auto_unbox = TRUE, digits = 2)
+linea_raw <- paste0("const RAW = ", json_data, ";")
+
+```
+
+# ── 4. Guardalo en un archivo de texto ──────────────────────────────
+```{r}
+
+writeLines(linea_raw, "raw_data.txt")
+cat("✓ Archivo raw_data.txt generado con", nrow(df), "filas\n")
+
+```
+
+

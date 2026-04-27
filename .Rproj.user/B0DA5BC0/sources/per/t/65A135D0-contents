@@ -1,0 +1,94 @@
+---
+title: "Reporte_debutantes"
+output: html_document
+date: "2025-04-03"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r paso a fecha el corte de la base}
+
+FECHA_BASE <- as.Date(fecha_hasta, format = "%Y%m%d")
+
+```
+
+
+```{r filtro por los artículos que le interesan seguir a Carlos}
+
+#filtro por los productos elegidos
+PRODUCTOS_A_SEGUIR <- FACTURAS_ARTICULOS2 %>%
+  filter(str_starts(DESCRIPCION, "MOCHILA TECH|MEDIA|MEDIAS|REMERA")) %>% 
+  mutate(CATEGORIA = case_when(
+    str_starts(DESCRIPCION, "MOCHILA TECH") ~ "MOCHILA TECH",
+    str_starts(DESCRIPCION, "MEDIA") | str_starts(DESCRIPCION, "MEDIAS") ~ "MEDIAS",
+    str_starts(DESCRIPCION, "REMERA") ~ "REMERA")) 
+
+#Le agrego la fecha de primera venta a cada grupo
+PRODUCTOS_CON_PRIMERA_FECHA <- PRODUCTOS_A_SEGUIR %>%
+  group_by(CATEGORIA) %>%
+  mutate(FECHA_PRIMERA_VENTA = min(FECHA_EMISION, na.rm = TRUE)) %>%
+  ungroup() %>% 
+  mutate(dias_diferencia = as.numeric(FECHA_EMISION - FECHA_PRIMERA_VENTA +1), #agrego 1 para que compute el primer día
+    MES_1 = ifelse(dias_diferencia >= 0 & dias_diferencia <= 30, 1*PRODUCTO_CANTIDAD, NA),
+MES_2 = ifelse(dias_diferencia >= 31 & dias_diferencia <= 60, 1*PRODUCTO_CANTIDAD, NA),
+MES_3 = ifelse(dias_diferencia >= 61 & dias_diferencia <= 90, 1*PRODUCTO_CANTIDAD, NA),
+MES_4 = ifelse(dias_diferencia >= 91 & dias_diferencia <= 120, 1*PRODUCTO_CANTIDAD, NA),
+MES_5 = ifelse(dias_diferencia >= 121 & dias_diferencia <= 150, 1*PRODUCTO_CANTIDAD, NA),
+MES_6 = ifelse(dias_diferencia >= 151 & dias_diferencia <= 180, 1*PRODUCTO_CANTIDAD, NA),
+MES_7 = ifelse(dias_diferencia >= 181 & dias_diferencia <= 210, 1*PRODUCTO_CANTIDAD, NA)
+  )
+
+#write.xlsx(PRODUCTOS_CON_PRIMERA_FECHA, "PRODUCTOS_DEBUTANTES_BORRAR.xlsx")
+```
+
+
+```{r creo tabla de debutantes}
+
+TABLA_PRODUCTOS <- PRODUCTOS_CON_PRIMERA_FECHA %>% 
+  group_by(CATEGORIA, FECHA_PRIMERA_VENTA) %>%
+  summarise(
+    MES_1 = sum(MES_1, na.rm = TRUE),
+    MES_2 = sum(MES_2, na.rm = TRUE),
+    MES_3 = sum(MES_3, na.rm = TRUE),
+    MES_4 = sum(MES_4, na.rm = TRUE),
+    MES_5 = sum(MES_5, na.rm = TRUE),
+    MES_6 = sum(MES_6, na.rm = TRUE),
+    MES_7 = sum(MES_7, na.rm = TRUE)) %>%
+  ungroup() %>% 
+  mutate(
+    MES_1 = ifelse(FECHA_BASE - FECHA_PRIMERA_VENTA +1 < 30, NA, MES_1),
+    MES_2 = ifelse(FECHA_BASE - FECHA_PRIMERA_VENTA +1 < 60, NA, MES_2),
+    MES_3 = ifelse(FECHA_BASE - FECHA_PRIMERA_VENTA +1 < 90, NA, MES_3),
+    MES_4 = ifelse(FECHA_BASE - FECHA_PRIMERA_VENTA +1 < 120, NA, MES_4),
+    MES_5 = ifelse(FECHA_BASE - FECHA_PRIMERA_VENTA +1 < 150, NA, MES_5),
+    MES_6 = ifelse(FECHA_BASE - FECHA_PRIMERA_VENTA +1 < 180, NA, MES_6),
+    MES_7 = ifelse(FECHA_BASE - FECHA_PRIMERA_VENTA +1 < 210, NA, MES_7)
+  ) %>% # paso a NA los que no fueron cumpliendo los meses
+  arrange(FECHA_PRIMERA_VENTA) %>% 
+  mutate(Total = rowSums(select(., MES_1:MES_7), na.rm = TRUE)) %>% 
+  filter(!is.na(MES_1)) %>%  #elimino los que todavía no cumplieron una semana
+  distinct()
+
+```
+
+```{r tablas nacionalidad}
+
+NACIONALIDAD_PRODUCTOS <- PRODUCTOS_CON_PRIMERA_FECHA %>% 
+  #filter(case_when(CATEGORIA == "REMERA" ~ FECHA_EMISION <="2025-05-13", CATEGORIA == "MEDIAS" ~ FECHA_EMISION <= "2025-05-11")) %>% 
+  group_by(CATEGORIA, NACIONALIDAD) %>% 
+  summarise(Total = sum(PRODUCTO_CANTIDAD)) %>% 
+  arrange(CATEGORIA, -Total) %>% 
+  ungroup()
+
+write.xlsx(NACIONALIDAD_PRODUCTOS, "Reporte_debutantes/Nacionalidad productos seleccionados 20250526.xlsx")
+```
+
+
+#Escribo el excel
+```{r escribo el excel}
+
+write.xlsx(TABLA_PRODUCTOS, "Reporte_debutantes/Productos seguidos Carlos 20250526.xlsx")
+```
+

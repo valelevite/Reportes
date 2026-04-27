@@ -1,0 +1,21 @@
+"0",""
+"0","#Fecha para archivos"
+"0","mes <- ""2025-10"""
+"0",""
+"0","library(scales)"
+"2","G3;
+Adjuntando el paquete: ‘scales’
+
+g"
+"2","G3;The following object is masked from ‘package:purrr’:
+
+    discard
+
+g"
+"2","G3;The following object is masked from ‘package:readr’:
+
+    col_factor
+
+g"
+"0","library(ggh4x)"
+"0",""

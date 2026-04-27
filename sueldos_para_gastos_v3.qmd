@@ -1,0 +1,258 @@
+---
+title: "Sueldos"
+format: html
+editor: visual
+---
+
+```{r}
+library(tidyverse)
+library(lubridate)
+library(readxl)
+library(openxlsx)
+
+```
+
+1. Actualizo las fechas de licencias en el script y las bajas en Horas trabajadas, hoja 2
+
+```{r defino el nombre de las tiendas}
+
+tiendas <- c("AS Güemes", "AS San Telmo", "El Solar", "Florida", "French", "Güemes", "Güemes 2", "Recoleta", "San Telmo", "San Telmo 2")
+```
+
+```{r Leo los archivos}
+
+Sueldos <- read_excel("Reporte_gastos/Sueldos/Sueldos_desde_2025-09.xlsx", 
+    col_types = c("numeric", "text", "text", 
+        "numeric", "text", "text", "text", 
+        "text", "text")) |> 
+  filter(!Empleado %in% c(2, 9, 47))  #supervisoras y visual
+  
+
+Horas_trabajadas <- read_excel("Reporte_gastos/Sueldos/Horas trabajadas Tiendas desde 2025-09.xlsx") |> 
+  filter(Periodo > "2025-12-01") |> 
+  filter(!Empleado %in% c(2, 9, 47)) |> #supervisoras y visual
+  mutate(AÑO = year(Periodo),
+         MES = month(Periodo)) |> 
+  select(-Periodo)
+
+
+vendedora_tienda <- read_excel("Reporte_gastos/Sueldos/Horas trabajadas Tiendas desde 2025-09.xlsx", 
+    sheet = "vendedora-tienda")
+
+```
+
+#Doy forma al dataframe de sueldos y filtro a partir de 2026
+
+```{r}
+
+Sueldos_limpio <- Sueldos |>
+  mutate(
+    CONCEPTO = case_when(
+      str_detect(Periodo, "^[^0-9]") ~ str_extract(Periodo, "^[^0-9]+") |> str_trim(),
+      TRUE ~ "Sueldo"
+    ),
+    Periodo_2 = as.Date(
+      str_extract(Periodo, "\\d{1,2}/\\d{1,2}/\\d{2,4}"),
+      format = "%d/%m/%Y"
+    )
+  ) |>
+  mutate(
+    across(
+      c(Remunerativo, `No Remunerativo`, Descuento),
+      ~ as.numeric(gsub(",", "", .))
+    )
+  ) |>
+  mutate(Periodo = if_else(!is.na(Periodo_2), NA, Periodo),
+         Periodo = as.Date(as.numeric(Periodo), origin = "1899-12-30"),
+         Periodo = if_else(is.na(Periodo), Periodo_2, Periodo)) |> 
+  select(-Periodo_2) |> 
+  filter(Periodo >= as.Date("2026-01-01"))
+
+
+```
+
+#Calculo vacaciones, SAC y liquidaciones finales
+
+```{r selecciono vacaciones, SAC y liquidación final}
+
+#primero selecciono los conceptos que son de liquidaciones finales, convierto a fecha el período y pongo bien los decimales
+SAC_vac_liq <- Sueldos_limpio |>
+  filter(CONCEPTO %in% c("Liq Final", "SAC", "Vacaciones"))
+
+#Tomo la parte del sueldo a las liquidaciones finales
+Sueldo_en_liq_finales <- SAC_vac_liq |> 
+  group_by(Empleado, Periodo) |>
+  filter(
+    any(CONCEPTO == "Liq Final") &
+    any(Concepto == 9)
+  ) |>
+  filter(!Concepto %in% c(860, 871, 880, 1501)) |>
+  ungroup() |> 
+  select(-CONCEPTO)
+  
+#Le quito los sueldos a las liquidaciones finales
+SAC_vac_liq_sin_sueldos <- SAC_vac_liq |> 
+  anti_join(Sueldo_en_liq_finales, by = c("Empleado", "Periodo", "Concepto"))
+
+#Calculo los conceptos en bruto
+SAC_vac_liq_BRUTO <- SAC_vac_liq_sin_sueldos %>% 
+  group_by(Periodo, Empleado, CONCEPTO) %>% 
+   summarise(Total_remunerativo = sum(Remunerativo, na.rm = TRUE), 
+             Total_No_remunerativo = sum(`No Remunerativo`, na.rm = TRUE),
+             Total_descuentos = sum(Descuento, na.rm = TRUE),
+             Total_bruto = sum(Remunerativo, na.rm = TRUE) + sum(`No Remunerativo`, na.rm = TRUE)
+  ) %>%
+  ungroup()
+
+#calculo las contribuciones
+SAC_vac_liq_TOTAL <- SAC_vac_liq_BRUTO %>% 
+  mutate(ART = if_else(Periodo < "2026-02-01", 1355+ 0.0215*Total_remunerativo, 1624+ 0.0215*Total_remunerativo),
+         Previsional = 0.1077*Total_remunerativo,
+         PAMI = 0.0159*Total_remunerativo,
+         Fondo_empleo = 0.0094*Total_remunerativo,
+         ANSSAL = 0.009*Total_remunerativo,
+         Asig_familiar = 0.047*Total_remunerativo,
+         OS = 0.051*Total_remunerativo,
+         OS_extra = OS,
+         ANSSAL_extra = ANSSAL) %>% 
+  mutate(Total_contribuciones = ART + Previsional + PAMI + Fondo_empleo + ANSSAL + Asig_familiar + OS + OS_extra + ANSSAL_extra) %>% 
+  mutate(Total = Total_contribuciones+Total_bruto)
+
+
+#le agrego la tienda a computar
+SAC_vac_liq_TIENDA <- SAC_vac_liq_TOTAL %>% 
+  left_join(vendedora_tienda, by = "Empleado") %>% 
+  mutate(AÑO = year(Periodo),
+         MES = month(Periodo))
+  
+```
+
+#Calculo los sueldos y contribuciones
+
+```{r edito el sueldo y calculo el sueldo bruto}
+
+#primero elimino los conceptos que son de liquidaciones finales, convierto a fecha el período y pongo bien los decimales
+Sueldos_sin_SAC_vac_liq <- Sueldos_limpio |>
+  anti_join(SAC_vac_liq_sin_sueldos, by = c("Periodo", "Empleado", "Concepto", "CONCEPTO")) 
+  
+ 
+#Calculo el sueldo bruto
+Sueldo_bruto <- Sueldos_sin_SAC_vac_liq %>% 
+  group_by(Periodo, Empleado) %>% 
+   summarise(Total_remunerativo = sum(Remunerativo, na.rm = TRUE), 
+             Total_No_remunerativo = sum(`No Remunerativo`, na.rm = TRUE),
+             Total_descuentos = sum(Descuento, na.rm = TRUE),
+             SUELDOS = sum(Remunerativo, na.rm = TRUE) + sum(`No Remunerativo`, na.rm = TRUE),
+             .groups = "drop"
+  )
+
+```
+
+```{r calculo las contribuciones}
+
+Sueldo_mas_contribuciones <- Sueldo_bruto %>% 
+  mutate(ART = if_else(Periodo < "2026-02-01", 1355+ 0.0215*Total_remunerativo, 1624+ 0.0215*Total_remunerativo),
+         Previsional = 0.1077*Total_remunerativo,
+         PAMI = 0.0159*Total_remunerativo,
+         Fondo_empleo = 0.0094*Total_remunerativo,
+         ANSSAL = 0.009*SUELDOS,
+         Asig_familiar = 0.047*Total_remunerativo,
+         OS = 0.051*SUELDOS,
+         OS_extra = OS,
+         ANSSAL_extra = ANSSAL) %>% 
+  mutate(CONTRIBUCIONES = ART + Previsional + PAMI + Fondo_empleo + ANSSAL + Asig_familiar + OS + OS_extra + ANSSAL_extra) %>% 
+  mutate(AÑO = year(Periodo),
+         MES = month(Periodo)) %>% 
+  select(Periodo, AÑO, MES, Empleado, SUELDOS, CONTRIBUCIONES)
+
+```
+
+```{r le agrego la cantidad de horas trabajadas en el mes}
+
+#reviso que la cantidad de horas por tienda sea coherente
+REVISAR_HORAS <- Horas_trabajadas %>% 
+  group_by(AÑO, MES) |>
+  summarise(
+    across(where(is.numeric), ~ sum(.x, na.rm = TRUE)),
+    .groups = "drop"
+  ) %>% 
+  select(-Empleado)
+
+Sueldos_horas <- Sueldo_mas_contribuciones %>% 
+  full_join(Horas_trabajadas, by = c("AÑO", "MES", "Empleado")) 
+
+Sueldos_valor_hora <- Sueldos_horas %>% 
+  mutate(Valor_hora_SUELDO = SUELDOS/HORAS) %>% 
+  mutate(Valor_hora_CONTRIBUCIONES = CONTRIBUCIONES/HORAS)
+  
+```
+
+```{r elimino del cálculo a las vendedoras con licencias por maternidad, etc y las bajas que surgen de vendedora_tienda}
+
+#5 (Balmaceda Luciana) = licencia por maternidad y ahora licencia extendida
+
+Sueldos_filtrado <- Sueldos_valor_hora %>% 
+  filter(!(Empleado == 5 & Periodo >= as.Date("2025-09-01") & Periodo < as.Date("2025-12-01"))) %>% # licencias
+   left_join(vendedora_tienda, by = "Empleado") |>
+  select(-Nombre.y) %>% 
+  rename(Nombre = Nombre.x) %>% 
+  mutate(
+    mes_baja = lubridate::floor_date(Finalizacion, "month")
+  ) |>
+  filter(
+    is.na(mes_baja) | Periodo <= mes_baja) %>% 
+  select(-Periodo) %>% 
+  relocate(Tienda, .after=MES)
+
+
+Reviso_faltante_horas <- filter(Sueldos_filtrado, is.na(HORAS))
+
+Reviso_faltante_sueldo <- filter(Sueldos_filtrado, is.na(Valor_hora_SUELDO))
+
+```
+
+```{r calculo el sueldo por tienda}
+
+calcular_sueldo_tienda <- function(data, nombre_tienda) {
+  data %>%
+    filter(!is.na(.data[[nombre_tienda]])) %>%
+    group_by(AÑO, MES, .data[[nombre_tienda]]) %>%
+    reframe(Subtotal_SUELDOS = Valor_hora_SUELDO * .data[[nombre_tienda]],
+            Subtotal_CONTRIBUCIONES = Valor_hora_CONTRIBUCIONES * .data[[nombre_tienda]]) %>%
+    ungroup() %>%
+    group_by(AÑO, MES) %>%
+    summarise(SUELDOS = sum(Subtotal_SUELDOS),
+              CONTRIBUCIONES = sum(Subtotal_CONTRIBUCIONES)) %>%
+    mutate(Tienda = nombre_tienda)
+}
+
+Sueldos_tiendas <- lapply(tiendas, function(t) calcular_sueldo_tienda(Sueldos_filtrado, t)) %>%
+  bind_rows()
+  
+#Separo entre sueldos y contribuciones
+Tabla_sueldos <- Sueldos_tiendas %>% 
+  select(-CONTRIBUCIONES) %>% 
+  mutate(CONCEPTO = "Sueldo") %>% 
+  rename(Total = SUELDOS)
+
+Tabla_contribuciones <- Sueldos_tiendas %>% 
+  select(-SUELDOS) %>% 
+  mutate(CONCEPTO = "Contribuciones") %>% 
+  rename(Total = CONTRIBUCIONES)
+
+```
+
+#Unifico sueldos, SAC, vacaciones y liquidaciones finales
+
+```{r}
+
+Tabla_SAC_vac_liq <- SAC_vac_liq_TIENDA %>%
+  group_by(AÑO, MES, Tienda, CONCEPTO) %>% 
+  summarise(Total = sum(Total, na.rm = TRUE),
+            .groups = "drop")
+
+Tabla_FINAL <- bind_rows(Tabla_sueldos, Tabla_contribuciones, Tabla_SAC_vac_liq) %>% 
+  relocate(Total, .after = Tienda)
+  
+  
+```

@@ -1,0 +1,173 @@
+---
+title: "Sueldos"
+format: html
+editor: visual
+---
+
+```{r}
+library(tidyverse)
+library(lubridate)
+library(readxl)
+library(openxlsx)
+
+```
+
+Primero agrego a cada solapa las nuevas filas. Reviso las bajas y licencias y actualizo de acuerdo a eso el chunk correspondiente
+
+```{r Leo las dos hojas del archivo}
+
+Sueldos <- read_excel("Reporte_gastos/Sueldos/Sueldos_desde_2025-09.xlsx", 
+    col_types = c("numeric", "text", "date", 
+        "numeric", "text", "text", "text", 
+        "text", "text"))
+
+Contribuciones <- read_excel("Reporte_gastos/Sueldos/Sueldos_desde_2025-09.xlsx", sheet = 2, col_types = c("numeric", "text", "text", "text", "text", "text", "text", "text", "text", "text", "text", "text", "text", "text", "text", "date"))
+```
+
+```{r edito los datasets}
+
+Sueldos_editado <- Sueldos %>% 
+   mutate(across(c(Remunerativo, "No Remunerativo", Descuento), 
+                ~ as.numeric(gsub(",", "", .))))
+
+Contribuciones_editado <- Contribuciones %>% 
+  mutate(across("Total contribuciones", 
+                 ~ as.numeric(gsub("[$, ]", "", .))))
+
+```
+
+```{r calculo el sueldo bruto y le sumo las contribuciones}
+
+#primero elimino los conceptos que son de liquidaciones finales
+Sueldos_editado2 <- Sueldos_editado %>% 
+  filter(!Concepto %in% c(820, 841, 850, 860, 871, 880, 1500, 1501))
+
+Sueldo_bruto <- Sueldos_editado2 %>% 
+  group_by(Periodo, Empleado) %>% 
+   summarise(
+    total_sueldo = sum(Remunerativo, na.rm = TRUE) + sum(`No Remunerativo`, na.rm = TRUE)
+  ) %>%
+  ungroup()
+
+Contribuciones_final <- Contribuciones_editado %>% 
+  select(Periodo, Empleado, Total_contribuciones = "Total contribuciones")
+
+Sueldo_mas_contribuciones <- Sueldo_bruto %>%
+  full_join(Contribuciones_final, by = c("Periodo", "Empleado")) %>%
+  mutate(
+    total_sueldo = coalesce(total_sueldo, 0),
+    Total_contribuciones = coalesce(Total_contribuciones, 0),
+    Total = total_sueldo + Total_contribuciones
+  )
+
+```
+
+```{r le agrego la cantidad de horas trabajadas en el mes}
+
+Horas_trabajadas <- read_excel("Reporte_gastos/Sueldos/Horas trabajadas Tiendas desde 2025-09.xlsx")
+
+Sueldos_horas <- Sueldo_mas_contribuciones %>% 
+  full_join(Horas_trabajadas, by = c("Periodo", "Empleado")) 
+
+Sueldos_valor_hora <- Sueldos_horas %>% 
+  mutate(Valor_hora = Total/HORAS)
+
+```
+
+```{r elimino del cálculo a las supervisoras, vendedoras con licencias por maternidad, etc}
+#2 (Bárbara) y 9 (Natalia) = supervisoras
+#5 (Balmaceda Luciana) = licencia por maternidad
+#47 (Eredia Cintia)= visual
+
+Sueldos_filtrado <- Sueldos_valor_hora %>% 
+  filter(!Empleado %in% c(2, 9)) %>% #supervisoras
+  filter(!(Empleado %in% c(6, 16, 17) & Periodo >= as.Date("2025-09-01"))) %>% # bajas
+  filter(!(Empleado == 5 & Periodo >= as.Date("2025-09-01") & Periodo < as.Date("2025-12-01"))) # licencias
+
+
+Reviso_faltante_horas <- filter(Sueldos_filtrado, is.na(HORAS))
+
+Reviso_faltante_sueldo <- filter(Sueldos_filtrado, is.na(Total))
+
+```
+
+```{r calculo el gasto por tienda}
+
+Sueldos_Florida <- Sueldos_filtrado %>% 
+  filter(!is.na(Florida)) %>% 
+  group_by(Periodo, Florida) %>%
+  summarise(Subtotal = Valor_hora*Florida) %>% 
+  ungroup() %>% 
+  group_by(Periodo) %>% 
+  summarise(Total = sum(Subtotal)) %>% 
+  mutate(Tienda = "Florida")
+  
+Sueldos_Recoleta <- Sueldos_filtrado %>% 
+  filter(!is.na(Recoleta)) %>% 
+  group_by(Periodo, Recoleta) %>%
+  summarise(Subtotal = Valor_hora*Recoleta) %>% 
+  ungroup() %>% 
+  group_by(Periodo) %>% 
+  summarise(Total = sum(Subtotal)) %>% 
+  mutate(Tienda = "Recoleta")
+
+Sueldos_Guemes <- Sueldos_filtrado %>% 
+  filter(!is.na(Guemes)) %>% 
+  group_by(Periodo, Guemes) %>%
+  summarise(Subtotal = Valor_hora*Guemes) %>% 
+  ungroup() %>% 
+  group_by(Periodo) %>% 
+  summarise(Total = sum(Subtotal)) %>% 
+  mutate(Tienda = "Guemes")
+
+Sueldos_San_Telmo <- Sueldos_filtrado %>% 
+  filter(!is.na(`San Telmo_1`)) %>% 
+  group_by(Periodo, `San Telmo_1`) %>%
+  summarise(Subtotal = Valor_hora*`San Telmo_1`) %>% 
+  ungroup() %>% 
+  group_by(Periodo) %>% 
+  summarise(Total = sum(Subtotal)) %>% 
+  mutate(Tienda = "San Telmo")
+  
+Sueldos_San_Telmo_2 <- Sueldos_filtrado %>% 
+  filter(!is.na(`San Telmo_2`)) %>% 
+  group_by(Periodo, `San Telmo_2`) %>%
+  summarise(Subtotal = Valor_hora*`San Telmo_2`) %>% 
+  ungroup() %>% 
+  group_by(Periodo) %>% 
+  summarise(Total = sum(Subtotal)) %>% 
+  mutate(Tienda = "San Telmo 2")
+
+Sueldos_French <- Sueldos_filtrado %>% 
+  filter(!is.na(French)) %>% 
+  group_by(Periodo, French) %>%
+  summarise(Subtotal = Valor_hora*French) %>% 
+  ungroup() %>% 
+  group_by(Periodo) %>% 
+  summarise(Total = sum(Subtotal)) %>% 
+  mutate(Tienda = "French")
+
+Sueldos_AS_San_Telmo <- Sueldos_filtrado %>% 
+  filter(!is.na(AS_San_Telmo)) %>% 
+  group_by(Periodo, AS_San_Telmo) %>%
+  summarise(Subtotal = Valor_hora*AS_San_Telmo) %>% 
+  ungroup() %>% 
+  group_by(Periodo) %>% 
+  summarise(Total = sum(Subtotal)) %>% 
+  mutate(Tienda = "AS San Telmo")
+
+#Tabla valor sueldos por tienda
+Sueldos_x_tienda <- bind_rows(Sueldos_Florida, Sueldos_Recoleta, Sueldos_Guemes, Sueldos_San_Telmo, Sueldos_French, Sueldos_San_Telmo_2, Sueldos_AS_San_Telmo)
+
+#Tabla cantidad de horas por tienda
+Total_horas_por_tienda <- Sueldos_filtrado %>%
+  group_by(Periodo) %>%
+  summarise(
+    across(
+      c(Florida, Recoleta, Guemes, French, `San Telmo_1`, `San Telmo_2`),
+      ~ sum(.x, na.rm = TRUE),
+      .names = "Horas_{col}"
+    )
+  )
+
+```

@@ -1,0 +1,103 @@
+---
+title: "Tax_free_cruce"
+output: html_document
+date: "2025-10-08"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Leo el archivo
+```{r}
+
+Tax_free <- read_excel(paste0("Tax free/Tax free armado/Tax free_inicio hasta ", fecha_tax_free, ".xlsx"))
+#Tax_free <- read_excel(paste0("Tax free/Tax free armado/Tax free_", mes, ".xlsx"))
+
+```
+
+
+#EDITO TAX FREE
+```{r}
+
+Codigo_paises_ingles <- read_excel("Codigo_paises_ingles.xlsx")
+
+#elimino las anuladas, elijo las columnas y cambio nombre de tienda
+TAX_FREE_EDITADO <- Tax_free %>%
+  filter(TFSStatus!="Voided" | is.na(TFSStatus)) %>% 
+  select(DEPOSITO = Tienda, ESTADO =TFSStatus, FECHA_TF = IssuingDate, HORA_TF = IssuingTime, InvoiceNumber, NACIONALIDAD_INGLES = TouristCountry, TOTAL_FACTURAS = TotalGrossAmount) %>% 
+  mutate(DEPOSITO = ifelse(DEPOSITO == "Güemes", "Lucero Galeria Guemes", DEPOSITO)) 
+  
+#cambio las categorías de nacionalidad
+TAX_FREE_EDITADO$NACIONALIDAD_TF <- Codigo_paises_ingles$Pais[match(TAX_FREE_EDITADO$NACIONALIDAD_INGLES, Codigo_paises_ingles$Country)]
+
+TAX_FREE_EDITADO <- select(TAX_FREE_EDITADO, -NACIONALIDAD_INGLES)
+
+#verifico que no queden NA de nacionalidad luego del match
+REVISAR_NA_NACIONALIDAD <- filter(TAX_FREE_EDITADO, is.na(NACIONALIDAD_TF))
+print(REVISAR_NA_NACIONALIDAD)
+
+
+```
+
+
+------------------------------------------------------------
+#EDITO FACTURAS Y UNIFICO CON TF PARA ARMAR ARCHIVO 
+#TENGO QUE PENSAR CÓMO HACER CUANDO EL TOTAL FACTURAS DE TF ES MÁS DE UNA FACTURA (ESTO VA A CAMBIAR CUANDO LO SOLUCIONEN DESDE GLOBAL BLUE)
+```{r}
+
+# Primero: Preparar las columnas de hora para que sean comparables
+
+# Convertir HORA en FACTURAS_ARTICULOS2 a formato hora (HH:MM) y le agrego la zona
+PARA_UNIR <- FACTURAS_ARTICULOS2 %>%
+  mutate(
+    HORA_FORMATEADA = sprintf("%04d", as.numeric(HORA)), # Asegura 4 dígitos
+    HORA_FORMATEADA = paste0(substr(HORA_FORMATEADA, 1, 2), ":", substr(HORA_FORMATEADA, 3, 4))) %>% 
+  select(DEPOSITO, CODIGO, FECHA_EMISION, HORA=HORA_FORMATEADA, NAC, NACIONALIDAD, TOTAL_FACTURA) %>% 
+  distinct() %>% 
+  mutate(ZONA = case_when(DEPOSITO == "Florida" | DEPOSITO == "Lucero Galeria Guemes" | DEPOSITO == "Recoleta" ~ "CENTRO", DEPOSITO == "French" | DEPOSITO == "San Telmo" | DEPOSITO == "San Telmo 2" ~ "SAN TELMO", TRUE ~ NA))
+  
+
+dupli_para_unir <- PARA_UNIR %>% 
+  group_by(CODIGO) %>% 
+  filter(n()>1)
+
+# Extraer solo la hora (sin minutos) de HORA_TF en TAX_FREE_EDITADO
+TAX_FREE_EDITADO <- TAX_FREE_EDITADO %>%
+  mutate(
+    HORA_TF_REDONDEADA = sub(":\\d+$", ":00", HORA_TF) # Reemplaza minutos por :00
+  )
+
+# Segundo: Realizar el join
+resultado <- PARA_UNIR %>%
+  left_join(TAX_FREE_EDITADO, 
+            by = c("DEPOSITO" = "DEPOSITO",
+                   "FECHA_EMISION" = "FECHA_TF",
+                   "HORA" = "HORA_TF_REDONDEADA",
+                   "TOTAL_FACTURA" = "TOTAL_FACTURAS"
+                   ))
+
+dupli_resultado <- resultado %>% 
+  group_by(CODIGO) %>% 
+  filter(n()>1)
+
+#elimino duplicados, cuando un tax free tiene más de un match en las facturas
+#marcadoras_sin_duplicados[!duplicated(marcadoras[c("CODIGO_VIH","PROVINCIA_RESIDENCIA", "ENF_MARCADORA")]),] 
+
+#identifico los que tienen distinta nacionalidad
+resultado_nac_unificada <- resultado %>% 
+  mutate(NACIONALIDAD_UNIFICADA = ifelse(!is.na(NACIONALIDAD_TF), NACIONALIDAD_TF, NACIONALIDAD),
+         DIFERENCIA_NAC = ifelse(!is.na(NACIONALIDAD_TF) & NACIONALIDAD_TF != NACIONALIDAD, "DIFERENCIA", NA))
+
+#write.xlsx(resultado, "Tax free/Resultado_cruce_20250526.xlsx")
+```
+
+
+```{r busco los TF que no tuvieron match}
+
+TAX_FREE_SIN_MATCH <- anti_join(TAX_FREE_EDITADO, resultado, by= "InvoiceNumber")
+
+#write.xlsx(TAX_FREE_SIN_MATCH, "Tax free/TF sin match 20250526.xlsx")
+```
+
+-----------------------------------------------------------

@@ -1,0 +1,7 @@
+"0","SKU_FAMILIA <- SKU_STOCK %>%"
+"0","  select(PROVEEDOR, RUBRO, FAMILIA, SUBFAMILIA, CODIGO, DESCRIPCION, MATERIAL, COLOR, TALLE, VARIANTE, VENTA, PRECIO, TOTAL, STOCK, `D/S`, CONDICION)"
+"1","[1m[33mError[39m in `select()`:[22m
+[33m![39m Can't select columns that don't exist.
+[31m✖[39m Column `CONDICION` doesn't exist.
+[90mRun `]8;;x-r-run:rlang::last_trace()rlang::last_trace()]8;;` to see where the error occurred.[39m
+"

@@ -1,0 +1,205 @@
+---
+title: "Imagenes Odoo"
+output: html_document
+date: "2026-04-16"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r cargo librerías}
+
+library(httr)
+library(jsonlite)
+library(future.apply)
+library(data.table)
+library(digest)
+
+```
+
+```{r}
+
+# Credenciales
+url <- "https://ellucerocuero.odoo.com/"
+db <- "mgintar-ellucerocuero-main-22449024"
+username <- "rocio.martinez@el-lucero.com"
+password <- "RM2468"
+
+placeholder_hash <- "b2fb48cc6443c33335829912145bfba5"
+
+res <- POST(
+  paste0(url, "/web/session/authenticate"),
+  body = list(
+    jsonrpc = "2.0",
+    params = list(
+      db = db,
+      login = username,
+      password = password
+    )
+  ),
+  encode = "json"
+)
+
+stopifnot(status_code(res) == 200)
+
+uid <- content(res)$result$uid
+if (is.null(uid)) stop("Error autenticando en Odoo")
+
+# 👉 cookies como header (forma robusta)
+cookies <- res$cookies
+cookie_string <- paste(
+  paste(cookies$name, cookies$value, sep = "="),
+  collapse = "; "
+)
+
+```
+
+
+```{r preparo entorno}
+
+base_dir <- "Odoo"
+dir.create(base_dir, showWarnings = FALSE)
+
+img_dir <- file.path(base_dir, "imagenes")
+file.remove(list.files(img_dir, full.names = TRUE))
+dir.create(img_dir, showWarnings = FALSE)
+
+csv_file <- file.path(base_dir, "imagenes_relacion.csv")
+
+fwrite(data.table(
+  sku = character(),
+  nombre = character(),
+  archivo = character()
+), csv_file)
+
+```
+
+```{r configuro paralelismo (poder bajar las imágenes a la vez)}
+
+plan(multisession, workers = 4)  # lo ajusto según mi CPU (4–8 ideal)
+
+```
+
+```{r función de descarga}
+
+download_image <- function(p) {
+  
+  id <- p$id
+  
+  name <- ifelse(is.null(p$name), "NO_NAME", p$name)
+  name <- gsub("[^[:alnum:]]", "_", name)
+  
+  sku <- ifelse(is.null(p$default_code), "NO-SKU", p$default_code)
+  sku <- gsub("[^[:alnum:]]", "_", sku)
+  
+  filename <- paste0(sku, "_", name, ".jpg")
+  dest <- file.path(img_dir, filename)
+  
+  # evitar sobrescribir
+  i <- 1
+  while (file.exists(dest)) {
+    filename <- paste0(sku, "_", name, "_", i, ".jpg")
+    dest <- file.path(img_dir, filename)
+    i <- i + 1
+  }
+  
+  img_url <- paste0(url, "/web/image/product.product/", id, "/image_1920")
+  
+  res_img <- try(
+    GET(img_url, add_headers(Cookie = cookie_string), timeout(30)),
+    silent = TRUE
+  )
+  
+  if (inherits(res_img, "try-error")) return(NULL)
+  
+  if (status_code(res_img) == 200) {
+    img_raw <- content(res_img, "raw")
+    
+    img_hash <- digest(img_raw, algo = "md5")
+    
+    if (img_hash != placeholder_hash) {  
+  writeBin(img_raw, dest)
+  return(list(sku = sku, nombre = name, archivo = filename))
+} else {
+  cat("⚠ Placeholder detectado:", sku, "-", name, "\n")
+  return(NULL)
+}
+  }
+  
+  return(NULL)
+}
+
+```
+
+```{r procesamiento por lotes}
+
+offset <- 0
+limit <- 200
+
+repeat {
+  
+  cat("Procesando lote desde offset:", offset, "\n")
+  
+  res_batch <- POST(
+    paste0(url, "/web/dataset/call_kw"),
+    body = list(
+      jsonrpc = "2.0",
+      method = "call",
+      params = list(
+        model = "product.product",
+        method = "search_read",
+        args = list(
+   list(list("image_1920", "!=", FALSE))
+   ),
+        kwargs = list(
+          fields = list("id", "name", "default_code"),
+          limit = limit,
+          offset = offset
+        )
+      )
+    ),
+    encode = "json",
+    add_headers(Cookie = cookie_string),
+    timeout(60)
+  )
+  
+  if (status_code(res_batch) != 200) {
+    cat("Error en lote, reintentando...\n")
+    next
+  }
+  
+  products <- content(res_batch)$result
+  
+  if (length(products) == 0) {
+    cat("✔ Fin de datos\n")
+    break
+  }
+  
+  # 🔥 FILTRO INTELIGENTE (ANTES de descargar)
+  valid_products <- products
+
+cat(" → válidos:", length(valid_products), "/", length(products), "\n")
+  
+  # 🚀 descarga solo los buenos
+  if (length(valid_products) > 0) {
+    
+    results <- future_lapply(valid_products, download_image)
+    
+    results <- results[!sapply(results, is.null)]
+    
+    if (length(results) > 0) {
+      dt <- rbindlist(results)
+      fwrite(dt, csv_file, append = TRUE)
+    }
+  }
+  
+  rm(products, valid_products, results)
+  gc()
+  
+  offset <- offset + limit
+}
+
+```
+

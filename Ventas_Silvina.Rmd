@@ -1,0 +1,20 @@
+---
+title: "Ventas-Silvina"
+output: html_document
+date: "2026-03-11"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+#Cargo todas las hojas del archivo
+```{r}
+
+FLORIDA <- read_excel("Cupones Tarjetas/VENTAS ENERO 2026.xlsx", 
+    sheet = "LUCERO FLORIDA", skip = 7) |> 
+  select(VENTA = "VENTA FINAL", EFECTIVO = "EFECTIVO $", )
+
+
+```
+

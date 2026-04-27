@@ -1,0 +1,416 @@
+---
+title: "Método pago"
+output: html_document
+date: "2026-02-26"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(janitor)
+```
+
+#Descargo el archivo de cupones de la web y lo de mercado pago del drive compartido por Silvina
+#Corro Arreglo base 3 para tener el dataset del método de pago
+#Elijo el mes a filtrar
+```{r}
+
+#Año y mes a filtrar
+anio <- 2026
+mes  <- 2
+
+```
+
+
+#Ventas por tienda
+```{r calculo las ventas x tienda (para los cupones de las tarjetas)}
+
+venta_x_tienda <- Odoo_mas_Alegra |> 
+  filter(TOTAL_FACTURA > 300) |> #para no considerar los cambios
+  filter(TIENDA != "Resistencia") %>% 
+  select(FECHA_EMISION, NRO_FACTURA, TIENDA, TOTAL_FACTURA) |> 
+  distinct() |> 
+  mutate(
+    AÑO = year(FECHA_EMISION),
+    MES = month(FECHA_EMISION)
+  ) |> 
+  group_by(AÑO, MES, TIENDA) |> 
+  summarise(
+    TOTAL = sum(TOTAL_FACTURA, na.rm = TRUE),
+    CANTIDAD_VENTAS = n(),
+    .groups = "drop"
+  )
+
+totales_mes <- venta_x_tienda |>
+  group_by(AÑO, MES) |>
+  summarise(
+    TIENDA = "Total",
+    TOTAL = sum(TOTAL),
+    CANTIDAD_VENTAS = sum(CANTIDAD_VENTAS),
+    .groups = "drop"
+  )
+
+venta_x_tienda <- bind_rows(venta_x_tienda, totales_mes)
+
+```
+
+```{r calculo el total de ventas por tienda con el total general}
+
+Tabla_ventas_x_tienda <- venta_x_tienda %>% 
+  pivot_wider(names_from = TIENDA,
+              values_from = c(TOTAL, CANTIDAD_VENTAS),
+              names_glue = "{TIENDA}_{.value}",
+              names_vary = "slowest",#para que queden ordenadas por tienda (con sus dos datos) y no la tienda con un dato y al final con el otro)
+              names_sort = TRUE) %>% 
+  relocate(Total_TOTAL, .after = MES) %>%
+  relocate(Total_CANTIDAD_VENTAS, .after= Total_TOTAL)
+    
+```
+
+
+#Distribución del método de pago
+```{r preparo Método de pago y le agrego las ventas x tienda}
+
+# metodo_pago2 <- Metodo_pago_final |> 
+#   mutate(FECHA = as.Date(Fecha, format = "%Y/%m/%d %H:%M:%S")) |>   
+#   filter(ESTADO_FACTURA == "Facturado") |> 
+#   select(-Fecha, -ESTADO_FACTURA) |> 
+#   relocate(FECHA, .before = TIENDA) |> 
+#   mutate(AÑO = year(FECHA),
+#          MES = month(FECHA),
+#          METODO = case_when(METODO_PAGO == "Pago electrónico Crédito" ~ "Tarjeta de crédito",
+#                             METODO_PAGO == "Pago electrónico Débito" ~ "Tarjeta de débito",
+#                             TRUE ~ METODO_PAGO))
+
+```
+
+```{r creo tabla resumen con tienda = total y total facturado por método, con %}
+
+# Resumen_metodo_pago <- metodo_pago2 |>
+#   bind_rows(
+#     metodo_pago2 |>
+#       mutate(TIENDA = "Total")
+#   ) |>
+#   group_by(TIENDA, AÑO, MES, METODO) |>
+#   summarise(
+#     TOTAL = sum(TOTAL_FACTURA, na.rm = TRUE),
+#     CANTIDAD = n(),
+#     .groups = "drop_last"
+#   ) |>
+#   mutate(
+#     PORC = TOTAL / sum(TOTAL)
+#   ) |>
+#   ungroup() |> 
+#   relocate(CANTIDAD, .after=PORC)
+# 
+# 
+# Tabla_metodo_pago <- Resumen_metodo_pago %>% 
+#   select(-TOTAL) %>% 
+#   pivot_wider(names_from = TIENDA,
+#               values_from = c(PORC, CANTIDAD),
+#               names_glue = "{TIENDA}_{.value}",
+#               names_vary = "slowest") %>% 
+#   relocate(Total_PORC, .after = METODO) %>% 
+#   relocate(Total_CANTIDAD, .after = Total_PORC)
+  
+  
+```
+
+
+#Mercadopago
+```{r}
+
+#Cargo el archivo
+Mercadopago <- read_excel("Cupones Tarjetas/Mercadopago.xlsx") |> 
+  select(FECHA = "FECHA REDUCIDA", ID = "ID DE OPERACIÓN EN MERCADO PAGO", MEDIO_PAGO = "TIPO DE MEDIO DE PAGO", COMPRA_VALOR = "VALOR DE LA COMPRA", COMPRA_NETA = "MONTO NETO DE LA OPERACIÓN QUE IMPACTÓ TU DINERO", PLATAFORMA_COBRO = "PLATAFORMA DE COBRO", CATEGORIA) |> 
+  group_by(ID) |> 
+  filter(n() == 1) |> #para eliminar las ventas devueltas
+  ungroup() |> 
+  filter(COMPRA_VALOR>0) |> 
+  mutate(AÑO = year(FECHA),
+         MES = month(FECHA))
+
+Tabla_mercado_pago <- Mercadopago |> 
+  filter(FECHA >= "2026-01-01") |> 
+  group_by(AÑO, MES) |> 
+  summarise(BRUTO = sum(COMPRA_VALOR, na.rm = TRUE),
+            NETO = sum(COMPRA_NETA, na.rm = TRUE),
+            CANTIDAD = n(),
+            MP_COSTO = BRUTO-NETO,
+            MP_COSTO_PORC = MP_COSTO/BRUTO)
+
+```
+
+#Preparo los cupones
+```{r}
+
+#cargo el archivo
+cupones <- read_excel("Cupones Tarjetas/Cupones.xlsx") |> 
+  select(TERMINAL = Terminal, TARJETA = Marca, NRO_TICKET = Ticket, FECHA = "Fecha de operación", TIPO_MOV = "Tipo de mov.", NRO_TARJETA = Tarjeta, MONTO = "Monto Bruto", NRO_CUOTAS = Cuotas, PLAN_CUOTAS = "Plan Cuotas", ARANCEL = "Arancel", COSTO_FINANCIERO = "Costo Financiero", TASA = "Tasa Directa") |> 
+  mutate(FECHA = as.Date(FECHA, format = "%d/%m/%Y %H:%M:%S"))
+  
+```
+
+```{r quito filas sin movimientos, agrego las tiendas y columnas para año y mes}
+
+cupones2 <- cupones |> 
+  filter(NRO_TICKET>0) |> 
+  mutate(TIENDA = case_when(TERMINAL == "69443501" ~ "AS Güemes",
+                            TERMINAL == "69371606" ~ "AS San Telmo",
+                            TERMINAL == "69433783" ~ "El Solar",
+                            TERMINAL == "69364945" ~ "Florida",
+                            TERMINAL == "69364946" ~ "Florida",
+                            TERMINAL == "69390586" ~ "French",
+                            TERMINAL == "69372313" ~ "Güemes",
+                            TERMINAL == "69443458" ~ "Güemes 2",
+                            TERMINAL == "69371537" ~ "Recoleta",
+                            TERMINAL == "69371594" ~ "San Telmo",
+                            TERMINAL == "69371611" ~ "San Telmo 2",
+                            TRUE ~ NA))|> 
+  mutate(AÑO = year(FECHA),
+         MES = month(FECHA))
+  
+```
+
+
+```{r calculo costos y dejo una fila por transacción}
+
+cupones3 <- cupones2 |> 
+  group_by(AÑO, MES, TIENDA, NRO_TICKET, TARJETA, NRO_TARJETA, NRO_CUOTAS) |> 
+  summarise(
+    TOTAL_FACTURA = sum(MONTO, na.rm = TRUE),
+    COMISIÓN = sum(ARANCEL, na.rm = TRUE),
+    COSTO_FINANCIERO = sum(COSTO_FINANCIERO, na.rm = TRUE),
+    TASA_TOTAL = sum(TASA, na.rm = TRUE)) |> 
+  mutate(CREDITO_DEBITO = if_else(TARJETA %in% c("Maestro", "Mastercard Debit", "Visa Débito"), "DÉBITO", "CRÉDITO")) |> 
+  ungroup() 
+  
+  
+```
+
+#Ventas por método de pago (según cupones para tarjetas y ventas Silvina para MP)
+```{r}
+
+ventas_tarjeta <- cupones3 %>% 
+  group_by(AÑO, MES, TIENDA, CREDITO_DEBITO) %>% 
+  summarise(
+    Total_tarjeta = sum(TOTAL_FACTURA),
+    Cantidad = n(),
+    .groups = "drop"
+  ) %>% 
+  left_join(venta_x_tienda %>% select(AÑO, MES, TIENDA, TOTAL), 
+            by = c("AÑO", "MES", "TIENDA")) %>% 
+  mutate(Porc_tarjeta = Total_tarjeta / TOTAL)
+# %>% 
+  # select(-TOTAL, -Total_tarjeta)
+
+
+#REVISAR TODO ESTE CHUNK
+
+ventas_tarjeta_con_total <- ventas_tarjeta %>% 
+  bind_rows(
+    cupones3 %>% 
+      group_by(AÑO, MES, CREDITO_DEBITO) %>% 
+      summarise(
+        Cantidad = n(),
+        Total_tarjeta = sum(TOTAL_FACTURA),
+        .groups = "drop"
+      ) %>% 
+      left_join(venta_x_tienda %>% 
+                  group_by(AÑO, MES) %>% 
+                  summarise(TOTAL = sum(TOTAL), .groups = "drop"),
+                by = c("AÑO", "MES")) %>% 
+      mutate(
+        Porc_tarjeta = Total_tarjeta / TOTAL,
+        TIENDA = "TOTAL"
+      ) %>% 
+      select(-Total_tarjeta, -TOTAL)
+  )
+
+Tabla_ventas_tarjeta <- ventas_tarjeta_con_total %>% 
+  pivot_wider(names_from = TIENDA,
+              values_from = c(Porc_tarjeta, Cantidad),
+              names_glue = "{TIENDA}_{.value}",
+              names_vary = "slowest")
+```
+
+
+#Venta con CRÉDITO en 1, 3 y 6 cuotas
+```{r tabla ventas en 3 y 6 cuotas}
+
+#resumo el total facturado y cantidad de ventas para 1, 3 y 6 cuotas con CRÉDITO
+cupones_cuotas_CREDITO <- cupones3 |> 
+ filter(CREDITO_DEBITO == "CRÉDITO") |> 
+  bind_rows(
+    cupones3 |>
+      mutate(
+        TIENDA = "Total")
+  ) |>
+  group_by(TIENDA, AÑO, MES, NRO_CUOTAS) |>
+  summarise(
+    TOTAL_CUOTAS = sum(TOTAL_FACTURA, na.rm = TRUE),
+    CANTIDAD = n(),
+    .groups = "drop"
+  )
+
+cupones_cuotas_CREDITO2 <- cupones_cuotas_CREDITO |>
+  left_join(
+    venta_x_tienda,
+    by = c("TIENDA", "AÑO", "MES")
+  ) |>
+  mutate(
+    PORC_SOBRE_VENTAS = TOTAL_CUOTAS / TOTAL
+  ) |> 
+  relocate(CANTIDAD, .after = TOTAL)
+
+Tabla_cuotas_CREDITO <- cupones_cuotas_CREDITO2 %>% 
+  select(TIENDA, AÑO, MES, NRO_CUOTAS, PORC_SOBRE_VENTAS, CANTIDAD) %>% 
+  pivot_wider(names_from = TIENDA,
+              values_from = c(PORC_SOBRE_VENTAS, CANTIDAD),
+              names_glue = "{TIENDA}_{.value}",
+              names_vary = "slowest") %>% 
+  relocate(Total_PORC_SOBRE_VENTAS, .after = NRO_CUOTAS) %>% 
+  relocate(Total_CANTIDAD, .after = Total_PORC_SOBRE_VENTAS)
+  
+```
+
+# Costo financiero + Tasa
+```{r resumo el costo financiero por tienda y con total}
+
+base <- cupones3 |>
+  filter(CREDITO_DEBITO == "CRÉDITO") |>
+  mutate(NRO_CUOTAS = as.character(NRO_CUOTAS),
+         CFT_TASA = COSTO_FINANCIERO+TASA_TOTAL)
+
+CFT_credito <- bind_rows(
+  base |> group_by(TIENDA, AÑO, MES, NRO_CUOTAS),
+  
+  base |> group_by(TIENDA, AÑO, MES) |>
+    mutate(NRO_CUOTAS = "Total_cuotas"),
+  
+  base |> group_by(AÑO, MES, NRO_CUOTAS) |>
+    mutate(TIENDA = "Total"),
+  
+  base |> group_by(AÑO, MES) |>
+    mutate(
+      TIENDA = "Total",
+      NRO_CUOTAS = "Total_cuotas"
+    )
+) |>
+  ungroup() |>
+  summarise(
+    TOTAL = sum(TOTAL_FACTURA, na.rm = TRUE),
+    CFT_TASA = sum(CFT_TASA, na.rm = TRUE),
+    .by = c(TIENDA, AÑO, MES, NRO_CUOTAS)
+  ) |>
+  mutate(CFT_TASA_PORC = CFT_TASA / TOTAL)
+  
+
+Tabla_costo_financiero_tasa <- CFT_credito %>% 
+  select(-TOTAL) %>% 
+  pivot_wider(names_from = TIENDA,
+              values_from = c(CFT_TASA, CFT_TASA_PORC),
+              names_glue = "{TIENDA}_{.value}",
+              names_vary = "slowest") %>%
+  relocate(Total_CFT_TASA, .after= NRO_CUOTAS) %>% 
+  relocate(Total_CFT_TASA_PORC, .after = Total_CFT_TASA)
+  
+
+```
+
+# Comisión
+```{r resumo la comisión y las tasas}
+
+Comision <- cupones3 |> 
+  bind_rows(
+    cupones3 |>
+      mutate(TIENDA = "Total")
+  ) |>
+  group_by(TIENDA, AÑO, MES, CREDITO_DEBITO) |> 
+  summarise(
+    TOTAL = sum(TOTAL_FACTURA, na.rm = TRUE),
+    COMISION = sum(COMISIÓN, na.rm = TRUE),
+    COMISION_PORC = COMISION/TOTAL,
+   .groups = "drop_last"
+  )  
+
+Tabla_comision <- Comision %>% 
+  select(-TOTAL) %>% 
+  pivot_wider(names_from = TIENDA,
+              values_from = c(COMISION, COMISION_PORC),
+              names_glue = "{TIENDA}_{.value}",
+              names_vary = "slowest") %>%  #para que queden ordenadas por tienda (con sus dos datos) y no la tienda con un dato y al final con el otro
+  relocate(Total_COMISION, .after= CREDITO_DEBITO) %>% 
+  relocate(Total_COMISION_PORC, .after= Total_COMISION)
+
+```
+
+
+```{r creo tabla resumen con tienda = total y total facturado por NACIONALIDAD, con %}
+
+# Resumen_metodo_pago_NACIONALIDAD <- metodo_pago2 |>
+#   bind_rows(
+#     metodo_pago2 |>
+#       mutate(TIENDA = "Total")
+#   ) |>
+#   group_by(TIENDA, AÑO, MES, METODO, NACIONALIDAD) |>
+#   summarise(
+#     TOTAL = sum(TOTAL_FACTURA, na.rm = TRUE),
+#     CANTIDAD = n(),
+#     .groups = "drop_last"
+#   ) |>
+#   mutate(
+#     PORC = TOTAL / sum(TOTAL)
+#   ) |>
+#   ungroup() |> 
+#   relocate(CANTIDAD, .after=PORC)
+
+```
+
+
+
+
+
+#Creo el excel
+```{r}
+
+#Hago una lista con los datasets que necesito filtrar y pasar a excel
+lista_dfs <- list(Tabla_ventas_x_tienda, Tabla_ventas_tarjeta, Tabla_cuotas_CREDITO, Tabla_costo_financiero_tasa, Tabla_comision, Tabla_mercado_pago)
+
+#Aplico el filtro
+lista_dfs_filtrada <- lapply(
+  lista_dfs,
+  function(df) {
+    df[df$AÑO == anio & df$MES == mes, ]
+  }
+)
+
+```
+
+
+```{r escribo archivos}
+
+wb <- createWorkbook()
+addWorksheet(wb, "datos")
+
+fila_inicio <- 1
+
+for (df in lista_dfs_filtrada) {
+
+  writeData(
+    wb,
+    sheet = "datos",
+    x = df,
+    startRow = fila_inicio,
+    colNames = TRUE
+  )
+
+  # avanzar filas: filas del df + fila del header
+  fila_inicio <- fila_inicio + nrow(df) + 3
+}
+
+saveWorkbook(wb, paste0("Cupones Tarjetas/Cálculo costo tarjetas_", anio, "_", mes, ".xlsx"), overwrite = TRUE)
+
+```

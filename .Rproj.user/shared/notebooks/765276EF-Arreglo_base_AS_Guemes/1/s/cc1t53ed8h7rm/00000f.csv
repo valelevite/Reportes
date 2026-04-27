@@ -1,0 +1,8 @@
+"0",""
+"0","fecha_desde <- strftime(""2024/01/01"", ""%Y%m%d"")"
+"0",""
+"0","fecha_hasta <- strftime(""2025/11/16"",""%Y%m%d"")"
+"0",""
+"0","#fecha_maestro <- strftime(""2025/09/17"", ""%Y%m%d"")"
+"0",""
+"0",""

@@ -1,0 +1,5 @@
+"0",""
+"0","FACTURAS_MES <- FACTURAS_ARTICULOS2 %>%"
+"0","  filter(as.Date(FECHA_EMISION) >= fecha_inicio_mes,"
+"0","         as.Date(FECHA_EMISION) <= fecha_fin_mes)"
+"0",""

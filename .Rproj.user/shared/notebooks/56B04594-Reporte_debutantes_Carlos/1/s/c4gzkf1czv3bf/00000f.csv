@@ -1,0 +1,3 @@
+"0",""
+"0","FECHA_BASE <- as.Date(fecha_hasta, format = ""%Y%m%d"")"
+"0",""

@@ -1,0 +1,8 @@
+"0",""
+"0","fecha_stock <- strftime(""2025/11/03"",""%Y%m%d"")"
+"0",""
+"0",""
+"0","Lista_debutantes <- read_excel(""Reporte_debutantes/Lista_debutantes.xlsx"")"
+"0",""
+"0","FECHA_BASE <- as.Date(fecha_hasta, format = ""%Y%m%d"")"
+"0",""

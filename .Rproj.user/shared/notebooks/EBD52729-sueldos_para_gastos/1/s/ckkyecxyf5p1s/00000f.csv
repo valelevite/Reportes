@@ -1,0 +1,15 @@
+"0",""
+"0","Sueldos_editado <- Sueldos %>% "
+"0","   mutate(across(c(Remunerativo, ""No Remunerativo"", Descuento), "
+"0","                ~ as.numeric(gsub("","", """", .))))"
+"2","G2;H2;Avisoh: [38;5;232mThere were 3 warnings in `mutate()`.
+The first warning was:[39m
+[38;5;232m[36mℹ[38;5;232m In argument: `across(...)`.[39m
+Caused by warning:
+[33m![39m NAs introducidos por coerción
+[38;5;232m[36mℹ[38;5;232m Run ]8;;ide:run:dplyr::last_dplyr_]8;;ide:run:warnings()warnings()]8;;dplyr::last_dplyr_]8;;ide:run:warnings()warnings()]8;;]8;; to see the 2 remaining warnings.[39mg
+"
+"0","Contribuciones_editado <- Contribuciones %>% "
+"0","  mutate(across(""Total contribuciones"", "
+"0","                 ~ as.numeric(gsub(""[$, ]"", """", .))))"
+"0",""

@@ -1,0 +1,321 @@
+---
+title: "TAX FREE"
+output: html_document
+date: "2025-05-22"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+#----------------------------------------------------------
+#NOSOTRAS
+##Gráficos
+```{r Gráfico Distribución porcentual de venta a extranjeros por tienda y mes}
+
+TABLA_EXTRANJEROS <- Resultado_cruce_TF %>% 
+  group_by(ZONA, MES, DEPOSITO) %>% 
+  summarise(
+    Total_Clientes = sum(!is.na(DEPOSITO)),
+    Extranjeros = sum(!NACIONALIDAD_UNIFICADA %in% c("Argentina", "Desconocida"), na.rm = TRUE),
+    Argentinos = sum(NACIONALIDAD_UNIFICADA == "Argentina"), 
+    Desconocido = sum(NACIONALIDAD_UNIFICADA == "Desconocida"), 
+    `% extranjeros` = (Extranjeros / Total_Clientes) * 100,
+    `% argentinos` = (Argentinos / Total_Clientes) * 100,
+    `% desconocido` = (Desconocido / Total_Clientes) * 100,
+    .groups = "drop") #%>% 
+  #mutate(DEPOSITO_ETIQUETA = paste0(DEPOSITO, " (N=", Total_Clientes, ")"))
+
+
+#CENTRO
+CENTRO_EXTRANJEROS <- TABLA_EXTRANJEROS %>% 
+  filter(ZONA == "CENTRO") %>% 
+  select(MES, DEPOSITO, `% extranjeros`, `% argentinos`, `% desconocido`) %>%
+  pivot_longer(cols = starts_with("%"), 
+               names_to = "Nacionalidad", 
+               values_to = "Porcentaje") %>%
+  mutate(Nacionalidad = gsub("% ", "", Nacionalidad)) %>% 
+  mutate(
+    Porcentaje = as.numeric(Porcentaje),
+    MES = factor(MES, levels = c("enero", "febrero", "marzo", "abril", "mayo")),
+    DEPOSITO = factor(DEPOSITO)
+  )
+
+
+CENTRO_TOTAL <- TABLA_EXTRANJEROS %>%
+  filter(ZONA == "CENTRO") %>%
+  group_by(MES) %>%
+  summarise(
+    `% extranjeros` = sum(Total_Clientes * `% extranjeros`/100, na.rm = TRUE) / sum(Total_Clientes, na.rm = TRUE) * 100,
+    `% argentinos` = sum(Total_Clientes * `% argentinos`/100, na.rm = TRUE) / sum(Total_Clientes, na.rm = TRUE) * 100,
+    `% desconocido` = sum(Total_Clientes * `% desconocido`/100, na.rm = TRUE) / sum(Total_Clientes, na.rm = TRUE) * 100,
+    .groups = "drop"
+  ) %>%
+  mutate(DEPOSITO = "TOTAL CENTRO")
+
+CENTRO_EXTRANJEROS_CON_TOTAL <- bind_rows(
+  CENTRO_TOTAL %>% 
+    pivot_longer(cols = starts_with("%"), 
+    names_to = "Nacionalidad", 
+    values_to = "Porcentaje") %>%
+    mutate(Nacionalidad = gsub("% ", "", Nacionalidad)),
+  CENTRO_EXTRANJEROS
+) %>%
+  mutate(
+    DEPOSITO = factor(DEPOSITO, levels = c("TOTAL CENTRO", "Florida", "Güemes", "Recoleta")),
+    Porcentaje = as.numeric(Porcentaje)
+  )
+
+###Convierto a factores las nacionalidades para las referencias del gráfico
+CENTRO_EXTRANJEROS_CON_TOTAL <- CENTRO_EXTRANJEROS_CON_TOTAL %>%
+  mutate(Nacionalidad = factor(Nacionalidad, 
+                              levels = c("desconocido", "argentinos", "extranjeros"),
+                              labels = c("Desconocido", "Argentinos", "Extranjeros")))
+
+##Gráfico
+grafico_EXTRANJEROS_CENTRO <- ggplot(
+  CENTRO_EXTRANJEROS_CON_TOTAL, 
+  aes(x = MES, y = Porcentaje, fill = Nacionalidad)) +
+  geom_col(position = "stack", width = 0.7) +
+  facet_wrap(~DEPOSITO, nrow = 1) +
+  
+  geom_text(
+    aes(label = ifelse(Porcentaje > 3, round(Porcentaje, 0), "")),
+    position = position_stack(vjust = 0.5),
+    size = 3,
+    color = "black"
+  ) +
+  
+  scale_y_continuous(labels = scales::percent_format(scale = 1)) +
+  scale_fill_manual(
+    values = c("Argentinos" = "#1f77b4", 
+               "Extranjeros" = "#ff7f0e", 
+               "Desconocido" = "grey"),
+    breaks = c("Argentinos", "Extranjeros"),  # Solo muestra estos en leyenda
+    name = "Nacionalidad"
+  ) +
+  labs(
+    title = "Distribución porcentual de venta a extranjeros por tienda y mes",
+    x = "",
+    y = "",
+    fill = "Nacionalidad"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
+    legend.position = "bottom",
+    strip.text = element_text(face = "bold", size = 10),
+    panel.spacing = unit(1, "lines"),
+    plot.title = element_text(hjust = 0.5, size = 12),
+    legend.key = element_rect(fill = NA, color = NA)  # Para mejor visualización de leyenda
+  )
+
+# Mostrar el gráfico
+grafico_EXTRANJEROS_CENTRO
+
+#-------------------------------------------------------
+
+#SAN TELMO
+SAN_TELMO_EXTRANJEROS <- TABLA_EXTRANJEROS %>% 
+  filter(ZONA == "SAN TELMO") %>% 
+  select(MES, DEPOSITO, `% extranjeros`, `% argentinos`, `% desconocido`) %>%
+  pivot_longer(cols = starts_with("%"), 
+               names_to = "Nacionalidad", 
+               values_to = "Porcentaje") %>%
+  mutate(Nacionalidad = gsub("% ", "", Nacionalidad)) %>% 
+  mutate(
+    Porcentaje = as.numeric(Porcentaje),
+    MES = factor(MES, levels = c("enero", "febrero", "marzo", "abril", "mayo")),
+    DEPOSITO = factor(DEPOSITO))
+
+
+SAN_TELMO_TOTAL <- TABLA_EXTRANJEROS %>%
+  filter(ZONA == "SAN TELMO") %>%
+  group_by(MES) %>%
+  summarise(
+    `% extranjeros` = sum(Total_Clientes * `% extranjeros`/100, na.rm = TRUE) / sum(Total_Clientes, na.rm = TRUE) * 100,
+    `% argentinos` = sum(Total_Clientes * `% argentinos`/100, na.rm = TRUE) / sum(Total_Clientes, na.rm = TRUE) * 100,
+    `% desconocido` = sum(Total_Clientes * `% desconocido`/100, na.rm = TRUE) / sum(Total_Clientes, na.rm = TRUE) * 100,
+    .groups = "drop"
+  ) %>%
+  mutate(DEPOSITO = "TOTAL SAN TELMO")
+
+SAN_TELMO_EXTRANJEROS_CON_TOTAL <- bind_rows(
+  SAN_TELMO_TOTAL %>% 
+    pivot_longer(cols = starts_with("%"), 
+    names_to = "Nacionalidad", 
+    values_to = "Porcentaje") %>%
+    mutate(Nacionalidad = gsub("% ", "", Nacionalidad)), SAN_TELMO_EXTRANJEROS) %>%
+  mutate(
+    DEPOSITO = factor(DEPOSITO, levels = c("TOTAL SAN TELMO", "French", "San Telmo", "San Telmo 2")),
+    Porcentaje = as.numeric(Porcentaje)
+  )
+
+###Convierto a factores las nacionalidades para las referencias del gráfico
+SAN_TELMO_EXTRANJEROS_CON_TOTAL <- SAN_TELMO_EXTRANJEROS_CON_TOTAL %>%
+  mutate(Nacionalidad = factor(Nacionalidad, 
+                              levels = c("desconocido", "argentinos", "extranjeros"),
+                              labels = c("Desconocido", "Argentinos", "Extranjeros")))
+
+##Gráfico
+grafico_EXTRANJEROS_SAN_TELMO <- ggplot(
+  SAN_TELMO_EXTRANJEROS_CON_TOTAL, 
+  aes(x = MES, y = Porcentaje, fill = Nacionalidad)) +
+  geom_col(position = "stack", width = 0.7) +
+  facet_wrap(~DEPOSITO, nrow = 1) +
+  
+  geom_text(
+    aes(label = ifelse(Porcentaje > 4, round(Porcentaje, 0), "")),
+    position = position_stack(vjust = 0.5),
+    size = 3,
+    color = "black"
+  ) +
+  
+  scale_y_continuous(labels = scales::percent_format(scale = 1)) +
+  scale_fill_manual(
+    values = c("Extranjeros" = "#ff7f0e",  # Naranja
+               "Argentinos" = "#1f77b4",   # Azul
+               "Desconocido" = "grey"),    # Gris
+    breaks = c("Extranjeros", "Argentinos", "Desconocido"),
+    name = "Nacionalidad"
+  ) +
+  labs(
+    title = "Distribución porcentual de venta a extranjeros por tienda y mes",
+    x = "",
+    y = "",
+    fill = "Nacionalidad"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
+    legend.position = "bottom",
+    strip.text = element_text(face = "bold", size = 10),
+    panel.spacing = unit(1, "lines"),
+    plot.title = element_text(hjust = 0.5, size = 12),
+    legend.key = element_rect(fill = NA, color = NA)
+  )
+
+# Mostrar el gráfico
+grafico_EXTRANJEROS_SAN_TELMO
+
+
+```
+
+
+
+
+
+```{r}
+
+TF_CENTRO <- Resultado_cruce_TF %>%
+  filter(!NACIONALIDAD_UNIFICADA %in% c("Argentina", "Desconocida")) %>%  # Solo clientes extranjeros
+  filter(ZONA == "CENTRO") %>% 
+  group_by(MES, DEPOSITO) %>%
+  summarise(
+    Con_TaxFree = sum(!is.na(HORA_TF)),
+    Sin_TaxFree = sum(is.na(HORA_TF)),
+    Total_Extranjeros = n()
+  ) %>%
+  mutate(Porcentaje_TF = (Con_TaxFree / Total_Extranjeros) * 100,
+         Porcentaje_Sin_TF = (Sin_TaxFree / Total_Extranjeros) * 100,
+         DEPOSITO_LABEL = paste0(DEPOSITO, " (N=", Total_Extranjeros, ")")) %>% 
+  pivot_longer(cols = c(Porcentaje_TF, Porcentaje_Sin_TF),
+               names_to = "Categoria",
+               values_to = "Porcentaje") %>% 
+  mutate(Categoria = recode(Categoria,
+                            "Porcentaje_TF" = "Con Tax Free",
+                            "Porcentaje_Sin_TF" = "Sin Tax Free"))
+
+
+TF_SAN_TELMO <- Resultado_cruce_TF %>%
+  filter(!NACIONALIDAD_UNIFICADA %in% c("Argentina", "Desconocida")) %>%  # Solo clientes extranjeros
+  filter(ZONA == "SAN TELMO") %>% 
+  group_by(MES, DEPOSITO) %>%
+  summarise(
+    Con_TaxFree = sum(!is.na(HORA_TF)),
+    Sin_TaxFree = sum(is.na(HORA_TF)),
+    Total_Extranjeros = n()
+  ) %>%
+  mutate(Porcentaje_TF = (Con_TaxFree / Total_Extranjeros) * 100,
+         Porcentaje_Sin_TF = (Sin_TaxFree / Total_Extranjeros) * 100,
+         DEPOSITO_LABEL = paste0(DEPOSITO, " (N=", Total_Extranjeros, ")")) %>% 
+  pivot_longer(cols = c(Porcentaje_TF, Porcentaje_Sin_TF),
+               names_to = "Categoria",
+               values_to = "Porcentaje") %>% 
+  mutate(Categoria = recode(Categoria,
+                            "Porcentaje_TF" = "Con Tax Free",
+                            "Porcentaje_Sin_TF" = "Sin Tax Free"))
+
+```
+
+
+
+```{r Gráfico Porcentaje de ventas a extranjeros sobre las que se solicitó Tax Free por nacionalidad}
+
+grafico_TF_nacionalidades <- Resultado_cruce_TF %>%
+  filter(NACIONALIDAD != "Argentina") %>% 
+  group_by(NACIONALIDAD) %>%
+  summarise(
+    Total = n(),
+    Tax_Free = sum(!is.na(HORA_TF)),
+    Porcentaje = (Tax_Free / Total) * 100
+  ) %>%
+  mutate(NACIONALIDAD_ETIQUETA = paste0(NACIONALIDAD, " (N=", Total, ")")) %>%
+  ggplot(aes(x = reorder(NACIONALIDAD_ETIQUETA, Porcentaje), y = Porcentaje)) +
+  geom_col(fill = "olivedrab3") +
+  labs(title = "Porcentaje de ventas a extranjeros sobre las que se solicitó Tax Free \npor nacionalidad. Abril 2025",
+       x = "", y = "Porcentaje (%)") +
+   coord_flip() +
+  theme(plot.title = element_text(size = 12, face = "bold", hjust = 0.5)
+        ,  # Centrar título
+        #axis.text.y = element_text(size = 9),
+        panel.grid.major.y = element_blank()
+        )
+
+print(grafico_TF_nacionalidades)
+`
+```
+
+
+
+
+
+```{r Gráfico VALOR PROMEDIO DE COMPRA POR NACIONALIDAD}
+
+GRAFICO_VALOR_PROMEDIO_NACIONALIDAD <- Resultado_cruce_TF_202504 %>%
+  filter(!is.na(NACIONALIDAD)) %>% 
+  group_by(NACIONALIDAD) %>%
+  summarise(Valor_Promedio = (round(mean(TOTAL_FACTURA, na.rm = TRUE)))/1000,
+            Total = n()) %>%
+  mutate(NACIONALIDAD_ETIQUETA = paste0(NACIONALIDAD, " (N=", Total, ")")) %>% 
+  ggplot(aes(x = reorder(NACIONALIDAD_ETIQUETA, Valor_Promedio), y = Valor_Promedio)) +
+  geom_col(fill = "orange") +
+  labs(title = "Valor promedio de ventas por nacionalidad. Abril 2025",
+       x = "", y = "Valor promedio en miles de $") +
+  theme_minimal() +
+  #theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  coord_flip()
+
+print(GRAFICO_VALOR_PROMEDIO_NACIONALIDAD)
+```
+
+5 productos más vendidos por nacionalidad
+
+6. Relación entre Monto de Compra y Solicitud de Tax Free
+r
+data %>%
+  filter(NACIONALIDAD != "ARG") %>%
+  mutate(Tax_Free_Requested = ifelse(!is.na(HORA_TF), "Sí", "No")) %>%
+  ggplot(aes(x = Tax_Free_Requested, y = TOTAL_FACTURA)) +
+  geom_boxplot(fill = "lightblue") +
+  labs(title = "Relación entre monto de compra y solicitud de Tax Free",
+       x = "Solicitó Tax Free", y = "Monto de compra") +
+  theme_minimal()
+
+```{r escribo los archivos}
+
+write.xlsx(resultado, "Tax free/Resultado cruce TF 202504.xlsx")
+write.xlsx(TAX_FREE_SIN_MATCH, "Tax free/TF sin match 202504.xlsx")
+```
+

@@ -1,0 +1,37 @@
+"0","for (tienda_actual in nombres_depositos) {
+  df_filtrado2 <- Facturacion_hora_completo %>% filter(DEPOSITO == tienda_actual) %>%
+    left_join(horarios, by = c(""DEPOSITO"", ""DIA_SEMANA"")) %>%
+    mutate(HORA_NUM = as.numeric(as.character(HORA_FACTOR))) %>%
+    filter(HORA_NUM >= start_hour & HORA_NUM <= end_hour)
+    
+  if(nrow(df_filtrado2) == 0) next
+
+    df_filtrado2 <- df_filtrado2 %>%
+    mutate(Color_Grupo = case_when(
+      Tickets_por_hora == 0 ~ ""0"",
+      Tickets_por_hora > 0 & Tickets_por_hora <= 3 ~ ""1-3"",
+      Tickets_por_hora > 3 ~ "">3""
+    )) %>%
+    mutate(Color_Grupo = factor(Color_Grupo, levels = c(""0"", ""1-3"", "">3"")))
+    
+  heatmap_plot <- ggplot(df_filtrado2, aes(x = DIA_SEMANA, y = HORA_FACTOR, fill = Color_Grupo)) +
+    geom_tile(color = ""white"", linewidth = 0.5) +
+    geom_text(aes(label = Tickets_por_hora), color = ""black"", size = 2.5) +
+    scale_fill_manual(values = c(""0"" = ""#F8766D"", ""1-3"" = ""#FFFF00"", "">3"" = ""#7CAE00""), name = ""Tickets por Hora"", na.value = ""grey90"", drop = FALSE) +
+    scale_x_discrete(position = ""top"") +
+    scale_y_discrete(breaks = levels(df_filtrado2$HORA_FACTOR)) +
+    labs(title = paste0(""Heatmap de Tickets por Hora y Día. "", tienda_actual), x = """", y = """") +
+    theme_minimal() +
+    theme(legend.position = ""none"", panel.grid.major = element_blank()) +
+    facet_grid(MES~., scales = ""free"", space = ""free_y"")
+    
+  ggsave(paste0(""Tickets por hora/imagenes/Tickets_hora_"", tienda_actual, ""_"", mes,"".png""), plot = heatmap_plot, width = 8, height = altura_grafico_heatmap, units = ""in"", dpi = 300)
+}
+"
+"2","G1;[1m[33mError[39m in `combine_vars()`:[22m
+[38;5;232m[33m![38;5;232m At least one layer must contain all faceting variables: `MES`
+[31m✖[38;5;232m Plot is missing `MES`
+[31m✖[38;5;232m Layer 1 is missing `MES`
+[31m✖[38;5;232m Layer 2 is missing `MES`[39m
+[90mRun `]8;;x-r-run:rlang::last_trace()rlang::last_trace()]8;;` to see where the error occurred.[39m
+g"

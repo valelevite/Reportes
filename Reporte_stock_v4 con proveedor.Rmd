@@ -1,0 +1,790 @@
+---
+title: "Reporte stock"
+output: word_document
+date: "2025-07-04"
+---
+
+```{r}
+fecha_reporte <- strftime("2025/10/27", "%Y%m%d")
+fecha_precios <- strftime("2025/10/28", "%Y%m%d")
+```
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+tam_titulo_grafico <- 14 
+tam_titulo_tabla <- 14
+tam_eje_grafico <- 10
+tam_fuente_tabla <- 9
+```
+
+```{r include=FALSE}
+library(tidyverse)
+library(lubridate)
+library(readxl)
+library(openxlsx)
+library(scales)
+library(knitr)
+library(gt)
+library(flextable)
+library(officer)
+
+```
+
+
+#PRIMERO CREO ARCHIVO CON DATOS (esto es si Rocío no me lo pasó)
+
+```{r leo los archivos necesarios}
+
+Stock_Rocio <- read_excel("Reporte stock/Reporte de stock.xlsx") 
+Stock_final <- read_excel(paste0("Stock/Stock final/Stock_", fecha_reporte, ".xlsx"))
+Precios_Alegra <- read_excel(paste0("Maestro/Lista_precios_Alegra_", fecha_precios, ".xlsx"), 
+    col_types = c("text", "text", "text", 
+        "text", "text", "text", "text", "text", 
+        "text", "text", "text", "text", "text", 
+        "numeric", "numeric", "text", "numeric", 
+        "text", "numeric", "text", "numeric"))
+
+```
+
+```{r macheo datos}
+#primero PREPARO LOS DATOS DE STOCK
+
+#unifico unidades de stock, elimino productos sin stock
+Stock_simplificado <- Stock_final %>% 
+  mutate(STOCK_DEPOSITOS = BARRACAS + `OF FLORIDA`,
+         STOCK_TIENDAS = FLORIDA + GUEMES + RECOLETA + `SAN TELMO` + `SAN TELMO 2` + FRENCH,
+         STOCK_TOTAL = STOCK_DEPOSITOS + STOCK_TIENDAS,
+         STOCK_AGRUPADO = case_when(STOCK_TOTAL <= 10 ~ "≤ 10", STOCK_TOTAL >= 11 & STOCK_TOTAL <=20 ~ "de 11 a 20", STOCK_TOTAL >= 21 ~ "> 20")) %>% 
+  select(-FLORIDA, -GUEMES, -RECOLETA, -`SAN TELMO`, -`SAN TELMO 2`, -FRENCH, -BARRACAS, -`OF FLORIDA`) %>% 
+  filter(STOCK_TOTAL>0)
+  
+ #preparo los precios
+Precios_Alegra_simplificado <- Precios_Alegra %>% 
+  select(CODIGO_ARTICULO = Referencia, Precio = "Precio: General")
+
+#le agrego los precios al stock y elimino los articulos con precio = 0 porque son packaging
+Stock_con_precio <- Stock_simplificado %>% 
+  left_join(Precios_Alegra_simplificado, by = "CODIGO_ARTICULO") %>% 
+  filter(Precio>0) %>% 
+  mutate(VALOR_STOCK = Precio * STOCK_TOTAL) %>% 
+  mutate(RUBRO= ifelse(is.na(RUBRO) & startsWith(CODIGO_ARTICULO, "OUT"), "OUTLET", RUBRO))
+
+#elijo las columnas que necesito
+Stock_Rocio_limpio <- select(Stock_Rocio, CODIGO_ARTICULO = "CODIGO ARTICULO", PROVEEDOR_AMPLIADO = PROVEEDOR, DEFINICION, CONDICION = condición)
+
+#Cruzo stock con condición
+Stock_con_condicion <- left_join(Stock_con_precio, Stock_Rocio_limpio, by= "CODIGO_ARTICULO")
+
+```
+
+
+
+#HOJA 1: RUBRO
+##PARTICIPACION POR RUBRO SEGÚN CONDICIÓN
+```{r participación de la condición por unidades y valoración, include=FALSE}
+
+participacion <- Stock %>% 
+  rename(CONDICION = condición) %>% 
+  group_by(RUBRO, CONDICION) %>% 
+  summarise(Unidades = sum(STOCK_TOTAL),
+            "Valor_stock" = sum(`stock valorizado`),
+            Items = n()) %>% 
+  ungroup() %>% 
+   mutate(CONDICION = factor(CONDICION, levels = c("activos", "discontinuados", "liquidación", "2x1", "fuera de venta"))) %>% 
+  complete(RUBRO, CONDICION,
+    fill = list(Unidades = 0, Valor_stock = 0, Items = 0))
+
+
+```
+
+
+```{r tabla 1. participacion en unidades, echo=FALSE}
+
+# Tabla de Unidades
+tabla_unidades <- participacion %>%
+  select(-Valor_stock, -Items) %>%
+  arrange(desc(Unidades)) %>%
+  pivot_wider(names_from = CONDICION, values_from = Unidades, values_fill = 0, names_sort = TRUE  # Esto mantiene el orden del factor
+  ) %>%
+  mutate(across(where(is.numeric), ~format(., big.mark = ".", decimal.mark = ",", scientific = FALSE))) 
+
+```
+
+
+```{r gráfico participación en unidades, echo=FALSE, dev = "png", type = "cairo", dpi = 300, fig.height=7, fig.width=9}
+
+grafico_participacion_unidades <- ggplot(participacion, aes(x = CONDICION, y = Unidades, fill = CONDICION)) +
+  geom_col(show.legend = FALSE) + # geom_col se usa cuando ya tienes el valor Y
+  facet_wrap(~ RUBRO, scales = "free") + # Crea un gráfico para cada RUBRO
+  scale_y_continuous(labels = scales::label_number(big.mark = ".", decimal.mark = ",")) + 
+  #scale_y_continuous(labels = comma) + # Formatea el eje Y con comas para miles
+  labs(
+    title = "", #Unidades en Stock por Rubro y Condición
+    x = "",
+    y = "Unidades"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = tam_titulo_grafico, face = "bold", hjust = 0), 
+    axis.text.x = element_text(angle = 45, hjust = 1, size = tam_eje_grafico),
+    axis.text.y = element_text(size = tam_eje_grafico)
+    )
+
+grafico_participacion_unidades
+```
+
+
+```{r tabla 2. Participacion en pesos, echo=FALSE}
+
+# Tabla de Pesos
+tabla_participacion_valor <- participacion %>%
+  select(-Unidades, -Items) %>%
+  arrange(desc(Valor_stock)) %>% 
+  pivot_wider(names_from = CONDICION, values_from = Valor_stock, values_fill = NA, names_sort = TRUE) %>%
+  mutate(across(where(is.numeric), ~ ifelse(is.na(.), "-",  format(., big.mark = ".", decimal.mark = ",", scientific = FALSE))))
+
+```
+
+
+```{r gráfico participación en $, echo=FALSE, dev = "png", type = "cairo", dpi = 300, fig.height=7, fig.width=9}
+
+grafico_participacion_valor <- ggplot(participacion, aes(x = CONDICION, y = Valor_stock / 1000000, fill = CONDICION)) + # <-- 1. DIVIDIMOS AQUÍ
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~ RUBRO, scales = "free") +
+  scale_y_continuous(labels = dollar_format(prefix = "$", big.mark = ".", decimal.mark = ",")) +
+  labs(
+    title = "",
+    x = "",
+    y = "Valor de Stock (en millones de pesos)" 
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+grafico_participacion_valor
+```
+
+
+
+```{r tabla 3.Participacion en cantidad de ítems por rubro, echo=FALSE}
+
+# Tabla de Cantidad de ítems por rubro
+tabla_items_por_rubro <- participacion %>%
+  select(-Valor_stock, -Unidades) %>%
+  pivot_wider(names_from = CONDICION, values_from = Items, values_fill = 0, names_sort = TRUE  # Esto mantiene el orden del factor
+  ) %>%
+  mutate(across(where(is.numeric), ~format(., big.mark = ".", decimal.mark = ",", scientific = FALSE))) 
+
+```
+
+
+```{r gráfico participación en ítems, echo=FALSE, dev = "png", type = "cairo", dpi = 300, fig.height=7, fig.width=9}
+
+grafico_participacion_items <- ggplot(participacion, aes(x = CONDICION, y = Items, fill = CONDICION)) +
+  geom_col(show.legend = FALSE) + 
+  facet_wrap(~ RUBRO, scales = "free") + 
+  scale_y_continuous(labels = comma) + 
+  labs(
+    title = "",
+    x = "",
+    y = "Cantidad de ítems"
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+grafico_participacion_items
+```
+
+
+#HOJA 2: RUBRO Y CANTIDAD AGRUPADA
+##CANTIDAD AGRUPADA DE PRODUCTO ACTIVOS/DISCONTINUOS >6 MESES DE STOCK
+```{r tabla general, include=FALSE}
+
+  tabla_cant_agrupada <- Stock %>% 
+    filter(condición %in% c("activos", "discontinuados")) %>% 
+    filter("clasificación stock" != "0-6") %>% 
+    group_by(RUBRO, condición, STOCK_AGRUPADO) %>% 
+    summarise(Unidades = sum(STOCK_TOTAL),
+              "Valor_stock" = sum(`stock valorizado`),
+              Items = n()) %>% 
+    ungroup() %>% 
+    mutate(STOCK_AGRUPADO = factor(STOCK_AGRUPADO, levels = c("≤ 10", "de 11 a 20", "> 20")))%>% 
+  complete(RUBRO, condición, STOCK_AGRUPADO,
+    fill = list(Unidades = 0, Valor_stock = 0, Items = 0))
+
+```
+
+
+```{r Tabla 4. Cantidad agrupada - Unidades}
+
+tabla_cantidad_agrupada_unidades <-  tabla_cant_agrupada %>%
+  select(-Valor_stock, - Items) %>% 
+  pivot_wider(names_from = STOCK_AGRUPADO, values_from = Unidades, values_fill = 0, names_sort = TRUE) %>%
+  mutate(across(where(is.numeric), ~format(., big.mark = ".", decimal.mark = ",", scientific = FALSE))) 
+
+```
+
+
+```{r Grafico 4, echo=FALSE, dev = "png", type = "cairo", dpi = 300, fig.height=7, fig.width=9}
+
+grafico_cant_agrupada_unidades <-  ggplot(tabla_cant_agrupada, aes(
+    x = STOCK_AGRUPADO, 
+    y = Unidades, 
+    fill = condición
+  )) +
+  geom_col(position = position_dodge(preserve = "single")) +
+  facet_wrap(~ RUBRO, scales = "free") +
+  scale_y_continuous(
+    breaks = scales::pretty_breaks(),  # Asegura breaks enteros
+    labels = scales::number_format(accuracy = 1)  # Sin decimales
+  ) +
+  labs(
+    title = "", #"Cantidad de productos activos/discontinuados con stock >6 meses por rubro y unidades en stock agrupadas"
+    x = "Unidades en stock",
+    y = "Cantidades por grupo",
+    fill = "Condición"
+  ) +
+  theme_minimal() +
+  scale_fill_manual(values = c("activos" = "#4e79a7", "discontinuados" = "#f28e2b"))+
+  theme( axis.text.x = element_text(angle = 45, hjust = 1, size = tam_eje_grafico))
+
+grafico_cant_agrupada_unidades
+```
+
+
+```{r cantidad agrupada - Valor, include=FALSE}
+
+tabla_cantidad_agrupada_valor <- tabla_cant_agrupada %>%
+  select(-Unidades, - Items) %>% 
+  pivot_wider(names_from = STOCK_AGRUPADO, values_from = Valor_stock, values_fill = 0, names_sort = TRUE) %>%
+  mutate(across(where(is.numeric), ~format(., big.mark = ".", decimal.mark = ",", scientific = FALSE))) 
+  
+```
+
+```{r Gráfico de cantidad agrupada-Valor, echo=FALSE, dev = "png", type = "cairo", dpi = 300, fig.height=7, fig.width=9}
+
+grafico_cant_agrupada_valor <-  ggplot(tabla_cant_agrupada, aes(
+    x = STOCK_AGRUPADO, 
+    y = Valor_stock / 1000000, 
+    fill = condición
+  )) +
+  geom_col(position = position_dodge(preserve = "single")) +
+  facet_wrap(~ RUBRO, scales = "free") +
+  scale_y_continuous(labels = dollar_format(prefix = "$", big.mark = ".", decimal.mark = ",")) +
+  #scale_y_continuous(
+   # breaks = scales::pretty_breaks(),  # Asegura breaks enteros
+    #labels = scales::number_format(accuracy = 1)  # Sin decimales
+  #) +
+  labs(
+    title = "", #Valor de productos activos/discontinuados con stock >6 meses por rubro y unidades en stock agrupada
+    x = "Unidades en stock",
+    y = "Valor de Stock (en millones de pesos)",
+    fill = "Condición"
+  ) +
+  theme_minimal() +
+  scale_fill_manual(values = c("activos" = "#4e79a7", "discontinuados" = "#f28e2b"))+
+  theme( axis.text.x = element_text(angle = 45, hjust = 1, size = tam_eje_grafico))
+
+grafico_cant_agrupada_valor
+```
+
+
+```{r Cantidad agrupada - Ítems}
+
+tabla_cantidad_agrupada_items <-  tabla_cant_agrupada %>%
+  select(-Valor_stock, - Unidades) %>% 
+  pivot_wider(names_from = STOCK_AGRUPADO, values_from = Items, values_fill = 0, names_sort = TRUE) %>%
+  mutate(across(where(is.numeric), ~format(., big.mark = ".", decimal.mark = ",", scientific = FALSE))) 
+
+```
+
+
+```{r echo=FALSE, dev = "png", type = "cairo", dpi = 300, fig.height=7, fig.width=9}
+
+grafico_cant_agrupada_items <-  ggplot(tabla_cant_agrupada, aes(
+    x = STOCK_AGRUPADO, 
+    y = Items, 
+    fill = condición
+  )) +
+  geom_col(position = position_dodge(preserve = "single")) +
+  facet_wrap(~ RUBRO, scales = "free") +
+  scale_y_continuous(
+    breaks = scales::pretty_breaks(),  # Asegura breaks enteros
+    labels = scales::number_format(accuracy = 1)  # Sin decimales
+  ) +
+  labs(
+    title = "", #"Cantidad de ítems de productos activos/discontinuados con stock >6 meses por rubro"
+    x = "Unidades en stock",
+    y = "Cantidades de ítems",
+    fill = "Condición"
+  ) +
+  theme_minimal() +
+  scale_fill_manual(values = c("activos" = "#4e79a7", "discontinuados" = "#f28e2b"))+
+  theme( axis.text.x = element_text(angle = 45, hjust = 1, size = tam_eje_grafico))
+
+grafico_cant_agrupada_items
+```
+
+
+
+#HOJA 3: PROVEEDOR
+##PARTICIPACION POR PROVEEDOR SEGÚN CONDICIÓN
+```{r participación de nuestras fábricas y condición por unidades y valoración, include=FALSE}
+
+proveedores <- Stock %>% 
+  rename(CONDICION = condición) %>% 
+  filter(PROVEEDOR %in% c("PERDRIEL", "SD 2463")) %>% 
+  group_by(PROVEEDOR, CONDICION) %>% 
+  summarise(Unidades = sum(STOCK_TOTAL),
+            "Valor_stock" = sum(`stock valorizado`),
+            Items = n()) %>% 
+  ungroup() %>% 
+   mutate(CONDICION = factor(CONDICION, levels = c("activos", "discontinuados", "liquidación", "2x1", "fuera de venta"))) %>% 
+  complete(PROVEEDOR, CONDICION,
+    fill = list(Unidades = 0, Valor_stock = 0, Items = 0))
+
+
+```
+
+
+```{r tabla 1 Proveedores. participacion en unidades, echo=FALSE}
+
+# Tabla de Unidades-Proveedores
+tabla_unidades_proveedores <- proveedores %>%
+  select(-Valor_stock, -Items) %>%
+  arrange(desc(Unidades)) %>%
+  pivot_wider(names_from = CONDICION, values_from = Unidades, values_fill = 0, names_sort = TRUE  # Esto mantiene el orden del factor
+  ) %>%
+  mutate(across(where(is.numeric), ~format(., big.mark = ".", decimal.mark = ",", scientific = FALSE))) 
+
+```
+
+
+```{r gráfico Proveedores, participación en unidades, echo=FALSE, dev = "png", type = "cairo", dpi = 300, fig.height=2, fig.width=3}
+
+grafico_proveedores_unidades <- ggplot(proveedores, aes(x = CONDICION, y = Unidades, fill = CONDICION)) +
+  geom_col(show.legend = FALSE) + # geom_col se usa cuando ya tienes el valor Y
+  facet_wrap(~ PROVEEDOR, scales = "free") + 
+  scale_y_continuous(labels = scales::label_number(big.mark = ".", decimal.mark = ",")) + 
+  #scale_y_continuous(labels = comma) + # Formatea el eje Y con comas para miles
+  labs(
+    title = "", #Unidades en Stock por Proveedor y Condición
+    x = "",
+    y = "Unidades"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 8), # Achica texto del eje X
+    axis.text.y = element_text(size = 7), # Achica texto del eje Y
+    axis.title = element_text(size = 7), # Achica títulos de los ejes
+    strip.text = element_text(size = 7), # Achica texto de los títulos de los facet_wrap (PROVEEDOR)
+    plot.title = element_text(size = 10) # Achica el título principal del gráfico (si lo tuvieras)
+  )
+
+grafico_proveedores_unidades
+```
+
+
+```{r tabla 2 Proveedores. Participacion en pesos, echo=FALSE}
+
+# Tabla de Pesos - Proveedores
+tabla_proveedores_valor <- proveedores %>%
+  select(-Unidades, -Items) %>%
+  arrange(desc(Valor_stock)) %>% 
+  pivot_wider(names_from = CONDICION, values_from = Valor_stock, values_fill = NA, names_sort = TRUE) %>%
+  mutate(across(where(is.numeric), ~ ifelse(is.na(.), "-",  format(., big.mark = ".", decimal.mark = ",", scientific = FALSE))))
+
+```
+
+
+```{r gráfico Proveedores, participación en $, echo=FALSE, dev = "png", type = "cairo", dpi = 300, fig.height=2, fig.width=3}
+
+grafico_proveedores_valor <- ggplot(proveedores, aes(x = CONDICION, y = Valor_stock / 1000000, fill = CONDICION)) + 
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~ PROVEEDOR, scales = "free") +
+  scale_y_continuous(labels = dollar_format(prefix = "$", big.mark = ".", decimal.mark = ",")) +
+  labs(
+    title = "",
+    x = "",
+    y = "Valor de Stock (en millones de pesos)" 
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 8), # Achica texto del eje X
+    axis.text.y = element_text(size = 7), # Achica texto del eje Y
+    axis.title = element_text(size = 7), # Achica títulos de los ejes
+    strip.text = element_text(size = 7), # Achica texto de los títulos de los facet_wrap (PROVEEDOR)
+    plot.title = element_text(size = 10) # Achica el título principal del gráfico (si lo tuvieras)
+  )
+
+grafico_proveedores_valor
+```
+
+
+
+```{r tabla 3-Proveedores.Participacion en cantidad de ítems por rubro, echo=FALSE}
+
+# Tabla de Cantidad de ítems por proveedor
+tabla_items_por_proveedor <- proveedores %>%
+  select(-Valor_stock, -Unidades) %>%
+  pivot_wider(names_from = CONDICION, values_from = Items, values_fill = 0, names_sort = TRUE  # Esto mantiene el orden del factor
+  ) %>%
+  mutate(across(where(is.numeric), ~format(., big.mark = ".", decimal.mark = ",", scientific = FALSE))) 
+
+```
+
+
+```{r gráfico participación en ítems por proveedor, echo=FALSE, dev = "png", type = "cairo", dpi = 300, fig.height=2, fig.width=3}
+
+grafico_proveedores_items <- ggplot(proveedores, aes(x = CONDICION, y = Items, fill = CONDICION)) +
+  geom_col(show.legend = FALSE) + 
+  facet_wrap(~ PROVEEDOR, scales = "free") + 
+  scale_y_continuous(labels = comma) + 
+  labs(
+    title = "",
+    x = "",
+    y = "Cantidad de ítems"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, size = 8), # Achica texto del eje X
+    axis.text.y = element_text(size = 7), # Achica texto del eje Y
+    axis.title = element_text(size = 7), # Achica títulos de los ejes
+    strip.text = element_text(size = 7), # Achica texto de los títulos de los facet_wrap (PROVEEDOR)
+    plot.title = element_text(size = 10) # Achica el título principal del gráfico (si lo tuvieras)
+  )
+grafico_proveedores_items
+```
+
+
+
+
+
+
+
+
+
+------------------------------------------------------
+#ESTO POR AHORA NO SE USA
+```{r tabla meses de stock para activos y discontinuados, include=FALSE}
+
+# meses_de_stock <- Stock %>% 
+#   filter(condición %in% c("activos", "discontinuados")) %>% 
+#   group_by(RUBRO, condición, `clasificación stock`) %>% 
+#   summarise(Cantidad = n()) %>% 
+#   ungroup() %>% 
+#   rename("Meses de stock" = `clasificación stock`) %>% 
+#   mutate(`Meses de stock` = factor(`Meses de stock`, levels = c("0-6", "7-12", "13-24", "+24")))
+
+  
+```
+
+```{r fig.height=7, dev = "png", type = "cairo", dpi = 300, fig.width=9, include=FALSE}
+
+# ggplot(meses_de_stock, aes(
+#     x = `Meses de stock`, 
+#     y = Cantidad, 
+#     fill = condición
+#   )) +
+#   geom_col(position = position_dodge(preserve = "single")) +
+#   facet_wrap(~ RUBRO, scales = "free") +
+#   scale_y_continuous(
+#     breaks = scales::pretty_breaks(),  # Asegura breaks enteros
+#     labels = scales::number_format(accuracy = 1)  # Sin decimales
+#   ) +
+#   labs(
+#     title = "Cantidad de productos activos y discontinuados según meses en stock por rubro",
+#     x = "Meses en stock",
+#     y = "Cantidad",
+#     fill = "Condición"
+#   ) +
+#   theme_minimal() +
+#   scale_fill_manual(values = c("activos" = "#4e79a7", "discontinuados" = "#f28e2b"))
+# 
+
+```
+
+
+```{r Gráfico heatmap de meses de stock,  dev = "png", type = "cairo", dpi = 300, fig.width=10, fig.height=7, include=FALSE}
+
+#GRÁFICO HEATMAP
+
+# heatmap_cantidad_agrupada <- ggplot(tabla_item_cantidad_agrupada, aes(
+#    x = STOCK_AGRUPADO,  
+#    y = condición,         
+#    fill = Cantidad        
+#   )) +
+#   geom_tile(color = "white", linewidth = 0.5, width = 1, height = 1) +
+#   facet_wrap(~ RUBRO, ncol = 3, scales = "free_y") +  # Escalas libres en Y
+#   scale_fill_gradientn(
+#    colors = c("#f7fbff", "#4292c6", "#08306b"),
+#    na.value = "gray90",
+#    name = "Cantidad\n de productos"
+#    #,
+#    #trans = "sqrt"  # Opcional: mejora distribución de colores
+#   ) +
+#   labs(
+#    title = "Productos activos/discontinuados con stock >6 meses por rubro",
+#     x = "Unidades en Stock",
+#     y = NULL
+#   ) +
+#   theme_minimal(base_size = 14) +
+#   theme(
+#     axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1),
+#     panel.spacing = unit(1, "lines"),  # Espacio entre facetas
+#     plot.title = element_text(face = "bold", hjust = 1)
+#   )
+# 
+# heatmap_cantidad_agrupada
+```
+
+---------------------------------------------------------------
+
+#Escribo el excel
+```{r primero guardo las imágenes}
+
+ggsave(paste0("Reporte stock/Graficos/grafico_participacion_unidades ", fecha_reporte, ".png"), grafico_participacion_unidades, width = 9, height = 7)
+ggsave(paste0("Reporte stock/Graficos/grafico_participacion_valor ", fecha_reporte, ".png"), grafico_participacion_valor, width = 9, height = 7)
+ggsave(paste0("Reporte stock/Graficos/grafico_participacion_items ", fecha_reporte, ".png"), grafico_participacion_items, width = 9, height = 7)
+
+ggsave(paste0("Reporte stock/Graficos/grafico_cant_agrupada_unidades ", fecha_reporte, ".png"), grafico_cant_agrupada_unidades, width = 9, height = 7)
+ggsave(paste0("Reporte stock/Graficos/grafico_cant_agrupada_valor ", fecha_reporte, ".png"), grafico_cant_agrupada_valor, width = 9, height = 7)
+ggsave(paste0("Reporte stock/Graficos/grafico_cant_agrupada_items ", fecha_reporte, ".png"), grafico_cant_agrupada_items, width = 9, height = 7)
+
+ggsave(paste0("Reporte stock/Graficos/grafico_proveedores_unidades ", fecha_reporte, ".png"), grafico_proveedores_unidades, width = 3, height = 2)
+ggsave(paste0("Reporte stock/Graficos/grafico_proveedores_valor ", fecha_reporte, ".png"), grafico_proveedores_valor, width = 3, height = 2)
+ggsave(paste0("Reporte stock/Graficos/grafico_proveedores_items ", fecha_reporte, ".png"), grafico_proveedores_items, width = 3, height = 2)
+
+```
+
+```{r escribo el excel}
+
+# Crear workbook
+wb <- createWorkbook()
+
+# ============================
+# FUNCIONES AUXILIARES
+# ============================
+
+# Estilo de títulos de tabla
+titulo_style <- createStyle(fontSize = 14, textDecoration = "bold",
+  halign = "left", valign = "center",
+  border = "TopBottom", borderStyle = "thin")
+
+# Estilo de encabezados de tabla
+header_style <- createStyle(
+  fontSize = 12, textDecoration = "bold",
+  halign = "center", valign = "center",
+  border = "TopBottom", borderStyle = "thin"
+)
+
+# Estilo para datos
+data_style <- createStyle(
+  fontSize = 11,
+  halign = "center",
+  valign = "center",
+  border = "bottom",  # Solo borde inferior
+  borderStyle = "thin",  # Grosor fino
+  borderColour = "gray50"  # Color gris
+)
+
+# last_row_style <- createStyle(
+#   border = "bottom",
+#   borderStyle = "medium",
+#   borderColour = "black"
+# )
+
+# Estilo con formato miles con punto (sin decimales)
+miles_style <- createStyle(numFmt = "#.##0")
+
+# Estilo moneda con $ y punto como separador de miles
+moneda_style <- createStyle(numFmt = '"$"#.##0')
+
+# ============================
+# FUNCION PARA INSERTAR UNA TABLA + GRAFICO
+# ============================
+
+insertar_tabla_y_grafico <- function(wb, hoja, tabla, titulo, fila_ini, col_ini,
+                                     grafico_path = NULL, miles = TRUE,
+                                     formato_moneda = FALSE,
+                                     merge_rubro = FALSE) {
+  # Insertar título
+  writeData(wb, hoja, titulo, startCol = col_ini, startRow = fila_ini)
+  addStyle(wb, hoja, titulo_style, rows = fila_ini, cols = col_ini, gridExpand = TRUE)
+
+  # Insertar tabla
+  fila_tabla <- fila_ini + 2
+  writeData(wb, hoja, tabla, startCol = col_ini, startRow = fila_tabla, borders = "columns")
+
+  # Estilos generales
+  addStyle(wb, hoja, header_style, rows = fila_tabla, cols = col_ini:(col_ini + ncol(tabla) - 1), gridExpand = TRUE)
+  addStyle(wb, hoja, data_style, rows = (fila_tabla + 1):(fila_tabla + nrow(tabla)),
+           cols = col_ini:(col_ini + ncol(tabla) - 1), gridExpand = TRUE)
+addStyle(wb, hoja, last_row_style, rows = fila_tabla + nrow(tabla), cols = col_ini:(col_ini + ncol(tabla) - 1), gridExpand = TRUE)
+
+  # Formato miles o moneda
+  if (miles || formato_moneda) {
+    cols_numericas <- which(sapply(tabla, is.numeric))
+    estilo <- if (formato_moneda) moneda_style else miles_style
+
+    addStyle(wb, hoja, estilo,
+             rows = (fila_tabla + 1):(fila_tabla + nrow(tabla)),
+             cols = col_ini + cols_numericas - 1,
+             gridExpand = TRUE, stack = TRUE)
+  }
+
+  # Agrupar celdas de RUBRO
+  if (merge_rubro && "RUBRO" %in% colnames(tabla)) {
+    fila_datos <- (fila_tabla + 1):(fila_tabla + nrow(tabla))
+    grupos <- rle(as.character(tabla$RUBRO))
+    fila_actual <- fila_tabla + 1
+    for (i in seq_along(grupos$lengths)) {
+      if (grupos$lengths[i] > 1) {
+        fila_fin <- fila_actual + grupos$lengths[i] - 1
+        mergeCells(wb, hoja, cols = col_ini, rows = fila_actual:fila_fin)
+      }
+      fila_actual <- fila_actual + grupos$lengths[i]
+    }
+  }
+  
+   # Agrupar celdas de PROVEEDORES
+  # if (merge_proveedor && "PROVEEDOR" %in% colnames(tabla)) {
+  #   fila_datos <- (fila_tabla + 1):(fila_tabla + nrow(tabla))
+  #   grupos <- rle(as.character(tabla$PROVEEDOR))
+  #   fila_actual <- fila_tabla + 1
+  #   for (i in seq_along(grupos$lengths)) {
+  #     if (grupos$lengths[i] > 1) {
+  #       fila_fin <- fila_actual + grupos$lengths[i] - 1
+  #       mergeCells(wb, hoja, cols = col_ini, rows = fila_actual:fila_fin)
+  #     }
+  #     fila_actual <- fila_actual + grupos$lengths[i]
+  #   }
+  # }
+
+  # Insertar imagen del gráfico (si se pasó ruta)
+  if (!is.null(grafico_path)) {
+    fila_grafico <- fila_tabla + nrow(tabla) + 3
+    insertImage(wb, hoja, grafico_path, startRow = fila_grafico, startCol = col_ini,
+                width = 6, height = 4, units = "in")
+  }
+
+  invisible(fila_tabla + nrow(tabla) + 20) # para calcular posición futura si se quiere
+}
+
+# ============================
+# HOJA 1: "Participación x rubro"
+# ============================
+
+addWorksheet(wb, "Participación x rubro")
+showGridLines(wb, "Participación x rubro", showGridLines = FALSE)
+
+insertar_tabla_y_grafico(
+  wb, "Participación x rubro",
+  tabla = tabla_unidades,
+  titulo = "Unidades en stock por Rubro y Condición",
+  fila_ini = 1, col_ini = 1,
+  grafico_path = paste0("Reporte stock/Graficos/grafico_participacion_unidades ", fecha_reporte, ".png"),
+  miles = TRUE
+)
+
+insertar_tabla_y_grafico(
+  wb, "Participación x rubro",
+  tabla = tabla_participacion_valor,
+  titulo = "Valor de stock por Rubro y Condición",
+  fila_ini = 1, col_ini = 8,
+  grafico_path = paste0("Reporte stock/Graficos/grafico_participacion_valor ", fecha_reporte, ".png"),
+  formato_moneda = TRUE
+)
+
+insertar_tabla_y_grafico(
+  wb, "Participación x rubro",
+  tabla = tabla_items_por_rubro,
+  titulo = "Cantidad de ítems en stock por Rubro y Condición",
+  fila_ini = 1, col_ini = 15,
+  grafico_path = paste0("Reporte stock/Graficos/grafico_participacion_items ", fecha_reporte, ".png"),
+  miles = TRUE
+)
+
+# ============================
+# HOJA 2: "Unidades agrupadas"
+# ============================
+
+addWorksheet(wb, "Unidades agrupadas")
+showGridLines(wb, "Unidades agrupadas", showGridLines = FALSE)
+
+insertar_tabla_y_grafico(
+  wb, "Unidades agrupadas",
+  tabla = tabla_cantidad_agrupada_unidades,
+  titulo = "Cantidad de productos activos/discontinuados con stock >6 meses por rubro y unidades en stock agrupadas",
+  fila_ini = 1, col_ini = 1,
+  grafico_path = paste0("Reporte stock/Graficos/grafico_cant_agrupada_unidades ", fecha_reporte, ".png"),
+  miles = TRUE,
+  merge_rubro = TRUE
+)
+
+insertar_tabla_y_grafico(
+  wb, "Unidades agrupadas",
+  tabla = tabla_cantidad_agrupada_valor,
+  titulo = "Valor de productos activos/discontinuados con stock >6 meses por rubro y unidades en stock agrupadas",
+  fila_ini = 1, col_ini = 8,
+  grafico_path = paste0("Reporte stock/Graficos/grafico_cant_agrupada_valor ", fecha_reporte, ".png"),
+  formato_moneda = TRUE,
+  merge_rubro = TRUE
+)
+
+insertar_tabla_y_grafico(
+  wb, "Unidades agrupadas",
+  tabla = tabla_cantidad_agrupada_items,
+  titulo = "Cantidad de ítems de productos activos/discontinuados con stock >6 meses por rubro y unidades en stock agrupadas",
+  fila_ini = 1, col_ini = 15,
+  grafico_path = paste0("Reporte stock/Graficos/grafico_cant_agrupada_items ", fecha_reporte, ".png"),
+  miles = TRUE,
+  merge_rubro = TRUE
+)
+
+# ============================
+# HOJA 3: "Participación x proveedor"
+# ============================
+
+addWorksheet(wb, "Participación x proveedor")
+showGridLines(wb, "Participación x proveedor", showGridLines = FALSE)
+
+insertar_tabla_y_grafico(
+  wb, "Participación x proveedor",
+  tabla = tabla_unidades_proveedores,
+  titulo = "Unidades en stock por Proveedor y Condición",
+  fila_ini = 1, col_ini = 1,
+  grafico_path = paste0("Reporte stock/Graficos/grafico_proveedores_unidades ", fecha_reporte, ".png"),
+  miles = TRUE
+)
+
+insertar_tabla_y_grafico(
+  wb, "Participación x proveedor",
+  tabla = tabla_proveedores_valor,
+  titulo = "Valor de stock por Proveedor y Condición",
+  fila_ini = 1, col_ini = 8,
+  grafico_path = paste0("Reporte stock/Graficos/grafico_proveedores_valor ", fecha_reporte, ".png"),
+  formato_moneda = TRUE
+)
+
+insertar_tabla_y_grafico(
+  wb, "Participación x proveedor",
+  tabla = tabla_items_por_proveedor,
+  titulo = "Cantidad de ítems en stock por Proveedor y Condición",
+  fila_ini = 1, col_ini = 15,
+  grafico_path = paste0("Reporte stock/Graficos/grafico_proveedores_items ", fecha_reporte, ".png"),
+  miles = TRUE
+)
+
+
+
+# ============================
+# GUARDAR ARCHIVO
+# ============================
+
+saveWorkbook(wb, paste0("Reporte stock/Reporte_stock_", fecha_reporte, ".xlsx"), overwrite = TRUE)
+
+
+```
+

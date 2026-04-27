@@ -1,0 +1,47 @@
+---
+title: "Tabla de ventas por tienda por mes"
+format: docx
+editor: visual
+---
+
+```{r}
+
+orden_meses <- c("enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre")
+
+#Preparo los datos
+ para_hacer_tabla <- FACTURAS_ARTICULOS2 %>% 
+  distinct(CODIGO, .keep_all = TRUE) %>% 
+  filter(FECHA_EMISION<= "2025-07-31", DEPOSITO != "Resistencia") %>% 
+  mutate(ANIO = year(FECHA_EMISION),
+         MES = month(FECHA_EMISION))
+ 
+tabla_ventas <- para_hacer_tabla %>% 
+  rename(TIENDA = DEPOSITO) %>% 
+  group_by(ANIO, MES, TIENDA) %>% 
+  summarise(FACTURADO = sum(TOTAL_FACTURA)) %>% 
+  mutate(
+    `SIN IVA` = round(FACTURADO / 1.21, 0),
+    `ALQUILER VARIABLE` = case_when(
+      TIENDA == "Lucero Galeria Guemes" ~ round(`SIN IVA` * 0.09),
+      TIENDA == "Recoleta" ~ round(`SIN IVA` * 0.07),  
+      TIENDA == "San Telmo" ~ round(`SIN IVA` * 0.08),
+      TIENDA == "San Telmo 2" ~ round(`SIN IVA` * 0.1),
+      TRUE ~ 0  
+    )
+  )
+  
+#Calculo los totales por año
+totales <- tabla_ventas %>% 
+  filter(ANIO <= 2024) %>% 
+  group_by(ANIO, TIENDA) %>% 
+  summarise(TOTAL = sum(FACTURADO, na.rm = TRUE))
+
+#Le agrego la fila total a la tabla
+
+
+
+#escribo la tabla
+write.xlsx(tabla_ventas, "Facturación por mes por tienda.xlsx")
+
+```
+

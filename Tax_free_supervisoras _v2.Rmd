@@ -1,0 +1,448 @@
+---
+title: "Tax Free supervisoras"
+output: pdf_document
+date: "2025-06-09"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##Le pongo el mes. VER MÁS ADELANTE SI TENGO QUE CAMBIAR EL PERÍODO DE ANÁLISIS
+```{r}
+mes <- "2025-09"
+fecha_tax_free <- strftime("2025/09/30","%Y%m%d")
+fecha_resultado_cruce <- strftime("2025/09/30","%Y%m%d")
+
+orden_cronologico <- c("enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre"
+                       )
+
+
+library(scales)
+```
+
+##Después de agregar a mano los que no tuvieron match, leo el archivo
+```{r cargo el cruce}
+
+Resultado_cruce_TF <- read_excel(paste0("Tax free/Resultado cruce/Resultado_cruce_", fecha_resultado_cruce, ".xlsx"))
+
+```
+
+##Le asigno los nombres a los meses
+```{r}
+
+Resultado_cruce_TF <- Resultado_cruce_TF %>%   
+  mutate(DEPOSITO = ifelse(DEPOSITO == "Lucero Galeria Guemes", "Güemes", DEPOSITO)) %>% 
+  mutate(MES = month(FECHA_EMISION)) %>% 
+  mutate(MES = case_when(
+      MES == 1 ~ "enero",
+      MES == 2 ~ "febrero",
+      MES == 3 ~ "marzo",
+      MES == 4 ~ "abril",
+      MES == 5 ~ "mayo",
+      MES == 6 ~ "junio",
+      MES == 7 ~ "julio",
+      MES == 8 ~ "agosto",
+      MES == 9 ~ "septiembre",
+      TRUE ~ NA_character_
+    )
+    ,
+    MES = factor(MES, levels = orden_cronologico)) %>% 
+  mutate(NACIONALIDAD_UNIFICADA = ifelse(is.na(NACIONALIDAD_UNIFICADA), "Desconocida", NACIONALIDAD_UNIFICADA))
+
+```
+#--------------------------------------------------
+
+#SUPERVISORAS
+```{r Porcentaje de ventas con Tax Free por tienda}
+
+#CENTRO---------------------------------------------------------------
+TABLA_CENTRO_VENTAS_TF <- Resultado_cruce_TF %>%
+  filter(!NACIONALIDAD_UNIFICADA %in% c("Argentina", "Desconocida")) %>%  # Solo clientes extranjeros
+  filter(ZONA == "CENTRO") %>% 
+  group_by(MES, DEPOSITO) %>%
+  summarise(
+    Con_TaxFree = sum(!is.na(ESTADO)),
+    Sin_TaxFree = sum(is.na(ESTADO)),
+    Total_Extranjeros = n()
+  ) %>%
+  mutate(Porcentaje_TF = (Con_TaxFree / Total_Extranjeros) * 100,
+         Porcentaje_Sin_TF = (Sin_TaxFree / Total_Extranjeros) * 100,
+         MES_LABEL = paste0(MES, " (N=", Total_Extranjeros, ")"))  
+
+TOTAL_CENTRO_VENTAS_TF <- Resultado_cruce_TF %>%
+  filter(!NACIONALIDAD_UNIFICADA %in% c("Argentina", "Desconocida")) %>%  # Solo clientes extranjeros
+  filter(ZONA == "CENTRO") %>% 
+  group_by(MES) %>%
+  summarise(
+    Con_TaxFree = sum(!is.na(ESTADO)),
+    Sin_TaxFree = sum(is.na(ESTADO)),
+    Total_Extranjeros = n()
+  ) %>%
+  mutate(Porcentaje_TF = (Con_TaxFree / Total_Extranjeros) * 100,
+         Porcentaje_Sin_TF = (Sin_TaxFree / Total_Extranjeros) * 100,
+         MES_LABEL = paste0(MES, " (N=", Total_Extranjeros, ")")) %>% 
+  mutate(DEPOSITO = "CENTRO")
+
+#Uno las dos tablas
+TABLA_TOTAL_CENTRO_VENTAS_TF <- bind_rows(TABLA_CENTRO_VENTAS_TF, TOTAL_CENTRO_VENTAS_TF)
+
+##Aseguro el orden cronológico de los meses y hago larga la tabla
+TABLA_TOTAL_CENTRO_VENTAS_TF <- TABLA_TOTAL_CENTRO_VENTAS_TF %>%
+  mutate(MES = factor(MES, 
+                      levels = c("enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre"),
+                      ordered = TRUE),
+         MES_LABEL = paste0(MES, " (N=", Total_Extranjeros, ")") %>% 
+           fct_reorder(as.numeric(MES))) %>% 
+  pivot_longer(cols = starts_with("Porcentaje"), 
+               names_to = "Tax free", 
+               values_to = "Porcentaje")
+
+#Gráfico CENTRO
+Grafico_VENTAS_TF_CENTRO <- ggplot(TABLA_TOTAL_CENTRO_VENTAS_TF, 
+  aes(x = MES, y = Porcentaje, fill = `Tax free`)) +
+  geom_col(position = "stack", width = 0.7) +
+  facet_wrap(~DEPOSITO, nrow = 1) +
+  
+  geom_text(
+    aes(label = ifelse(Porcentaje > 3, round(Porcentaje, 0), "")),
+    position = position_stack(vjust = 0.5),
+    size = 2,
+    color = "black"
+  ) +
+  
+  scale_y_continuous(labels = scales::percent_format(scale = 1)) +
+  scale_fill_manual(
+    values = c("Porcentaje_TF" = "#1f77b4", 
+               "Porcentaje_Sin_TF" = "#ff7f0e"),
+    labels = c("Porcentaje_TF" = "Con Tax Free", 
+               "Porcentaje_Sin_TF" = "Sin Tax Free"),
+    name = NULL) +
+  labs(
+    title = "Porcentaje de ventas con y sin Tax Free a extranjeros por tienda y mes",
+    subtitle = "Zona Centro, 2025",
+    x = "",
+    y = ""
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = 7),
+    legend.position = "bottom",
+    strip.text = element_text(face = "bold", size = 10),
+    panel.spacing = unit(1, "lines"),
+    plot.title = element_text(hjust = 0, size = 12),
+    plot.subtitle = element_text(hjust = 0, size = 11),
+    legend.key = element_rect(fill = NA, color = NA),
+    legend.text = element_text(size = 8),      # Texto más pequeño
+    legend.key.size = unit(0.4, "cm"),         # Cuadrados más pequeños
+    legend.spacing.y = unit(0.2, "cm")
+  )
+
+print(Grafico_VENTAS_TF_CENTRO)
+ggsave(
+    filename = paste0("Tax free/Imagenes/Ventas TF Centro_", mes, ".png"),
+    plot = Grafico_VENTAS_TF_CENTRO, height = 3.5, dpi = 300)
+
+#SAN TELMO----------------------------------------------------
+
+#SAN TELMO
+TABLA_SAN_TELMO_VENTAS_TF <- Resultado_cruce_TF %>%
+  filter(!NACIONALIDAD_UNIFICADA %in% c("Argentina", "Desconocida")) %>%  # Solo clientes extranjeros
+  filter(ZONA == "SAN TELMO") %>% 
+  group_by(MES, DEPOSITO) %>%
+  summarise(
+    Con_TaxFree = sum(!is.na(ESTADO)),
+    Sin_TaxFree = sum(is.na(ESTADO)),
+    Total_Extranjeros = n()
+  ) %>%
+  mutate(Porcentaje_TF = (Con_TaxFree / Total_Extranjeros) * 100,
+         Porcentaje_Sin_TF = (Sin_TaxFree / Total_Extranjeros) * 100,
+         MES_LABEL = paste0(MES, " (N=", Total_Extranjeros, ")"))  
+
+TOTAL_SAN_TELMO_VENTAS_TF <- Resultado_cruce_TF %>%
+  filter(!NACIONALIDAD_UNIFICADA %in% c("Argentina", "Desconocida")) %>%  # Solo clientes extranjeros
+  filter(ZONA == "SAN TELMO") %>% 
+  group_by(MES) %>%
+  summarise(
+    Con_TaxFree = sum(!is.na(ESTADO)),
+    Sin_TaxFree = sum(is.na(ESTADO)),
+    Total_Extranjeros = n()
+  ) %>%
+  mutate(Porcentaje_TF = (Con_TaxFree / Total_Extranjeros) * 100,
+         Porcentaje_Sin_TF = (Sin_TaxFree / Total_Extranjeros) * 100,
+         MES_LABEL = paste0(MES, " (N=", Total_Extranjeros, ")")) %>% 
+  mutate(DEPOSITO = "SAN TELMO")
+
+#Uno las dos tablas
+TABLA_TOTAL_SAN_TELMO_VENTAS_TF <- bind_rows(TABLA_SAN_TELMO_VENTAS_TF, TOTAL_SAN_TELMO_VENTAS_TF)
+
+##Aseguro el orden cronológico de los meses y hago larga la tabla
+TABLA_TOTAL_SAN_TELMO_VENTAS_TF <- TABLA_TOTAL_SAN_TELMO_VENTAS_TF %>%
+  mutate(MES = factor(MES, 
+                      levels = c("enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre"),
+                      ordered = TRUE),
+         MES_LABEL = paste0(MES, " (N=", Total_Extranjeros, ")") %>% 
+           fct_reorder(as.numeric(MES))) %>% 
+  pivot_longer(cols = starts_with("Porcentaje"), 
+               names_to = "Tax free", 
+               values_to = "Porcentaje")
+
+##Para que quede SAN TELMO primero
+TABLA_TOTAL_SAN_TELMO_VENTAS_TF$DEPOSITO <- factor(
+  TABLA_TOTAL_SAN_TELMO_VENTAS_TF$DEPOSITO,
+  levels = c("SAN TELMO", "French", "San Telmo", "San Telmo 2"))
+
+#Gráfico SAN TELMO
+Grafico_VENTAS_TF_SAN_TELMO <- ggplot(TABLA_TOTAL_SAN_TELMO_VENTAS_TF, 
+  aes(x = MES, y = Porcentaje, fill = `Tax free`)) +  # Usar la columna correcta
+  geom_col(position = "stack", width = 0.7) +
+  facet_wrap(~DEPOSITO, nrow = 1) +
+  
+  geom_text(
+    aes(label = ifelse(Porcentaje > 3, round(Porcentaje, 0), "")),
+    position = position_stack(vjust = 0.5),
+    size = 2,
+    color = "black"
+  ) +
+  
+  scale_y_continuous(labels = scales::percent_format(scale = 1)) +
+  scale_fill_manual(
+    values = c("Porcentaje_TF" = "#1f77b4", 
+               "Porcentaje_Sin_TF" = "#ff7f0e"),
+    labels = c("Porcentaje_TF" = "Con Tax Free", 
+               "Porcentaje_Sin_TF" = "Sin Tax Free"),
+    name = NULL) +
+  labs(
+    title = "Porcentaje de ventas con y sin Tax Free a extranjeros por tienda y mes.",
+    subtitle = "Zona San Telmo, 2025",
+    x = "",
+    y = ""
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1, vjust = 1, size = 7),
+    legend.position = "bottom",
+    strip.text = element_text(face = "bold", size = 10),
+    panel.spacing = unit(1, "lines"),
+    plot.title = element_text(hjust = 0, size = 12),
+    plot.subtitle = element_text(hjust = 0, size = 11),
+   legend.key = element_rect(fill = NA, color = NA),
+   legend.text = element_text(size = 8),      # Texto más pequeño
+    legend.key.size = unit(0.4, "cm"),         # Cuadrados más pequeños
+    legend.spacing.y = unit(0.2, "cm")
+
+  )
+
+print(Grafico_VENTAS_TF_SAN_TELMO)
+ggsave(
+    filename = paste0("Tax free/Imagenes/Ventas TF San Telmo_", mes, ".png"),
+    plot = Grafico_VENTAS_TF_SAN_TELMO, height = 3.5, dpi = 300)
+
+```
+
+
+##OJO QUE FILTRO FECHAS. AJUSTAR TODOS LOS MESES. CUANDO SE CUMPLE UN AÑO DE DATOS PORQUE SE VAN A SUPERPONER LOS MESES
+```{r % reintegros}
+
+PARA_TABLA_REINTEGROS <- TAX_FREE_EDITADO %>% 
+  filter(FECHA_TF>= "2025-01-01", FECHA_TF<= "2025-09-30") %>% 
+  mutate(ZONA = case_when(DEPOSITO == "Florida" | DEPOSITO == "Lucero Galeria Guemes" | DEPOSITO == "Recoleta" ~ "CENTRO", DEPOSITO == "French" | DEPOSITO == "San Telmo" | DEPOSITO == "San Telmo 2" ~ "SAN TELMO", TRUE ~ NA)) %>% 
+  mutate(DEPOSITO = ifelse(DEPOSITO == "Lucero Galeria Guemes", "Güemes", DEPOSITO)) %>% 
+  mutate(MES = month(FECHA_TF)) %>% 
+  mutate(MES = case_when(
+      MES == 1 ~ "enero",
+      MES == 2 ~ "febrero",
+      MES == 3 ~ "marzo",
+      MES == 4 ~ "abril",
+      MES == 5 ~ "mayo",
+      MES == 6 ~ "junio",
+      MES == 7 ~ "julio",
+      MES == 8 ~ "agosto",
+      MES == 9 ~ "septiembre",
+      TRUE ~ NA_character_
+    )
+    ,
+    MES = factor(MES, levels = orden_cronologico)
+    ) %>%
+  filter(!is.na(MES)) 
+
+
+TABLA_REINTEGROS <-  PARA_TABLA_REINTEGROS %>%  
+  group_by(ZONA, MES, DEPOSITO) %>% 
+  summarise(
+    Total = n(),
+    Reintegro = sum(ESTADO == "Completed"),
+    "% reintegro" = Reintegro / Total,
+    .groups = "drop")
+
+
+#CENTRO----
+##Preparo datos
+CENTRO_TF <- TABLA_REINTEGROS %>% 
+  filter(ZONA == "CENTRO") %>% 
+  select(-ZONA)
+
+totales_por_mes_CENTRO <- CENTRO_TF %>%
+  group_by(MES) %>%
+  summarise(Total = sum(Total),
+            Reintegro = sum(Reintegro)) %>%
+  mutate(`% reintegro` = Reintegro / Total,
+         DEPOSITO = "CENTRO") %>%
+  select(MES, DEPOSITO, Total, Reintegro, `% reintegro`)
+
+TABLA_REINTEGRO_CENTRO_TOTAL <- bind_rows(CENTRO_TF, totales_por_mes_CENTRO) %>%
+  complete(MES, DEPOSITO, fill = list(`% reintegro` = 0, Total = 0, Reintegro = 0))
+
+## Gráfico CENTRO
+GRAFICO_REINTEGROS_CENTRO <- ggplot(TABLA_REINTEGRO_CENTRO_TOTAL, aes(x = DEPOSITO, y = `% reintegro`, fill = MES)) +
+  geom_bar(stat = "identity", position = position_dodge(preserve = "single")) +
+  # Línea horizontal punteada al 60% con etiqueta
+  geom_hline(yintercept = 0.6, linetype = "dashed", color = "red", linewidth = 0.7) +
+  annotate(
+    "text",
+    x = Inf,           # Extremo derecho del gráfico
+    y = 0.6,           # Altura de la línea (60%)
+    label = "Primera meta",
+    color = "red",
+    hjust = 1.1,       # Ajuste horizontal (1 = derecha, 1.1 = fuera del gráfico)
+    vjust = -0.5,      # Ajuste vertical
+    size = 3
+  ) +
+  geom_hline(yintercept = 0.8, linetype = "dashed", color = "red", linewidth = 0.7) +
+  annotate(
+    "text",
+    x = Inf,           # Extremo derecho del gráfico
+    y = 0.8,           # Altura de la línea (60%)
+    label = "Objetivo",
+    color = "red",
+    hjust = 1.1,       # Ajuste horizontal (1 = derecha, 1.1 = fuera del gráfico)
+    vjust = -0.5,      # Ajuste vertical
+    size = 3
+  ) +
+    # Etiquetas de porcentaje (sin 0%)
+  geom_text(
+    aes(label = ifelse(`% reintegro` > 0, round(`% reintegro`*100), "")), 
+    position = position_dodge(width = 0.9),
+    vjust = -0.5,
+    size = 2,
+    color = "black"
+  ) +
+  # Etiquetas de "N=" 
+  geom_text(
+    aes(label = ifelse(Total > 0, paste0("N=", Total), ""), y = 0),
+    position = position_dodge(width = 0.9),
+    angle = 90,
+    hjust = -0.1,
+    vjust = 0.5,
+    size = 2,
+    color = "black"
+  ) +
+  labs(
+    title = "Porcentaje de ventas con tax free que obtuvieron reintegros,\npor tienda y mes de venta. Zona Centro, 2025.",
+   # subtitle = "",
+    x = "",
+    y = "",
+    fill = ""
+  ) +  
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size = 12, hjust = 0),
+    #plot.subtitle = element_text(size = 11, hjust = 0),
+    plot.margin = unit(c(1, 1, 2, 0), "cm"),  # Ajuste de márgenes
+    legend.text = element_text(size = 8),      # Texto más pequeño
+    legend.key.size = unit(0.4, "cm"),         # Cuadrados más pequeños
+    legend.spacing.y = unit(0.2, "cm")
+  )
+# Mostrar el gráfico
+print(GRAFICO_REINTEGROS_CENTRO)
+ggsave(
+    filename = paste0("Tax free/Imagenes/Reintegros TF Centro_", mes, ".png"),
+    plot = GRAFICO_REINTEGROS_CENTRO, height = 4, dpi = 300)
+
+
+#SAN TELMO----
+##Preparo datos
+SAN_TELMO_TF <- TABLA_REINTEGROS %>% 
+  filter(ZONA == "SAN TELMO") %>% 
+  select(-ZONA)
+
+totales_por_mes_SAN_TELMO <- SAN_TELMO_TF %>%
+  group_by(MES) %>%
+  summarise(Total = sum(Total),
+            Reintegro = sum(Reintegro)) %>%
+  mutate(`% reintegro` = Reintegro / Total,
+         DEPOSITO = "SAN TELMO") %>%
+  select(MES, DEPOSITO, Total, Reintegro, `% reintegro`)
+
+TABLA_REINTEGRO_SAN_TELMO_TOTAL <- bind_rows(SAN_TELMO_TF, totales_por_mes_SAN_TELMO) %>%
+  complete(MES, DEPOSITO, fill = list(`% reintegro` = 0, Total = 0, Reintegro = 0))
+
+TABLA_REINTEGRO_SAN_TELMO_TOTAL$DEPOSITO <- factor(
+  TABLA_REINTEGRO_SAN_TELMO_TOTAL$DEPOSITO,
+  levels = c("SAN TELMO", "French", "San Telmo", "San Telmo 2"))
+
+## Gráfico SAN TELMO
+GRAFICO_REINTEGROS_SAN_TELMO <- ggplot(TABLA_REINTEGRO_SAN_TELMO_TOTAL, aes(x = DEPOSITO, y = `% reintegro`, fill = MES)) +
+  geom_bar(stat = "identity", position = position_dodge(preserve = "single")) +
+  # Línea horizontal punteada al 60% con etiqueta
+  geom_hline(yintercept = 0.6, linetype = "dashed", color = "red", linewidth = 0.7) +
+  annotate(
+    "text",
+    x = Inf,           # Extremo derecho del gráfico
+    y = 0.6,           # Altura de la línea (60%)
+    label = "Primera meta",
+    color = "red",
+    hjust = 1.1,       # Ajuste horizontal (1 = derecha, 1.1 = fuera del gráfico)
+    vjust = -0.5,      # Ajuste vertical
+    size = 3
+  ) +
+  geom_hline(yintercept = 0.8, linetype = "dashed", color = "red", linewidth = 0.7) +
+  annotate(
+    "text",
+    x = Inf,           # Extremo derecho del gráfico
+    y = 0.8,           # Altura de la línea (60%)
+    label = "Objetivo",
+    color = "red",
+    hjust = 1.1,       # Ajuste horizontal (1 = derecha, 1.1 = fuera del gráfico)
+    vjust = -0.5,      # Ajuste vertical
+    size = 3
+  ) +
+    geom_text(
+    aes(label = ifelse(`% reintegro` > 0, round(`% reintegro`*100, 0), "")), 
+            position = position_dodge(width = 0.9),
+            vjust = -0.5,  # Ajusta la posición vertical (arriba de la barra)
+            size = 2,
+            color = "black") +
+  # Agregar valores de N= (opcional, si aún los quieres)
+  geom_text(aes(label = ifelse(Total > 0, paste0("N=", Total), ""),
+                y = 0),
+            position = position_dodge(width = 0.9),
+            angle = 90,
+            hjust = -0.1,
+            vjust = 0.5,
+            size = 2,
+            color = "black") +
+  labs(title = "Porcentaje de ventas con tax free que obtuvieron reintegros,\npor tienda y mes de venta. Zona San Telmo, 2025.",
+ # subtitle= "",
+       x = "",
+       y = "",
+       fill = "") +  
+  scale_y_continuous(labels = scales::percent_format(accuracy = 1)) +
+  theme_minimal() +
+  # Centrar el título y ajustar márgenes
+  theme(plot.title = element_text(size = 12, hjust = 0),
+        #plot.subtitle = element_text(size = 11, hjust = 0),
+        plot.margin = unit(c(1, 1, 2, 1), "cm"),
+        legend.text = element_text(size = 8),      # Texto más pequeño
+    legend.key.size = unit(0.4, "cm"),         # Cuadrados más pequeños
+    legend.spacing.y = unit(0.2, "cm")
+)
+
+# Mostrar el gráfico
+print(GRAFICO_REINTEGROS_SAN_TELMO)
+ggsave(
+    filename = paste0("Tax free/Imagenes/Reintegros TF San Telmo_", mes, ".png"),
+    plot = GRAFICO_REINTEGROS_SAN_TELMO, height = 4, dpi = 300)
+
+```

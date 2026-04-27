@@ -1,0 +1,10 @@
+"0","NACIONALIDAD_PRODUCTOS <- PRODUCTOS_A_SEGUIR %>% 
+  filter(case_when(CATEGORIA == ""REMERA"" ~ FECHA_EMISION <=""2024-12-01"", CATEGORIA == ""MEDIAS"" ~ FECHA_EMISION <= ""2025-01-01"", TRUE ~ TRUE)) %>% 
+  group_by(CATEGORIA, NACIONALIDAD) %>% 
+  summarise(Total = sum(PRODUCTO_CANTIDAD)) %>% 
+  arrange(CATEGORIA, -Total) %>% 
+  ungroup()
+"
+"2","[38;5;232m`summarise()` has grouped output by 'CATEGORIA'. You can override using the
+`.groups` argument.[39m
+"

@@ -1,0 +1,4 @@
+"0","mes <- ""2025-12"""
+"0",""
+"0","Ventas_reales <- read_excel(""Reporte_gastos/Ventas reales.xlsx"")"
+"0",""

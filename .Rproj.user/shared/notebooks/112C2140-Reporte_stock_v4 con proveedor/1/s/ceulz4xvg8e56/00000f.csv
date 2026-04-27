@@ -1,0 +1,12 @@
+"0",""
+"0","meses_de_stock <- Stock %>% "
+"0","  filter(condición %in% c(""activos"", ""discontinuados"")) %>% "
+"0","  group_by(RUBRO, condición, `clasificación stock`) %>% "
+"0","  summarise(Cantidad = n()) %>% "
+"0","  ungroup() %>% "
+"0","  rename(""Meses de stock"" = `clasificación stock`) %>% "
+"0","  mutate(`Meses de stock` = factor(`Meses de stock`, levels = c(""0-6"", ""7-12"", ""13-24"", ""+24"")))"
+"2","[38;5;232m`summarise()` has grouped output by 'RUBRO', 'condición'. You can override using the `.groups`
+argument.[39m
+"
+"0","  "

@@ -1,0 +1,8 @@
+"0",""
+"0","save_plot_tmp <- function(p, width = 6, height = 4, dpi = 150) {"
+"0","  tmp <- tempfile(fileext = "".png"")"
+"0","  ggsave(tmp, plot = p, width = width, height = height,"
+"0","         dpi = dpi, bg = ""white"")"
+"0","  tmp"
+"0","}"
+"0",""
