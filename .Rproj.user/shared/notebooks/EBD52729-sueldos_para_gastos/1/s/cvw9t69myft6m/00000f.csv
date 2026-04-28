@@ -1,7 +1,0 @@
-"0",""
-"0","Sueldos <- read_excel(""Reporte_gastos/Sueldos/Sueldos_desde_2025-09.xlsx"", "
-"0","    col_types = c(""numeric"", ""text"", ""date"", "
-"0","        ""numeric"", ""text"", ""text"", ""text"", "
-"0","        ""text"", ""text""))"
-"0",""
-"0","Contribuciones <- read_excel(""Reporte_gastos/Sueldos/Sueldos_desde_2025-09.xlsx"", sheet = 2, col_types = c(""numeric"", ""text"", ""text"", ""text"", ""text"", ""text"", ""text"", ""text"", ""text"", ""text"", ""text"", ""text"", ""text"", ""text"", ""text"", ""date""))"

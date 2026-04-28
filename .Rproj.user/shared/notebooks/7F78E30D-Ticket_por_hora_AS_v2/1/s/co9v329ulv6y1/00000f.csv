@@ -1,5 +1,0 @@
-"0",""
-"0","tk_AS <- read_excel(""Exportacion_sistema/carga tk AS san telmo.xlsx"", "
-"0","    col_types = c(""date"", ""text"", ""text"", "
-"0","        ""numeric"", ""numeric""))"
-"0",""

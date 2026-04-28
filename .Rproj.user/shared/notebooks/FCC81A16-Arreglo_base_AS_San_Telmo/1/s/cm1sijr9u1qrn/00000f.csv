@@ -1,6 +1,0 @@
-"0",""
-"0","ARTICULOS_AS <- read_excel(paste0(""Maestro/maestro_AS_"", fecha_maestro, "".xlsx""), skip = 1) %>% "
-"0","  select(RUBRO, CODIGO =""CODIGO ARTICULO"", FAMILIA, SUBFAMILIA, DESCRIPCION, VARIANTE, PROVEEDOR, MATERIAL = ""MATERIAL 1"", COLOR_1 = ""COLOR 1"", COLOR_2 = ""COLOR 2"")"
-"0",""
-"0",""
-"0","REVISAR_ARTICULOS_DUPLICADOS_AS <- ARTICULOS_AS %>% count(CODIGO) %>% filter(n > 1)"

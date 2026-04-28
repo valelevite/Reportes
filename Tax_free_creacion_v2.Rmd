@@ -11,17 +11,18 @@ knitr::opts_chunk$set(echo = TRUE)
 #SI VOY A CRUZAR CON ALEGRA, PRIMERO CORRER "Arreglo_base"
 
 ```{r}
+library(tidyverse)
+library(openxlsx)
+
 mes <- "2026-03"
 mes_arch <- str_replace(mes, "-", "_")
 
-library(tidyverse)
-library(openxlsx)
 ```
 
 #Leo los archivos y los unifico
 ```{r}
 
-ruta <- "C:/Users/PC/Documents/Valeria/Reportes/Tax free/Tax free para armar"
+ruta <- "Tax free/Tax free para armar"
 archivos <- list.files(ruta, pattern = paste0(mes_arch, "\\.csv$"), full.names = TRUE)
 
 

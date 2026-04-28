@@ -1,5 +1,0 @@
-"0","#leo el archivo que creé de Tax free"
-"0","Tax_free <- read_excel(paste0(""Tax free/Tax free armado/Tax free_"", mes, "".xlsx"")) %>%"
-"0","  filter(TFSStatus!=""Voided"" | is.na(TFSStatus)) %>%"
-"0","  filter(as.Date(IssuingDate) >= fecha_inicio_mes, IssuingDate <= fecha_fin_mes)"
-"0",""

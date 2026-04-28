@@ -63,7 +63,7 @@ linea_raw <- paste0("const RAW = ", json_data, ";")
 # ── 4. Guardalo en un archivo de texto ──────────────────────────────
 ```{r}
 
-writeLines(linea_raw, "raw_data.txt")
+writeLines(linea_raw, "Presupuestos tiendas/raw_data.txt")
 cat("✓ Archivo raw_data.txt generado con", nrow(df), "filas\n")
 
 ```

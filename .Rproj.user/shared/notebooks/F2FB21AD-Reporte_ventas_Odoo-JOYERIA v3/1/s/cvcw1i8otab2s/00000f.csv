@@ -1,4 +1,0 @@
-"0",""
-"0","FACTURAS_MES2_JOYERIA <- FACTURAS_MES_JOYERIA %>% "
-"0","  filter(PRECIO_UNITARIO>100) "
-"0",""

@@ -1,7 +1,0 @@
-"0",""
-"0","FACTURAS_MES <- Odoo_mas_Alegra %>%"
-"0","  select(-PRECIO_UNITARIO_SIN_IMP) %>% "
-"0","  filter(as.Date(FECHA_EMISION) >= fecha_inicio_mes,"
-"0","         as.Date(FECHA_EMISION) <= fecha_fin_mes,"
-"0","         TIENDA %in% c(""San Telmo"", ""San Telmo 2"", ""Florida"", ""French"", ""Güemes"", ""Recoleta""))"
-"0",""

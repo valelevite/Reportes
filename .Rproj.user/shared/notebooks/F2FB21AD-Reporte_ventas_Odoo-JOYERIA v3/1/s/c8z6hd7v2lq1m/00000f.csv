@@ -1,6 +1,0 @@
-"0","writeData(wb, ws, titulo_reporte, startRow = 1, startCol = 1)"
-"0","addStyle(wb, ws, createStyle(fontName = ""Arial"", fontSize = 14,"
-"0","                              textDecoration = ""BOLD"", fontColour = COL_HEADER),"
-"0","         rows = 1, cols = 1)"
-"0","mergeCells(wb, ws, cols = 1:4, rows = 1)"
-"0",""

@@ -1,6 +1,0 @@
-"0",""
-"0","#cargo el archivo"
-"0","cupones <- read_excel(""Cupones Tarjetas/Cupones.xlsx"") |> "
-"0","  select(TERMINAL = Terminal, TARJETA = Marca, NRO_TICKET = Ticket, FECHA = ""Fecha de operación"", TIPO_MOV = ""Tipo de mov."", NRO_TARJETA = Tarjeta, MONTO = ""Monto Bruto"", NRO_CUOTAS = Cuotas, PLAN_CUOTAS = ""Plan Cuotas"", ARANCEL = ""Arancel"", COSTO_FINANCIERO = ""Costo Financiero"", TASA = ""Tasa Directa"") |> "
-"0","  mutate(FECHA = as.Date(FECHA, format = ""%d/%m/%Y %H:%M:%S""))"
-"0","  "

@@ -1,4 +1,0 @@
-"0","write.xlsx(TABLA_PRESUPUESTO, paste0(""Presupuestos tiendas/Tabla presupuestos_"" año_minimo, mes_maximo, "".xlsx""))
-"
-"2","Error: unexpected symbol en ""write.xlsx(TABLA_PRESUPUESTO, paste0(""Presupuestos tiendas/Tabla presupuestos_"" año_minimo""
-"

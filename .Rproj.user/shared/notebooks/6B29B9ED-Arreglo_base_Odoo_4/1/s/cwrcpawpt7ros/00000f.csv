@@ -1,3 +1,0 @@
-"0",""
-"0","REVISAR_CODIGO_PRODUCTOS <- Odoo_Facturas_descuento2 %>% "
-"0","  filter(is.na(CODIGO_BARRAS))"

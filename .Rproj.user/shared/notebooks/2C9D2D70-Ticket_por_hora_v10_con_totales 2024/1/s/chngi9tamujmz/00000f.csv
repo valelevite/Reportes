@@ -1,6 +1,0 @@
-"0","altura_grafico_barras <- 10 * (cant_meses / 3)
-"
-"2","G1;H1;Errorh: objeto 'cant_meses' no encontrado
-Error durante el wrapup: no hay tantas estructuras en la pila
-Error: no more error handlers available (recursive errors?); invoking 'abort' restart
-g"

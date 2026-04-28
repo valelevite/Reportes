@@ -1,6 +1,0 @@
-"0",""
-"0","Odoo_Facturas_desc_porc <- Odoo_Facturas_Fecha %>% "
-"0","mutate(DESCUENTO_PORC = (1- (TOTAL_FACTURA/(TOTAL_FACTURA+DESCUENTO)))*100) %>% "
-"0","  mutate(DESCUENTO_PORC = round(DESCUENTO_PORC, 1),"
-"0","         PRODUCTO_TOTAL = ifelse(PRECIO_UNITARIO_CON_IMP<0, PRODUCTO_TOTAL*-1, PRODUCTO_TOTAL)) #para que las devoluciones se resten del total"
-"0",""

@@ -1,6 +1,0 @@
-"0",""
-"0","TABLA_PRESUPUESTO <- bind_rows(Tabla_ventas_costo_margen, Tabla_gastos, Tabla_gasto_financiero, Tabla_sueldos_FINAL, fila_resultado_operativo, Tabla_impuestos, fila_resultado_final) %>% "
-"0","  select(-CATEGORIA) %>% "
-"0","   filter(AÑO >= año_minimo & MES <= mes_maximo) "
-"0"," "
-"0",""

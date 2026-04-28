@@ -1,9 +1,0 @@
-"0","#Calculo los totales por año
-totales <- tabla_ventas %>% 
-  filter(ANIO <= 2024) %>% 
-  group_by(ANIO, TIENDA) %>% 
-  summarise(TOTAL = sum(FACTURADO, na.rm = TRUE))
-"
-"2","[38;5;232m`summarise()` has grouped output by 'ANIO'. You can override using the
-`.groups` argument.[39m
-"

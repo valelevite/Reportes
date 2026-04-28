@@ -1,4 +1,0 @@
-"0",""
-"0","facturas_AS <- facturas %>%"
-"0","  filter(DEPOSITO == ""AS Güemes"")"
-"0","  "

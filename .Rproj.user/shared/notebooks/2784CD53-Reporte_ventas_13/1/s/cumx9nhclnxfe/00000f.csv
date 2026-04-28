@@ -1,6 +1,0 @@
-"0",""
-"0","FACTURAS_MES <- FACTURAS_MES %>% "
-"0","  mutate(NACIONALIDAD = case_when(NACIONALIDAD == ""Estados Unidos"" ~ ""USA"", TRUE ~ NACIONALIDAD))"
-"0",""
-"0","FACTURAS_MES[[""NACIONALIDAD""]][is.na(FACTURAS_MES[[""NACIONALIDAD""]])] <- ""Desconocida"""
-"0",""

@@ -59,7 +59,7 @@ cookie_string <- paste(
 
 ```{r preparo entorno}
 
-base_dir <- "Odoo"
+base_dir <- "." #carpeta raíz
 dir.create(base_dir, showWarnings = FALSE)
 
 img_dir <- file.path(base_dir, "imagenes")

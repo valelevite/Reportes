@@ -1,8 +1,0 @@
-"0","TABLA_PARTICIPACION <- TABLA_VENTA_PRODUCTOS %>%
-  left_join(VENTAS_TOTALES, by = ""MES"")
-"
-"2","G1;[1m[33mError[39m in `left_join()`:[22m
-[38;5;232m[33m![38;5;232m Join columns in `x` must be present in the data.
-[31m✖[38;5;232m Problem with `MES`.[39m
-[90mRun `]8;;x-r-run:rlang::last_trace()rlang::last_trace()]8;;` to see where the error occurred.[39m
-g"

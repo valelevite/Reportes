@@ -1,7 +1,0 @@
-"0",""
-"0","library(ggrepel)  # Para evitar superposición de etiquetas en gráficos"
-"0","library(ggplot2)"
-"0","library(scales)"
-"0","library(janitor)"
-"0","library(magick)"
-"0",""

@@ -1,8 +1,0 @@
-"0",""
-"0","FACTURAS_FILTRADO <- FACTURAS_ARTICULOS2 %>% "
-"0","select(CODIGO = PRODUCTO_REFERENCIA, TIENDA = DEPOSITO, FECHA_EMISION, RUBRO, FAMILIA, DESCRIPCION, MATERIAL, COLOR, PRODUCTO_CANTIDAD, PRODUCTO_TOTAL) %>% "
-"0","  mutate(TIENDA = ifelse(TIENDA == ""Lucero Galeria Guemes"", ""Güemes"", TIENDA))"
-"2","G1;H1;Errorh: objeto 'FACTURAS_ARTICULOS2' no encontrado
-Error durante el wrapup: no hay tantas estructuras en la pila
-Error: no more error handlers available (recursive errors?); invoking 'abort' restart
-g"

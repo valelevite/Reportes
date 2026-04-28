@@ -1,6 +1,0 @@
-"0",""
-"0","FACTURAS_ARTICULOS <- facturas_depurado %>% "
-"0","  left_join(ARTICULOS, by = c(""PRODUCTO_REFERENCIA"" = ""CODIGO_ARTICULO"")) %>%"
-"0","  filter(is.na(RUBRO) | RUBRO != ""OTROS"") #%>% "
-"0","#  filter(PRODUCTO_PRECIO_UNITARIO>0)"
-"0","  "

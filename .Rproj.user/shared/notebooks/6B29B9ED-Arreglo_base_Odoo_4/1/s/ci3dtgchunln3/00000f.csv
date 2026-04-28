@@ -1,4 +1,0 @@
-"0",""
-"0","Odoo_facturas_sin_canceladas <- Odoo_facturas_completa2 %>% "
-"0","  filter(ESTADO_FACTURA != ""Cancelado"") |> "
-"0","  mutate(CODIGO_BARRAS = if_else(PRODUCTO_NOMBRE == ""Anticipo del cliente"", ""Anticipo"", CODIGO_BARRAS))"

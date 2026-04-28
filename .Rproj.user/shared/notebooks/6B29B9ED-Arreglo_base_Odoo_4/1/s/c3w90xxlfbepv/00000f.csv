@@ -1,6 +1,0 @@
-"0",""
-"0","#Pongo como NA las horas desconocidas de las facturas manuales"
-"0","Odoo_Facturas_Fecha <- Odoo_Facturas_Nacionalidad |> "
-"0","  mutate(FECHA_EMISION = (as.Date(Fecha)), Hora_completa = format(Fecha, ""%H:%M:%S"")) |>   mutate(HORA = str_c(str_sub(Hora_completa, 1, 2), "":00"")) |> "
-"0","  mutate(HORA = if_else(HORA == ""00:00"", NA, HORA))"
-"0","  "

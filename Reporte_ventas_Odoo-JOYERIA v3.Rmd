@@ -884,7 +884,7 @@ setColWidths(wb, ws, cols = 1, widths = 30)
 setColWidths(wb, ws, cols = 2:ncol(SKU_total_JOYERIA), widths = 13)
 
 # ---- Columna de imágenes en SKU --------------------------------
-img_folder <- file.path("Odoo", "imagenes")
+img_folder <- file.path("imagenes")
 img_col_idx <- ncol(SKU_total_JOYERIA) + 1
 
 # Encabezado de la nueva columna

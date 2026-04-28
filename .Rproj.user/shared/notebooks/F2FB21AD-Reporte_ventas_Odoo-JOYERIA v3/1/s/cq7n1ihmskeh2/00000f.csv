@@ -1,5 +1,0 @@
-"0",""
-"0","nombre_archivo <- paste0(""Reporte_ventas/Reporte_Ventas_JOYERIA_"", mes, ""_JOYERIA.xlsx"")"
-"0","saveWorkbook(wb, nombre_archivo, overwrite = TRUE)"
-"0","message(""\u2714 Guardado: "", nombre_archivo)"
-"0",""

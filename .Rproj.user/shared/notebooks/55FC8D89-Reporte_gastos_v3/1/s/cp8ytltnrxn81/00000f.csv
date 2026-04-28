@@ -1,8 +1,0 @@
-"0","tabla_EL_LUCERO <- gastos %>%
-  filter(MARCA!=""AS"") %>% 
-  group_by(MES, ITEM) %>% 
-  summarise(IMPORTE = sum(IMPORTE)) %>% 
-  pivot_wider(names_from = MES, values_from = IMPORTE)
-"
-"2","[38;5;232m`summarise()` has grouped output by 'MES'. You can override using the `.groups` argument.[39m
-"

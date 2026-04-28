@@ -810,7 +810,7 @@ for (tienda_actual in nombres_TIENDAs) {
   showGridLines(wb, sheet5_name, showGridLines = FALSE)
   
   # Guardar el libro de Excel
-  excel_filename <- paste0("Tickets por hora/reportes/Reporte_tickets_", tienda_actual,  "_", mes, ".xlsx")
+  excel_filename <- paste0("Reporte Tickets por hora/reportes/Reporte_tickets_", tienda_actual,  "_", mes, ".xlsx")
   saveWorkbook(wb, excel_filename, overwrite = TRUE)
 }
 

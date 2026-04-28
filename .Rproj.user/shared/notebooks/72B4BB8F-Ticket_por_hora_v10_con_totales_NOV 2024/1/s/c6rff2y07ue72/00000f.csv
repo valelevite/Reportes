@@ -1,5 +1,0 @@
-"0","# 2. Establecemos el locale para los nombres de los días de la semana
-Sys.setlocale(""LC_TIME"", ""es_ES.UTF-8"") 
-"
-"1","[1] ""es_ES.UTF-8""
-"
