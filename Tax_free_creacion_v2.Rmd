@@ -14,7 +14,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(tidyverse)
 library(openxlsx)
 
-mes <- "2026-03"
+mes <- "2026-04"
 mes_arch <- str_replace(mes, "-", "_")
 
 ```
@@ -25,26 +25,32 @@ mes_arch <- str_replace(mes, "-", "_")
 ruta <- "Tax free/Tax free para armar"
 archivos <- list.files(ruta, pattern = paste0(mes_arch, "\\.csv$"), full.names = TRUE)
 
-
 Tax_free <- map(archivos, function(archivo) {
   
-  tienda <- basename(archivo) |> str_remove(paste0(" ", mes_arch, "\\.csv$"))
+  tienda <- basename(archivo) |>
+  str_remove(paste0("[ _]", mes_arch, "\\.csv$"))
   
-  read_csv(archivo, show_col_types = FALSE) |>
+  read_csv(archivo, show_col_types = FALSE,
+           col_types = cols(TotalGrossAmount        = "c",
+                            TotalRefundAmount       = "c",
+                            TouristCountryNumIsoCode = "c",
+                            InvoiceNumber           = "c")) |>
     mutate(Tienda = tienda, .before = 1) |>
     select(-DocumentIdentifier, -DeskID) |>
-    mutate(IssuingTime = as.character(IssuingDate),
-           IssuingDate = str_extract(WeekdayName, "[\\d/]+$") |> as.Date(format = "%d/%m/%Y"),
-           WeekdayName = str_extract(WeekdayName, "^[^,]+"),
-           TotalGrossAmount = as.numeric(TotalGrossAmount),
-           TotalRefundAmount = as.numeric(TotalRefundAmount)
-)  |>
-    select(Tienda, WeekdayName, IssuedStatus, IssuingDate, IssuingTime,
-           TFSStatus, TouristCountryNumIsoCode, InvoiceNumber,
+    mutate(IssuingTime = as.character(IssuingDate)) |>
+    mutate(
+      IssuingDate       = str_extract(WeekdayName, "[\\d/]+$") |> as.Date(format = "%d/%m/%Y"),
+      WeekdayName       = str_extract(WeekdayName, "^[^,]+"),
+      TotalGrossAmount  = parse_number(TotalGrossAmount,  locale = locale(decimal_mark = ",", grouping_mark = ".")),
+      TotalRefundAmount = parse_number(TotalRefundAmount, locale = locale(decimal_mark = ",", grouping_mark = "."))
+    ) |>
+    rename(TouristCountry = TouristCountryNumIsoCode) |>
+    select(Tienda, WeekdayName, IssuingDate, IssuedStatus, IssuingTime,
+           TFSStatus, TouristCountry, InvoiceNumber,
            TotalGrossAmount, TotalRefundAmount)
   
-}) |> bind_rows()
-
+}) |>
+  bind_rows()
 
 ```
 

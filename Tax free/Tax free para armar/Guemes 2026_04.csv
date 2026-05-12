@@ -1,0 +1,5 @@
+﻿WeekdayName,IssuedStatus,IssuingDate,TFSStatus,DeskID,TouristCountryNumIsoCode,InvoiceNumber,DocumentIdentifier,TotalGrossAmount,TotalRefundAmount
+"martes, 07/04/2026",Issued,14:03:22,Issued,1454540,LITHUANIA,216,11065408412117700701,"39.990,00","5.198,70"
+"martes, 07/04/2026",Issued,15:48:15,Issued,1454540,COSTA RICA,46217,11065408412117700971,"264.960,00","34.444,80"
+"martes, 07/04/2026",Issued,15:49:59,Issued,1454540,COSTA RICA,46218,11065408412117701008,"99.990,00","12.998,70"
+

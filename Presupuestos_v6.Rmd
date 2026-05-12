@@ -9,25 +9,24 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 1. Corro Arreglo base Odoo
-2. Descargo el costo de los productos (en inventario). VER CÓMO SEPARAR LOS COSTOS POR MES YA QUE VAN A IR CAMBIANDO
+2. Descargo el costo de los productos (en inventario). VER CÓMO SEPARAR LOS COSTOS POR MES YA QUE VAN A IR CAMBIANDO. POR AHORA USO TABLA PRESUPUESTO ANTERIOR, LE AGREGO EL NUEVO MES CON EL NUEVO COSTO. ASÍ NO CAMBIO LO ANTERIOR
 3. Actualizo el archivo de gastos (gastos desde 2025-05.xlsx)
 4. Actualizo el archivo de cupones de tarjetas (fiserv/Ventas y pagos/detalle de cupones, filtros (FECHA DE OPERACIÓN), rango de fechas)
-5. Agrego el archivo mensual de Silvina (Ventas 2026) en la fc para que calcule el costo de MP (línea 300 aprox)
-6. Actualizo las fechas de licencias en el script y las bajas en Horas trabajadas, hoja 2. VER TEMA CAMBIO DE TIENDA. TENGO QUE PONER FECHA DE INICIO Y FIN. EJ: GIORDANO, CAMBIÓ A ST 1 A PARTIR DE MARZO 2026
-7. Actualizo los productos con impuestos interno (ESTO NO VA MÁS)
-8. Revisar que no hayan más filas para agregar a la estructura de la tabla (para el excel)
-9. Actualizo las fechas mín y máx para los filtros en el siguiente chunk
+5. Agrego el archivo mensual de Silvina (Ventas 2026) en la fc para que calcule el costo de MP (línea 390 aprox)
+6. Actualizo el archivo de sueldos del estudio (Sueldos desde...). REVISAR QUE LAS VACACIONES Y LAS LIQUIDACIONES TENGAN BIEN EL MES Y AÑO EN COLUMNA PERÍODO. TAMBIÉN QUE NO ESTÉN ESCRITAS DE UN MODO DISTINTO Y NO SEAN COMPUTADAS POR EL R.
+7. Actualizo las fechas de licencias en el script y las bajas en Horas trabajadas, hoja 2. 
+8. Actualizo las fechas mín y máx para los filtros en el siguiente chunk
 
 
 ```{r}
-fecha_costo <- strftime("2026/04/13", "%Y%m%d")
+fecha_costo <- strftime("2026/05/12", "%Y%m%d")
 
 año_minimo <- 2026
-mes_maximo <- 3
+mes_maximo <- 4
 ```
 
 ```{r defino el nombre de las tiendas}
-
+ 
 tiendas <- c("AS Güemes", "AS San Telmo", "El Solar", "Florida", "French", "Güemes", "Güemes 2", "Recoleta", "San Telmo", "San Telmo 2")
 ```
 
@@ -43,7 +42,7 @@ Sueldos <- read_excel("Reporte_gastos/Sueldos/Sueldos_desde_2025-09.xlsx",
     col_types = c("numeric", "text", "text", 
         "numeric", "text", "text", "text", 
         "text", "text")) |> 
-  filter(!Empleado %in% c(2, 9, 47))  #supervisoras y visual
+  filter(!Empleado %in% c(2, 9, 47, 56))  #supervisoras, visual y asistente Ale
   
 #Horas trabajadas
 Horas_trabajadas <- read_excel("Reporte_gastos/Sueldos/Horas trabajadas Tiendas desde 2025-09.xlsx") |> 
@@ -58,12 +57,12 @@ vendedora_tienda <- read_excel("Reporte_gastos/Sueldos/Horas trabajadas Tiendas 
     sheet = "vendedora-tienda")
 
 #Impuesto interno
-productos_impuesto_interno <- read_excel("Presupuestos tiendas/Productos_impuesto_interno.xlsx", 
-    col_types = c("skip", "text", "text")) %>% 
-  filter(taxes_id == "IVA 21%,Impuesto Interno 25%",
-         !is.na(barcode)) %>% 
-  select(CODIGO_BARRAS = barcode) |> 
-  mutate(IMP_INTERNO = "Sí")
+# productos_impuesto_interno <- read_excel("Presupuestos tiendas/Productos_impuesto_interno.xlsx", 
+#     col_types = c("skip", "text", "text")) %>% 
+#   filter(taxes_id == "IVA 21%,Impuesto Interno 25%",
+#          !is.na(barcode)) %>% 
+#   select(CODIGO_BARRAS = barcode) |> 
+#   mutate(IMP_INTERNO = "Sí")
 
 ```
 
@@ -107,6 +106,22 @@ Tabla_ventas <- Ventas |>
 ##Costo
 ```{r calculo el costo de los productos por tienda y mes}
 
+# PRUEBA
+# 
+# costos_historicos <- read_excel("Costos/prueba de costos.xlsx", 
+#     col_types = c("text", "date", "numeric")) %>% 
+#   rename(COSTO = unit_cost, fecha = create_date) %>% 
+#   mutate(COSTO = round(COSTO, 1)) %>% 
+#   filter(COSTO > 0) %>% 
+#   group_by(product_id, COSTO) %>% 
+#     slice_min(order_by = fecha, n = 1, with_ties = FALSE) %>% 
+#   ungroup()
+# 
+# duplicados_costos <- costos_historicos %>% 
+#   group_by(product_id) %>% 
+#   filter(n()>1)
+
+
 Costo <- read_excel(paste0("Costos/Costo ", fecha_costo, ".xlsx")) |> 
   select(CODIGO_BARRAS = "Código de barras", COSTO = Costo) |> 
   filter(COSTO>0) %>% 
@@ -134,7 +149,8 @@ REVISO_PRODUCTOS_SIN_COSTO <- Costo2 %>%
 REVISO_COSTO_MAS_CARO <- Costo2 %>% 
   select(CODIGO_BARRAS, PRECIO_UNITARIO_SIN_IMP, COSTO) %>% 
   distinct() %>% 
-  filter(COSTO > PRECIO_UNITARIO_SIN_IMP)
+  filter(COSTO > PRECIO_UNITARIO_SIN_IMP,
+         PRECIO_UNITARIO_SIN_IMP>10)
 
 Costo_mensual <- Costo2 |> 
   mutate(AÑO = year(FECHA),
@@ -287,6 +303,10 @@ Gastos_unificados <- FACTURAS_TIENDAS %>%
                               CONCEPTO == "INTERNET" ~ "Internet",
                               CONCEPTO == "MANTENIMIENTO" ~ "Mantenimiento",
                               CONCEPTO == "MATAFUEGO" ~ "Matafuegos",
+                              CONCEPTO == "ARQUITECTURA" ~ "Arquitectura",
+                              CONCEPTO == "HONORARIOS" ~ "Honorarios",
+                              CONCEPTO == "MARKETING LUCERO" ~ "Marketing",
+                              CONCEPTO == "SERVICIOS" ~ "Servicios",
                               TRUE ~ CONCEPTO))
 
 #calculo el total
@@ -310,6 +330,12 @@ Tabla_gastos <- bind_rows(Gastos_unificados, fila_total_gastos) %>%
 #Cargo el archivo
 Mercadopago <- read_excel("Cupones Tarjetas/Mercadopago.xlsx") |> 
   select(FECHA = "FECHA REDUCIDA", ID = "ID DE OPERACIÓN EN MERCADO PAGO", MEDIO_PAGO = "TIPO DE MEDIO DE PAGO", COMPRA_VALOR = "VALOR DE LA COMPRA", COMPRA_NETA = "MONTO NETO DE LA OPERACIÓN QUE IMPACTÓ TU DINERO", PLATAFORMA_COBRO = "PLATAFORMA DE COBRO", CATEGORIA) |> 
+  mutate(
+    FECHA = case_when(str_detect(FECHA, "-") ~ ymd(FECHA), # ya es fecha texto
+      TRUE                   ~ as.Date(as.numeric(FECHA), # serial de Excel
+                                       origin = "1899-12-30")),
+    mutate(across(c(COMPRA_VALOR, COMPRA_NETA), 
+                ~ as.numeric(str_remove_all(.x, ",")))))  %>% 
   group_by(ID) |> 
   filter(n() == 1) |> #para eliminar las ventas devueltas
   ungroup() |> 
@@ -364,14 +390,15 @@ hojas_validas <- c(
   "LUCERO SAN TELMO 2",
   "LUCERO GUEMES",
   "LUCERO EL SOLAR",
-  "AS GUEMES",
+  #"AS GUEMES",
   "LUCERO GUEMES 2"
 )
 
 venta_MP <- bind_rows(
   leer_mp("Cupones Tarjetas/VENTAS ENERO 2026.xlsx", 2026, 1, hojas_validas),
   leer_mp("Cupones Tarjetas/VENTAS FEBRERO 2026.xlsx", 2026, 2, hojas_validas),
-  leer_mp("Cupones Tarjetas/VENTAS MARZO 2026.xlsx", 2026, 3, hojas_validas)
+  leer_mp("Cupones Tarjetas/VENTAS MARZO 2026.xlsx", 2026, 3, hojas_validas),
+  leer_mp("Cupones Tarjetas/VENTAS ABRIL 2026.xlsx", 2026, 4, hojas_validas)
   ) 
 
 Costo_MP <- venta_MP |> 
@@ -486,13 +513,14 @@ Sueldos_limpio <- Sueldos |>
 
 #primero selecciono los conceptos que son de liquidaciones finales, convierto a fecha el período y pongo bien los decimales
 SAC_vac_liq <- Sueldos_limpio |>
+  mutate(CONCEPTO = if_else(CONCEPTO %in% c("liq final", "Liq final"), "Liq Final", CONCEPTO)) %>% 
   filter(CONCEPTO %in% c("Liq Final", "SAC", "Vacaciones"))
 
 #Tomo la parte del sueldo a las liquidaciones finales
 Sueldo_en_liq_finales <- SAC_vac_liq |> 
   group_by(Empleado, Periodo) |>
   filter(
-    any(CONCEPTO == "Liq Final") &
+    any(CONCEPTO == ("Liq Final")) &
     any(Concepto == 9)
   ) |>
   filter(!Concepto %in% c(860, 871, 880, 1501)) |>
@@ -509,9 +537,8 @@ SAC_vac_liq_BRUTO <- SAC_vac_liq_sin_sueldos %>%
    summarise(Total_remunerativo = sum(Remunerativo, na.rm = TRUE), 
              Total_No_remunerativo = sum(`No Remunerativo`, na.rm = TRUE),
              Total_descuentos = sum(Descuento, na.rm = TRUE),
-             Total_bruto = sum(Remunerativo, na.rm = TRUE) + sum(`No Remunerativo`, na.rm = TRUE)
-  ) %>%
-  ungroup()
+             Total_bruto = sum(Remunerativo, na.rm = TRUE) + sum(`No Remunerativo`, na.rm = TRUE),
+             .groups = "drop_last")
 
 #calculo las contribuciones
 SAC_vac_liq_TOTAL <- SAC_vac_liq_BRUTO %>% 
@@ -528,13 +555,17 @@ SAC_vac_liq_TOTAL <- SAC_vac_liq_BRUTO %>%
   mutate(Total = Total_contribuciones+Total_bruto)
 
 
-#le agrego la tienda a computar
+#le agrego la tienda a computar y tengo en cuenta los cambios de tienda de las vendedoras
 SAC_vac_liq_TIENDA <- SAC_vac_liq_TOTAL %>% 
   left_join(vendedora_tienda, by = "Empleado") %>% 
   mutate(AÑO = year(Periodo),
-         MES = month(Periodo))
+         MES = month(Periodo),
+         Tienda = if_else(Periodo<Fecha_nueva_tienda | is.na(Fecha_nueva_tienda), Tienda, Nueva_tienda)) %>% 
+  select(-Fecha_nueva_tienda, -Nueva_tienda)
+  
   
 ```
+
 
 ##Calculo los sueldos y contribuciones
 ```{r edito el sueldo y calculo el sueldo bruto}
@@ -631,8 +662,9 @@ calcular_sueldo_tienda <- function(data, nombre_tienda) {
             Subtotal_CONTRIBUCIONES = Valor_hora_CONTRIBUCIONES * .data[[nombre_tienda]]) %>%
     ungroup() %>%
     group_by(AÑO, MES) %>%
-    summarise(SUELDOS = sum(Subtotal_SUELDOS),
-              CONTRIBUCIONES = sum(Subtotal_CONTRIBUCIONES)) %>%
+   summarise(SUELDOS = sum(Subtotal_SUELDOS),
+          CONTRIBUCIONES = sum(Subtotal_CONTRIBUCIONES),
+          .groups = "drop") %>%
     mutate(TIENDA = nombre_tienda)
 }
 
@@ -672,8 +704,8 @@ Sueldos_unificado <- bind_rows(Tabla_sueldos, Tabla_contribuciones, Tabla_incent
 
 fila_total_sueldos <- Sueldos_unificado %>% 
   group_by(AÑO, MES, TIENDA) %>% 
-  summarise(TOTAL = sum(TOTAL, na.rm = TRUE)
-  ) %>% 
+  summarise(TOTAL = sum(TOTAL, na.rm = TRUE),
+            .groups = "drop") %>% 
   mutate(CONCEPTO = "Subtotal_sueldos")
   
 Tabla_sueldos_FINAL <- bind_rows(Sueldos_unificado, fila_total_sueldos) %>% 
@@ -704,8 +736,8 @@ Impuestos_unificados <- bind_rows(IIBB, Multa)
 #Fila total impuestos
 fila_total_impuestos <- Impuestos_unificados %>% 
   group_by(AÑO, MES, TIENDA) %>% 
-  summarise(TOTAL = sum(TOTAL, na.rm = TRUE)
-  ) %>% 
+  summarise(TOTAL = sum(TOTAL, na.rm = TRUE),
+            .groups = "drop") %>% 
   mutate(CONCEPTO = "Subtotal_impuestos")
 
 #Tabla final
@@ -721,8 +753,8 @@ Tabla_impuestos <- bind_rows(Impuestos_unificados, fila_total_impuestos) %>%
 
 fila_total_gastos_sueldos <- bind_rows(fila_total_gastos, fila_total_tarjetas_MP, fila_total_sueldos) %>% 
   group_by(AÑO, MES, TIENDA) |>
-  summarise(TOTAL = sum(TOTAL, na.rm = TRUE)
-  ) %>% 
+  summarise(TOTAL = sum(TOTAL, na.rm = TRUE),
+            .groups = "drop") %>% 
   mutate(CONCEPTO = "Total gastos + sueldos")
 
 fila_resultado_operativo <- Tabla_ventas_costo_margen %>% 

@@ -13,28 +13,25 @@ library(tidyverse)
 library(lubridate)
 library(readxl)
 library(openxlsx)
-library(excel.link)
-library(stringr)
 library(stringi)
-library(skimr)
 library(tibble)
 library(purrr)
 
 ```
 
 1. Descargo las facturas y la base de artículos de Odoo
-2. Reviso que en la base de artículos no haya artículos nuevos a borrar
+2. Reviso que en la base de artículos no hayan artículos nuevos a borrar
 3. Pongo las fechas acá abajo
 4. listo
 
 #Pongo las fechas y leo los archivos
 ```{r pongo la fecha de corte}
 
-fecha_hasta <- strftime("2026/04/26","%Y%m%d")
+fecha_hasta <- strftime("2026/05/03","%Y%m%d")
 
 fecha_desde <- strftime("2025/12/09", "%Y%m%d")
 
-fecha_base_articulos <- strftime("2026/04/01", "%Y%m%d")
+fecha_base_articulos <- strftime("2026/05/04", "%Y%m%d")
 ```
 
 #FACTURAS EN ODOO
@@ -276,7 +273,7 @@ Odoo_Facturas_arreglada <- Odoo_Facturas_descuento2 |>
       str_remove_all("\\bNACIONALIDAD\\b") |>
       str_squish()) |>
   mutate(Nota_general = case_when(
-    Nota_general %in% c("TAXFREEESTADOS UNIDOS", "ESTDOS UNIDOS TAX FREE", "USA TF", "ESTADOS UNDOS TAX FREE", "ESTADOS UNIDOIS TAX FREE", "TAXFREE ESTADOS UNIDOS")  ~ "USA TAX FREE",
+    Nota_general %in% c("TAXFREEESTADOS UNIDOS", "ESTDOS UNIDOS TAX FREE", "USA TF", "ESTADOS UNDOS TAX FREE", "ESTADOS UNIDOIS TAX FREE", "TAXFREE ESTADOS UNIDOS", "ESTADOS UNDIOS TAX FREE")  ~ "USA TAX FREE",
     Nota_general== "PERU TAX FREEE" ~ "PERU TAX FREE",
     Nota_general== "KOREA TAX FREEE" ~ "COREA TAX FREE",
     Nota_general %in% c("MEXICCO TAX FREEE", "MEXICO TAXFREE", "MEXICCO TAX FREE") ~ "MEXICO TAX FREE",
@@ -288,8 +285,8 @@ Odoo_Facturas_arreglada <- Odoo_Facturas_descuento2 |>
     Nota_general == "SLOVAKIA TAX FREE" ~ "ESLOVAQUIA TAX FREE",
     Nota_general== "VCHINA" ~ "CHINA",
     Nota_general %in% c("VENEAUELA", "VENEZOLANO") ~ "VENEZUELA",
-    Nota_general %in% c("UAS", "U7SA", "EWSTADOS UNIDOS", "ETADOS NIDOS", "ESTADS UNIDOS", "ESTADOS UNIUDOS", "ESTADOS UNIDSO", "ESTADOS UNIDIOS", "ESTADOS UNHIDOS", "ESTADO UNIDOS", "ESTADOS UNIDOS", "ESTADOS UNDOS", "ESTADOS UNIDOIS", "ETADOS UNIDOS", "ESATDOS UNIDOS", "ESTADOUNIDENSE", "HAWAI") ~ "USA",
-    Nota_general %in% c("RGENTINA", "ARRGENTINA", "ARGGENTINA", "ARGETINO", "ARGENTUNA", "ARGENTIUNA", "ARGENTINO", "ARGENTINBA", "ARGENTINA 6 CUOTAS", "ARGENTIN", "ARG", "AGENTINA", "AREGENTINA", "ARGENRINA", "ARGENTTINO", "ARGENTINA 3CUOTAS", "ARGENTNA", "ARGWENTINA") ~ "ARGENTINA",
+    Nota_general %in% c("UAS", "U7SA", "EWSTADOS UNIDOS", "ETADOS NIDOS", "ESTADS UNIDOS", "ESTADOS UNIUDOS", "ESTADOS UNIDSO", "ESTADOS UNIDIOS", "ESTADOS UNHIDOS", "ESTADO UNIDOS", "ESTADOS UNIDOS", "ESTADOS UNDOS", "ESTADOS UNIDOIS", "ETADOS UNIDOS", "ESATDOS UNIDOS", "ESTADOUNIDENSE", "HAWAI", "ESTADOS UNNIDOS") ~ "USA",
+    Nota_general %in% c("RGENTINA", "ARRGENTINA", "ARGGENTINA", "ARGETINO", "ARGENTUNA", "ARGENTIUNA", "ARGENTINO", "ARGENTINBA", "ARGENTINA 6 CUOTAS", "ARGENTIN", "ARG", "AGENTINA", "AREGENTINA", "ARGENRINA", "ARGENTTINO", "ARGENTINA 3CUOTAS", "ARGENTNA", "ARGWENTINA", "ARGENTINA DESCUENTO A EMPLEADO ROCIO MARTINEZ") ~ "ARGENTINA",
     Nota_general %in% c("ALEMANIS", "ALEMANA", "GERMAN", "ALEMANNIA", "GERMANY") ~ "ALEMANIA",
     Nota_general == "SLOVENIA" ~ "ESLOVENIA",
     Nota_general == "GUATEMLA" ~ "GUATEMALA",
@@ -300,7 +297,7 @@ Odoo_Facturas_arreglada <- Odoo_Facturas_descuento2 |>
     Nota_general== "PARAGIUAY" ~ "PARAGUAY",
     Nota_general %in% c("MEXIUCI", "MEXIOC", "MEXICOI", "MEXICCO", "MEXCO", "MEXCIO", "MEICO", "MEXICANO", "MEXCIVO", "MEXICANA") ~ "MEXICO",
     Nota_general== "IRESAEL" ~ "ISRAEL",
-    Nota_general %in% c("FRASNCIA", "FRANCIUA", "FRANCAI", "FRANCES", "FRANCESA") ~ "FRANCIA",
+    Nota_general %in% c("FRASNCIA", "FRANCIUA", "FRANCAI", "FRANCES", "FRANCESA", "FANCIA") ~ "FRANCIA",
     Nota_general %in% c("ESPAÑOLA", "ESPANIA", "ESPANA", "ESPA A", "ESP") ~ "ESPAÑA",
     Nota_general %in% c("KOREA", "COREA DEL SUR", "KOREA DEL SUR") ~ "COREA",
     Nota_general %in% c("CHNA", "CHN", "HONG KONG", "TAIWAN") ~ "CHINA",
@@ -339,7 +336,8 @@ Odoo_Facturas_arreglada2 <- Odoo_Facturas_arreglada |>
     Nota_interna %in% c("MEXICA", "MEXICANA") ~ "MEXICO",
     Nota_interna %in% c("ARGENTINO", "ARGERTINA") ~ "ARGENTINA",
     Nota_interna== "ALE" ~ "ALEMANIA",
-    Nota_interna %in% c("INGLATERRA", "GRAN BRETAÑA") ~ "REINO UNIDO",
+    Nota_interna %in% c("INGLATERRA", "GRAN BRETAÑA", "UK") ~ "REINO UNIDO",
+    Nota_interna == "VENEZYYELA" ~ "VENEZUELA",
    Nota_interna %in% c("RETIRO CARLOS", "PAR") ~ "",
     TRUE~ Nota_interna))
 

@@ -18,21 +18,22 @@ library(janitor)
 ```
 VER SI PROVEEDORES LO CRUZO CON DESCRIPCIÓN (SE LLAMA NOMBRE EN ODOO) EN VEZ DE CON EL CÓDIGO DE BARRAS. ASÍ ME ASEGURO EL PROVEEDOR EN EL CASO DE QUE ALGUNA VARIEDAD NO TENGA EL DATO DE PROVEEDOR EN ODOO
 #1.Preparo Tax Free
-#2.Corro Arreglo_base_Odoo
-#3.Corro este y REVISO CONSERJES
+#2.Actualizo stock, precios y proveedores
+#3.Corro Arreglo_base_Odoo
+#4.Corro este y REVISO CONSERJES
 
 ```{r filtro para el mes a analizar}
 
-fecha_inicio_mes <- as.Date("2026/03/01") 
-fecha_fin_mes <- as.Date("2026/03/31")
+fecha_inicio_mes <- as.Date("2026/04/01") 
+fecha_fin_mes <- as.Date("2026/04/30")
 
-mes <- "2026-03"
+mes <- "2026-04"
 
-fecha_stock <- strftime("2026/04/08","%Y%m%d")
+fecha_stock <- strftime("2026/05/06","%Y%m%d")
 
-fecha_precios <- strftime("2026/04/06","%Y%m%d")
+fecha_precios <- strftime("2026/05/06","%Y%m%d")
 
-fecha_proveedores <- strftime("2026/03/12","%Y%m%d")
+fecha_proveedores <- strftime("2026/05/06","%Y%m%d")
 
 fecha_maestro <- strftime("2025/08/22", "%Y%m%d")
 
@@ -69,7 +70,7 @@ FACTURAS_MES2$PROVEEDOR <- proveedores_odoo_LUCERO$PROVEEDOR[match(FACTURAS_MES2
 
 FACTURAS_MES2 <- FACTURAS_MES2 |> 
   mutate(PROVEEDOR = case_when(str_starts(DESCRIPCION, "PRODUCTO OUTLET|PRODUCTOS OUTLET") ~ "OUTLET", 
-                               PROVEEDOR == "SUCCESSFUL BOXES S.R.L." ~ "SUCCESSFUL BOXES S.R.L., PERDRIEL",
+                              # PROVEEDOR == "SUCCESSFUL BOXES S.R.L." ~ "SUCCESSFUL BOXES S.R.L., PERDRIEL",
                                TRUE ~ PROVEEDOR))
 
 ```
@@ -271,7 +272,7 @@ Modelos <- SKU_total %>%
   filter(PROVEEDOR != "TOTAL" & PROVEEDOR != "DESCUENTO") %>% 
   group_by(PROVEEDOR, RUBRO, FAMILIA, SUBFAMILIA, DESCRIPCION) %>% 
   summarise(VENTA = sum(VENTA, na.rm = TRUE), TOTAL = sum(TOTAL, na.rm = TRUE), PRECIO = round(TOTAL/VENTA), STOCK = sum(STOCK, na.rm = TRUE), "D/S" = round(STOCK/VENTA*30)) %>%
-  distinct() %>% 
+ # distinct() %>% 
   arrange(desc(TOTAL)) %>% 
   ungroup() %>% 
   relocate(PRECIO, .after = VENTA)
