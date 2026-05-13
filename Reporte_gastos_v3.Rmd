@@ -15,225 +15,86 @@ library(readxl)
 library(openxlsx)
 ```
 
+1. Corro Presupuestos
+2. Revisar que esté completa la lista de gastos del filtro en el 2do chunk (EN DOS LUGARES DISTINTOS)
+3. Completo el mes y año
 
 #Completo la info de ventas reales en el archivo correspondiente
 ```{r}
-mes <- "2025-12"
-
-Ventas_reales <- read_excel("Reporte_gastos/Ventas reales.xlsx")
-
-```
-
-#Cargo el archivo de gastos
-```{r}
-
-FACTURAS_TIENDAS <- read_excel("Reporte_gastos/gastos desde 2025-05.xlsx", 
-    col_types = c("text", "text", 
-        "text", "text", "date", "numeric", "numeric", "numeric", "text")) 
-
-#Cambio el nombre de las tiendas
-FACTURAS_TIENDAS <- FACTURAS_TIENDAS %>% 
-  filter(!TIENDA == "COM LUCERO GUEMES LOCAL 04") |> 
-  mutate(TIENDA = case_when(TIENDA %in% c("COM AS SAN TELMO", "COM AS ST") ~ "AS San Telmo",
-                            TIENDA == "COM LUCERO FLORIDA" ~ "Florida",
-                            TIENDA == "COM LUCERO FRENCH" ~ "French",
-                            TIENDA %in% c("COM LUCERO GUEMES", "COM LUCERO GUEMES LOCAL 08") ~ "Güemes",
-                            TIENDA == "COM LUCERO RECOLETA" ~ "Recoleta",
-                            TIENDA == "COM LUCERO SOLAR" ~ "El Solar",
-                            TIENDA %in% c("COM LUCERO ST", "COM LUCERO SAN TELMO") ~ "San Telmo",
-                            TIENDA == "COM LUCERO ST 2" ~ "San Telmo 2",
-                            TIENDA %in% c("COM LUCERO GUEMES GONDOLA 13", "COM AS GUEMES") ~ "AS Güemes",
-                            TIENDA %in% c("COM LUCERO GUEMES GONDOLA 7", "COM LUCERO GUEMES 2") ~ "Güemes 2",
-                            TRUE ~ TIENDA))
-
+MES_GASTOS <- 4
+AÑO_GASTOS <- 2026
 
 ```
 
-
-#Creo tablas para revisar
+#Tomo los valores de los dataframes creados en el R de Presupuestos
 ```{r}
 
-#Creo tablas
-tabla_gastos <- FACTURAS_TIENDAS %>%
-  filter(IMPORTE>0) %>% 
-  group_by(AÑO, MES_ASIGNADO, TIENDA, ITEM) %>% 
-  summarise(IMPORTE = sum(IMPORTE, na.rm = TRUE))
-  
-
-tabla_dinamica_cantidad_gastos <- FACTURAS_TIENDAS %>%
-  filter(IMPORTE>0) %>% 
-  group_by(MES_ASIGNADO, TIENDA, ITEM) %>% 
-  summarise(CANTIDAD = n()) %>% 
-  unite(col = "MES_ITEM", MES_ASIGNADO, ITEM, sep = " ") %>%
+tomo_valores <- TABLA_PRESUPUESTO %>% 
+  filter(MES == MES_GASTOS,
+         AÑO == AÑO_GASTOS) %>% 
+  filter(CONCEPTO %in% c("Venta_con_imp", "Alquiler", "Expensas", "Sueldo", "Contribuciones", "ABL", "AYSA", "Alarma", "Edesur", "Fumigación", "Internet", "Mantenimiento", "Matafuegos", "Alarma", "SERVICIOS", "Multa")) %>% 
   pivot_wider(
-    names_from = MES_ITEM,
-    values_from = CANTIDAD,
-    values_fill = 0 
-  )
-
-```
-#Creo tablas para reporte
-##Primero le agrego las ventas a los gastos
-```{r}
-
-FACTURAS_TIENDAS_VENTAS <- FACTURAS_TIENDAS %>% 
-  left_join(Ventas_reales, by = c("TIENDA", "MES_ASIGNADO"))
-
-
-Ventas_reales_2 <- Ventas_reales %>%
-  rename(IMPORTE = VENTA) %>%
-  mutate(ITEM = "Venta") %>%
-  mutate(
-    EMPRESA = NA,
-    FACTURA = NA,
-    FECHA_EMISION = NA
-  )
-
-FACTURAS_TIENDAS_VENTAS <- bind_rows(FACTURAS_TIENDAS, Ventas_reales_2)
-
-```
-
-# Preparo el archivo antes de hacer la tabla final
-```{r filtro por factura con valor, uno alquileres con expensas y el resto de los gastos}
-
-tabla_reporte_gastos <- FACTURAS_TIENDAS_VENTAS %>%
-  filter(IMPORTE>0) %>% 
-  mutate(
-    CATEGORIA_GASTO = case_when(
-      ITEM == "ALQUILER" ~ "Alquiler",
-      ITEM == "EXPENSAS" ~ "Expensas",
-      ITEM == "Venta" ~ "Venta",
-      TRUE ~ "Otros gastos" # El resto de los ITEMs va acá
-    )) %>%
-  group_by(MES_ASIGNADO, TIENDA, CATEGORIA_GASTO) %>%
-  summarise(
-    IMPORTE_TOTAL = sum(IMPORTE, na.rm = TRUE),
-        .groups = 'drop') 
-
-
-#Calculo el total de alquiler+expensas
-alquiler_y_expensas <- tabla_reporte_gastos %>% 
-  filter(CATEGORIA_GASTO %in% c("Alquiler", "Expensas")) %>% 
-  group_by(MES_ASIGNADO, TIENDA) %>%
-      summarise(IMPORTE_TOTAL = sum(IMPORTE_TOTAL, na.rm = TRUE), .groups = 'drop') %>%
-      mutate(CATEGORIA_GASTO = "Total alquiler + expensas")
-
-
-#le agrego el total calculado a la tabla
-tabla_reporte_gastos <- tabla_reporte_gastos %>% 
-  bind_rows(alquiler_y_expensas)
-
-```
-
-```{r Defino el vector con el orden FINAL de las filas y columnas (incluyendo los grupos}
-
-orden_filas <- c(
-  "Florida",
-  "Recoleta",
-  "Lucero_Zona_Centro",
-  "San Telmo",
-  "French",
-  "Lucero_Zona_San_Telmo",
-  "Güemes", 
-  "San Telmo 2",
-  "Lucero_Guemes+San_Telmo_2",
-  "AS San Telmo",
-  "El Solar",
-  "AS Güemes",
-  "Güemes 2",
-  "Total general"
-)
-
-orden_columnas <- c(
-  "Venta",
-  "Alquiler",
-  "Expensas",
-  "Total alquiler + expensas",
-  "Otros gastos"
-)
-```
-
-```{r Calculo las zonas y el total general}
-
-tabla_con_zonas <- tabla_reporte_gastos %>%
-  bind_rows(
-    # --- GRUPO 1: Lucero_Zona_Centro ---
-    tabla_reporte_gastos %>%
-      filter(TIENDA %in% c("Florida", "Recoleta")) %>%
-      group_by(MES_ASIGNADO, CATEGORIA_GASTO) %>%
-      summarise(IMPORTE_TOTAL = sum(IMPORTE_TOTAL, na.rm = TRUE), .groups = 'drop') %>%
-      mutate(TIENDA = "Lucero_Zona_Centro"),
-
-    # --- GRUPO 2: Lucero_Zona_San_Telmo ---
-    tabla_reporte_gastos %>%
-      filter(TIENDA %in% c("San Telmo", "French")) %>%
-      group_by(MES_ASIGNADO, CATEGORIA_GASTO) %>%
-      summarise(IMPORTE_TOTAL = sum(IMPORTE_TOTAL, na.rm = TRUE), .groups = 'drop') %>%
-      mutate(TIENDA = "Lucero_Zona_San_Telmo"),
-
-    # --- GRUPO 3: Lucero_Guemes+San_Telmo_2 ---
-    tabla_reporte_gastos %>%
-      filter(TIENDA %in% c("Güemes", "San Telmo 2")) %>%
-      group_by(MES_ASIGNADO, CATEGORIA_GASTO) %>%
-      summarise(IMPORTE_TOTAL = sum(IMPORTE_TOTAL, na.rm = TRUE), .groups = 'drop') %>%
-      mutate(TIENDA = "Lucero_Guemes+San_Telmo_2"),
-
-    # --- GRUPO 4: Total general ---
-    tabla_reporte_gastos %>%
-      group_by(MES_ASIGNADO, CATEGORIA_GASTO) %>%
-      summarise(IMPORTE_TOTAL = sum(IMPORTE_TOTAL, na.rm = TRUE), .groups = 'drop') %>%
-      mutate(TIENDA = "Total general")
-  ) 
-
-```
-
-```{r pivoteo tabla, ordeno columnas y filas}
-
-tabla_con_zonas_ordenada <- tabla_con_zonas %>%
-  mutate(
-    CATEGORIA_GASTO = factor(CATEGORIA_GASTO, levels = orden_columnas)
-  ) %>%
-  
-  # **Paso CLAVE para el orden de las columnas:**
-  #    Ordenar el dataset: Primero por número de mes (MES_ASIGNADO),
-  #    y luego por la categoría (que ya es un factor ordenado).
-  arrange(MES_ASIGNADO, CATEGORIA_GASTO) %>%
-  
-  unite(col = "MES_CATEGORIA", MES_ASIGNADO, CATEGORIA_GASTO, sep = " ", remove = FALSE) %>%
-  
-  # Convertir la nueva columna a factor usando el orden del arrange.
-  # Como el tibble está ordenado, unique(MES_CATEGORIA) recoge los niveles en la secuencia deseada.
-  mutate(
-      MES_CATEGORIA = factor(
-          MES_CATEGORIA, 
-          levels = unique(MES_CATEGORIA)
-      )
-  ) %>%
-  
-  # Quitar las originales y pivotar
-  select(-CATEGORIA_GASTO, -MES_ASIGNADO) %>%
-  pivot_wider(
-    names_from = MES_CATEGORIA,
-    values_from = IMPORTE_TOTAL,
+    names_from  = CONCEPTO,
+    values_from = TOTAL,
     values_fill = 0
-  ) %>%
-  
-  # 5. Ordeno Filas
+  ) |>
   mutate(
-    TIENDA = factor(
-      TIENDA,
-      levels = orden_filas,
-      exclude = NULL 
-    )
-  ) %>%
-  arrange(TIENDA)
+    Venta                    = Venta_con_imp,
+    Sueldos                  = Sueldo + Contribuciones,
+    `Total_alquileres+expensas` = Alquiler + Expensas,
+    Otros_gastos             = ABL + AYSA + Alarma + Edesur + Fumigación + Internet + Mantenimiento + Matafuegos + SERVICIOS + Multa
+  ) |>
+  select(TIENDA,
+         Venta, Sueldos, Alquileres = Alquiler, Expensas,
+         `Total_alquileres+expensas`, Otros_gastos)  
+
+
+#creo subtotales y total general. Ordeno las filas
+
+# Columnas numéricas (para reusar en summarise)
+cols_num <- c("Venta", "Sueldos", "Alquileres", "Expensas",
+              "Total_alquileres+expensas", "Otros_gastos")
+
+# 1. Definir zonas (el nombre = fila subtotal, el vector = tiendas que incluye)
+zonas <- list(
+  "Lucero_Zona Centro"        = c("Florida", "Recoleta"),
+  "Lucero_Zona San Telmo"     = c("San Telmo", "French"),
+  "Lucero_Güemes+San Telmo 2" = c("Güemes", "San Telmo 2"),
+  "Lucero Joyería"            = c("Güemes 2", "El Solar")
+)
+
+# 2. Construir bloques: tiendas de la zona + su fila de subtotal
+bloques <- imap_dfr(zonas, \(tiendas, nombre_zona) {
+  filas <- tomo_valores |>
+    filter(TIENDA %in% tiendas) |>
+    arrange(match(TIENDA, tiendas))      # respeta el orden definido arriba
+  
+  subtotal <- filas |>
+    summarise(across(all_of(cols_num), sum)) |>
+    mutate(TIENDA = nombre_zona)
+  
+  bind_rows(filas, subtotal)
+})
+
+# 3. Tiendas que no pertenecen a ninguna zona (ej: AS San Telmo)
+sin_zona <- tomo_valores |>
+  filter(!TIENDA %in% unlist(zonas))
+
+# 4. Fila de total general
+total_general <- tomo_valores |>
+  summarise(across(all_of(cols_num), sum)) |>
+  mutate(TIENDA = "Total general")
+
+# 5. Unir todo en orden
+df_final <- bind_rows(bloques, sin_zona, total_general)
 
 ```
+
 
 #Escribo la tabla
 ```{r}
 
-write.xlsx(tabla_con_zonas_ordenada, paste0("Reporte_gastos/tabla_gastos_zonas_", mes, ".xlsx"))
+write.xlsx(df_final, paste0("Reporte_gastos/tabla_gastos_zonas_", AÑO_GASTOS, "-", MES_GASTOS, ".xlsx"))
 
 ```
 

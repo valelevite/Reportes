@@ -9,7 +9,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 1. Corro Arreglo base Odoo
-2. Descargo el costo de los productos (en inventario). VER CÓMO SEPARAR LOS COSTOS POR MES YA QUE VAN A IR CAMBIANDO. POR AHORA USO TABLA PRESUPUESTO ANTERIOR, LE AGREGO EL NUEVO MES CON EL NUEVO COSTO. ASÍ NO CAMBIO LO ANTERIOR
+2. Descargo el costo de los productos (en inventario). VER CÓMO SEPARAR LOS COSTOS POR MES YA QUE VAN A IR CAMBIANDO. POR AHORA AGREGO EL NUEVO MES (CON EL COSTO ACTUAL) A LA TABLA ANTERIOR (CALCULADA CON EL COSTO ANTERIOR). ASÍ NO CAMBIO LO ANTERIOR
 3. Actualizo el archivo de gastos (gastos desde 2025-05.xlsx)
 4. Actualizo el archivo de cupones de tarjetas (fiserv/Ventas y pagos/detalle de cupones, filtros (FECHA DE OPERACIÓN), rango de fechas)
 5. Agrego el archivo mensual de Silvina (Ventas 2026) en la fc para que calcule el costo de MP (línea 390 aprox)
