@@ -8,6 +8,7 @@ date: "2025-06-19" # Updated date
 TERMINAR LA PARTE DE TICKETS PROMEDIO (DIVIDIR LA TABLA POR TIENDA Y AGREGAR AL EXCEL. VER SI HACER UN GRÁFICO)
 
 1. Correr Arreglo_base_Odoo
+2. Poner fecha final de filtro
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = FALSE) # FALSE para que el código no aparezca en el pdf
@@ -18,7 +19,9 @@ knitr::opts_chunk$set(echo = FALSE) # FALSE para que el código no aparezca en e
 ```{r}
 
 #Fecha para archivos
-mes <- "2026-03"
+mes <- "2026-04"
+
+fecha_filtro <- "2026-04-30"
 
 library(scales)
 library(ggh4x)
@@ -34,76 +37,122 @@ knitr::opts_chunk$set(fig.width = 7.1, fig.height = 9.84)
 
 # Definición de orden para días y meses
 dias_ordenados <- c("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo")
-meses_ordenados <- c("Noviembre", "Octubre", "Septiembre", "Agosto", "Julio", "Junio", "Mayo", "Abril", "Marzo", "Febrero", "Enero")
+meses_ordenados <- c("Diciembre", "Noviembre", "Octubre", "Septiembre", "Agosto", "Julio", "Junio", "Mayo", "Abril", "Marzo", "Febrero", "Enero")
 
 # Horarios por tienda
 horarios <- tribble(
-  ~TIENDA,   ~DIA_SEMANA, ~start_hour, ~end_hour,
-  "San Telmo 2", "lunes",    10,           18,
-  "San Telmo 2", "martes",   10,           18,
-  "San Telmo 2", "miércoles",10,           18,
-  "San Telmo 2", "jueves",   10,           18,
-  "San Telmo 2", "viernes",  10,           18,
-  "San Telmo 2", "sábado",   10,           18,
-  "San Telmo 2", "domingo",  10,           18,
-  "San Telmo",   "lunes",    10,           18,
-  "San Telmo",   "martes",   10,           18,
-  "San Telmo",   "miércoles",10,           18,
-  "San Telmo",   "jueves",   10,           18,
-  "San Telmo",   "viernes",  10,           18,
-  "San Telmo",   "sábado",   10,           18,
-  "San Telmo",   "domingo",  10,           18,
-  "AS San Telmo",   "lunes",    10,           18,
-  "AS San Telmo",   "martes",   10,           18,
-  "AS San Telmo",   "miércoles",10,           18,
-  "AS San Telmo",   "jueves",   10,           18,
-  "AS San Telmo",   "viernes",  10,           18,
-  "AS San Telmo",   "sábado",   10,           18,
-  "AS San Telmo",   "domingo",  10,           18,
-  "Florida",     "lunes",     10,          19,
-  "Florida",     "martes",    10,          19, 
-  "Florida",     "miércoles", 10,          19,
-  "Florida",     "jueves",    10,          19, 
-  "Florida",     "viernes",   10,          19,
-  "Florida",     "sábado",    10,          19, 
-  "Florida",     "domingo",   10,          19,
-  "Recoleta",    "lunes",     10,          20, 
-  "Recoleta",    "martes",    10,          20,
-  "Recoleta",    "miércoles", 10,          20, 
-  "Recoleta",    "jueves",    10,          20,
-  "Recoleta",    "viernes",   10,          20, 
-  "Recoleta",    "sábado",    10,          20,
-  "Recoleta",    "domingo",   10,          20,  
-  "El Solar",    "lunes",     10,          20, 
-  "El Solar",    "martes",    10,          20,
-  "El Solar",    "miércoles", 10,          20, 
-  "El Solar",    "jueves",    10,          20,
-  "El Solar",    "viernes",   10,          20, 
-  "El Solar",    "sábado",    10,          20,
-  "El Solar",    "domingo",   10,          20,  
-  "French",      "lunes",     11,          18,
-  "French",      "martes",    11,          18, 
-  "French",      "miércoles", 11,          18,
-  "French",      "jueves",    11,          18, 
-  "French",      "viernes",   11,          18,
-  "French",      "sábado",    11,          18, 
-  "French",      "domingo",   11,          18,
-  "Güemes",      "lunes",     9,          17, 
-  "Güemes",      "martes",    9,          17,
-  "Güemes",      "miércoles", 9,          17, 
-  "Güemes",      "jueves",    9,          17,
-  "Güemes",      "viernes",   9,          17, 
-  "Güemes 2",    "lunes",     9,          17, 
-  "Güemes 2",    "martes",    9,          17,
-  "Güemes 2",    "miércoles", 9,          17, 
-  "Güemes 2",    "jueves",    9,          17,
-  "Güemes 2",    "viernes",   9,          17,
-  "AS Güemes",   "lunes",     9,          17, 
-  "AS Güemes",   "martes",    9,          17,
-  "AS Güemes",   "miércoles", 9,          17, 
-  "AS Güemes",   "jueves",    9,          17,
-  "AS Güemes",   "viernes",   9,          17
-  )
+  ~TIENDA,   ~DIA_SEMANA,  ~start_hour, ~end_hour, ~fecha_desde,    ~fecha_hasta,
+  #sin cambios
+  "San Telmo 2", "lunes",    10,       18, as.Date("2026-01-01"), as.Date("2099-12-31"),
+  "San Telmo 2", "martes",   10,       18, as.Date("2026-01-01"), as.Date("2099-12-31"),
+  "San Telmo 2", "miércoles",10,       18, as.Date("2026-01-01"), as.Date("2099-12-31"),
+  "San Telmo 2", "jueves",   10,       18, as.Date("2026-01-01"), as.Date("2099-12-31"),
+  "San Telmo 2", "viernes",  10,       18, as.Date("2026-01-01"), as.Date("2099-12-31"),
+  "San Telmo 2", "sábado",   10,       18, as.Date("2026-01-01"), as.Date("2099-12-31"),
+  "San Telmo 2", "domingo",  10,       18, as.Date("2026-01-01"), as.Date("2099-12-31"),
+  "San Telmo",   "lunes",    10,       18, as.Date("2026-01-01"), as.Date("2099-12-31"),
+  "San Telmo",   "martes",   10,       18, as.Date("2026-01-01"), as.Date("2099-12-31"),
+  "San Telmo",   "miércoles",10,       18, as.Date("2026-01-01"), as.Date("2099-12-31"),
+  "San Telmo",   "jueves",   10,       18, as.Date("2026-01-01"), as.Date("2099-12-31"),
+  "San Telmo",   "viernes",  10,       18, as.Date("2026-01-01"), as.Date("2099-12-31"),
+  "San Telmo",   "sábado",   10,       18, as.Date("2026-01-01"), as.Date("2099-12-31"),
+  "San Telmo",   "domingo",  10,       18, as.Date("2026-01-01"), as.Date("2099-12-31"),
+  #hasta marzo
+  "AS San Telmo",   "lunes",    10,    18, as.Date("2026-01-01"), as.Date("2026-03-31"),
+  "AS San Telmo",   "martes",   10,    18, as.Date("2026-01-01"), as.Date("2026-03-31"),
+  "AS San Telmo",   "miércoles",10,    18, as.Date("2026-01-01"), as.Date("2026-03-31"),
+  "AS San Telmo",   "jueves",   10,    18, as.Date("2026-01-01"), as.Date("2026-03-31"),
+  "AS San Telmo",   "viernes",  10,    18, as.Date("2026-01-01"), as.Date("2026-03-31"),
+  "AS San Telmo",   "sábado",   10,    18, as.Date("2026-01-01"), as.Date("2026-03-31"),
+  "AS San Telmo",   "domingo",  10,    18, as.Date("2026-01-01"), as.Date("2026-03-31"),
+  #desde abril
+  "AS San Telmo",   "lunes",    11,    18, as.Date("2026-04-01"), as.Date("2026-04-30"),
+  "AS San Telmo",   "martes",   11,    18, as.Date("2026-04-01"), as.Date("2026-04-30"),
+  "AS San Telmo",   "miércoles",11,    18, as.Date("2026-04-01"), as.Date("2026-04-30"),
+  "AS San Telmo",   "jueves",   11,    18, as.Date("2026-04-01"), as.Date("2026-04-30"),
+  "AS San Telmo",   "viernes",  11,    18, as.Date("2026-04-01"), as.Date("2026-04-30"),
+  "AS San Telmo",   "sábado",   11,    18, as.Date("2026-04-01"), as.Date("2026-04-30"),
+  "AS San Telmo",   "domingo",  11,    18, as.Date("2026-04-01"), as.Date("2026-04-30"),
+  #desde mayo
+  "AS San Telmo",   "lunes",    11,    18, as.Date("2026-05-01"), as.Date("2099-12-31"),
+  "AS San Telmo",   "martes",   11,    18, as.Date("2026-05-01"), as.Date("2099-12-31"),
+  "AS San Telmo",   "miércoles",11,    18, as.Date("2026-05-01"), as.Date("2099-12-31"),
+  "AS San Telmo",   "jueves",   11,    18, as.Date("2026-05-01"), as.Date("2099-12-31"),
+  "AS San Telmo",   "viernes",  11,    18, as.Date("2026-05-01"), as.Date("2099-12-31"),
+  "AS San Telmo",   "sábado",   10,    18, as.Date("2026-05-01"), as.Date("2099-12-31"),
+  "AS San Telmo",   "domingo",  10,    18, as.Date("2026-05-01"), as.Date("2099-12-31"),
+
+  
+    #sin cambios
+  "Florida",     "lunes",     10,      19, as.Date("2026-01-01"), as.Date("2099-12-31"),
+  "Florida",     "martes",    10,      19, as.Date("2026-01-01"), as.Date("2099-12-31"),
+  "Florida",     "miércoles", 10,      19, as.Date("2026-01-01"), as.Date("2099-12-31"),
+  "Florida",     "jueves",    10,      19, as.Date("2026-01-01"), as.Date("2099-12-31"), 
+  "Florida",     "viernes",   10,      19, as.Date("2026-01-01"), as.Date("2099-12-31"),
+  "Florida",     "sábado",    10,      19, as.Date("2026-01-01"), as.Date("2099-12-31"), 
+  "Florida",     "domingo",   10,      19, as.Date("2026-01-01"), as.Date("2099-12-31"),
+  "Recoleta",    "lunes",     10,      20, as.Date("2026-01-01"), as.Date("2099-12-31"), 
+  "Recoleta",    "martes",    10,      20, as.Date("2026-01-01"), as.Date("2099-12-31"),
+  "Recoleta",    "miércoles", 10,      20, as.Date("2026-01-01"), as.Date("2099-12-31"), 
+  "Recoleta",    "jueves",    10,      20, as.Date("2026-01-01"), as.Date("2099-12-31"),
+  "Recoleta",    "viernes",   10,      20, as.Date("2026-01-01"), as.Date("2099-12-31"), 
+  "Recoleta",    "sábado",    10,      20, as.Date("2026-01-01"), as.Date("2099-12-31"),
+  "Recoleta",    "domingo",   10,      20, as.Date("2026-01-01"), as.Date("2099-12-31"),  
+  "El Solar",    "lunes",     10,      20, as.Date("2026-01-01"), as.Date("2099-12-31"), 
+  "El Solar",    "martes",    10,      20, as.Date("2026-01-01"), as.Date("2099-12-31"),
+  "El Solar",    "miércoles", 10,      20, as.Date("2026-01-01"), as.Date("2099-12-31"), 
+  "El Solar",    "jueves",    10,      20, as.Date("2026-01-01"), as.Date("2099-12-31"),
+  "El Solar",    "viernes",   10,      20, as.Date("2026-01-01"), as.Date("2099-12-31"), 
+  "El Solar",    "sábado",    10,      20, as.Date("2026-01-01"), as.Date("2099-12-31"),
+  "El Solar",    "domingo",   10,      20, as.Date("2026-01-01"), as.Date("2099-12-31"),  
+  
+  #hasta marzo
+  "French",      "lunes",     11,      18, as.Date("2026-01-01"), as.Date("2026-03-31"),
+  "French",      "martes",    11,      18, as.Date("2026-01-01"), as.Date("2026-03-31"), 
+  "French",      "miércoles", 11,      18, as.Date("2026-01-01"), as.Date("2026-03-31"),
+  "French",      "jueves",    11,      18, as.Date("2026-01-01"), as.Date("2026-03-31"), 
+  "French",      "viernes",   11,      18, as.Date("2026-01-01"), as.Date("2026-03-31"),
+  "French",      "sábado",    11,      18, as.Date("2026-01-01"), as.Date("2026-03-31"), 
+  "French",      "domingo",   11,      18, as.Date("2026-01-01"), as.Date("2026-03-31"),
+  #desde abril
+  "French",      "lunes",     11,      17, as.Date("2026-04-01"), as.Date("2099-12-31"),
+  "French",      "martes",    11,      17, as.Date("2026-04-01"), as.Date("2099-12-31"), 
+  "French",      "miércoles", 11,      17, as.Date("2026-04-01"), as.Date("2099-12-31"),
+  "French",      "jueves",    11,      17, as.Date("2026-04-01"), as.Date("2099-12-31"), 
+  "French",      "viernes",   11,      17, as.Date("2026-04-01"), as.Date("2099-12-31"),
+  "French",      "sábado",    11,      17, as.Date("2026-04-01"), as.Date("2099-12-31"), 
+  "French",      "domingo",   11,      17, as.Date("2026-04-01"), as.Date("2099-12-31"),
+  
+  #hasta marzo
+  "Güemes",      "lunes",     9,       17, as.Date("2026-01-01"), as.Date("2026-03-31"), 
+  "Güemes",      "martes",    9,       17, as.Date("2026-01-01"), as.Date("2026-03-31"),
+  "Güemes",      "miércoles", 9,       17, as.Date("2026-01-01"), as.Date("2026-03-31"), 
+  "Güemes",      "jueves",    9,       17, as.Date("2026-01-01"), as.Date("2026-03-31"),
+  "Güemes",      "viernes",   9,       17, as.Date("2026-01-01"), as.Date("2026-03-31"), 
+  "Güemes 2",    "lunes",     9,       17, as.Date("2026-01-01"), as.Date("2026-03-31"), 
+  "Güemes 2",    "martes",    9,       17, as.Date("2026-01-01"), as.Date("2026-03-31"),
+  "Güemes 2",    "miércoles", 9,       17, as.Date("2026-01-01"), as.Date("2026-03-31"), 
+  "Güemes 2",    "jueves",    9,       17, as.Date("2026-01-01"), as.Date("2026-03-31"),
+  "Güemes 2",    "viernes",   9,       17, as.Date("2026-01-01"), as.Date("2026-03-31"),
+  "AS Güemes",   "lunes",     9,       17, as.Date("2026-01-01"), as.Date("2026-03-31"), 
+  "AS Güemes",   "martes",    9,       17, as.Date("2026-01-01"), as.Date("2026-03-31"),
+  "AS Güemes",   "miércoles", 9,       17, as.Date("2026-01-01"), as.Date("2026-03-31"), 
+  "AS Güemes",   "jueves",    9,       17, as.Date("2026-01-01"), as.Date("2026-03-31"),
+  "AS Güemes",   "viernes",   9,       17, as.Date("2026-01-01"), as.Date("2026-03-31"),
+  
+  #desde abril
+  "Güemes",      "lunes",     10,       16, as.Date("2026-04-01"), as.Date("2099-12-31"), 
+  "Güemes",      "martes",    10,       16, as.Date("2026-04-01"), as.Date("2099-12-31"),
+  "Güemes",      "miércoles", 10,       16, as.Date("2026-04-01"), as.Date("2099-12-31"), 
+  "Güemes",      "jueves",    10,       16, as.Date("2026-04-01"), as.Date("2099-12-31"),
+  "Güemes",      "viernes",   10,       16, as.Date("2026-04-01"), as.Date("2099-12-31"), 
+  "Güemes 2",    "lunes",     10,       16, as.Date("2026-04-01"), as.Date("2099-12-31"), 
+  "Güemes 2",    "martes",    10,       16, as.Date("2026-04-01"), as.Date("2099-12-31"),
+  "Güemes 2",    "miércoles", 10,       16, as.Date("2026-04-01"), as.Date("2099-12-31"), 
+  "Güemes 2",    "jueves",    10,       16, as.Date("2026-04-01"), as.Date("2099-12-31"),
+  "Güemes 2",    "viernes",   10,       16, as.Date("2026-04-01"), as.Date("2099-12-31")
+ )
+
 horarios$DIA_SEMANA <- factor(horarios$DIA_SEMANA, levels = dias_ordenados)
 
 ```
@@ -116,7 +165,7 @@ horarios$DIA_SEMANA <- factor(horarios$DIA_SEMANA, levels = dias_ordenados)
 facturas_filtrado <- filter(Odoo_mas_Alegra,
                            between(FECHA_EMISION,
                                    as.Date("2026-01-01"),
-                                   as.Date("2026-03-31")))
+                                   fecha_filtro))
 
 # Preparación del dataset principal. Elimino las notas de créditos y reembolsos
 facturas_editado <- facturas_filtrado %>%
@@ -133,8 +182,8 @@ facturas_editado <- facturas_filtrado %>%
 # Ajuste de horas fuera del horario (apertura y cierre), usando horarios como fuente única
 facturas_editado <- facturas_editado %>%
   mutate(HORA = as.integer(sub(":.*", "", HORA))) %>%
-  left_join(horarios %>% select(TIENDA, DIA_SEMANA, start_hour, end_hour),
-            by = c("TIENDA", "DIA_SEMANA")) %>%
+  left_join(horarios %>% select(TIENDA, DIA_SEMANA, start_hour, end_hour, fecha_desde, fecha_hasta),
+            join_by(TIENDA, DIA_SEMANA, FECHA_EMISION >= fecha_desde, FECHA_EMISION <= fecha_hasta)) %>%
   mutate(
     HORA = case_when(
       HORA < start_hour ~ as.integer(start_hour),
@@ -142,7 +191,10 @@ facturas_editado <- facturas_editado %>%
       TRUE              ~ HORA
     )
   ) %>%
-  select(-start_hour, -end_hour)
+  select(-start_hour, -end_hour, -fecha_desde, -fecha_hasta)
+
+#elimino a AS Güemes del análisis
+facturas_editado <- facturas_editado %>% filter(TIENDA != "AS Güemes")
 
 # Cálculo de facturación por hora
 Facturacion_dia_completo <- facturas_editado %>%
@@ -188,6 +240,12 @@ formatear_tabla <- function(df) {
   df %>% select(-TIENDA) %>% rename(Hora = HORA) %>% arrange(Hora) %>% mutate(across(where(is.numeric) & !Hora, ~ round(., 3))) %>% as.data.frame()
 }
 tablas_formateadas <- lapply(tablas_por_TIENDA, formatear_tabla)
+
+
+# Fecha de referencia por mes (para joins con horarios en gráficos y Excel)
+mes_fecha_ref <- facturas_editado %>%
+  group_by(MES) %>%
+  summarise(fecha_ref = min(FECHA_EMISION), .groups = 'drop')
 
 ```
 
@@ -265,9 +323,12 @@ altura_grafico_heatmap <- 6 * (cant_meses / 3)
 
 for (tienda_actual in nombres_TIENDAs) {
   df_filtrado2 <- Facturacion_hora_completo %>% filter(TIENDA == tienda_actual) %>%
-    left_join(horarios, by = c("TIENDA", "DIA_SEMANA")) %>%
+    left_join(mes_fecha_ref, by = "MES") %>%
+    left_join(horarios, join_by(TIENDA, DIA_SEMANA, fecha_ref >= fecha_desde, fecha_ref <= fecha_hasta)) %>%
     mutate(HORA_NUM = as.numeric(as.character(HORA_FACTOR))) %>%
-    filter(HORA_NUM >= start_hour & HORA_NUM <= end_hour)
+    filter(HORA_NUM >= start_hour & HORA_NUM <= end_hour) %>%
+    mutate(HORA_FACTOR = factor(HORA, levels = rev(sort(unique(HORA))))) %>%
+    select(-fecha_ref, -fecha_desde, -fecha_hasta)
     
   if(nrow(df_filtrado2) == 0) next
 
@@ -388,10 +449,13 @@ nombres_TIENDAs <- unique(tickets_x_hora_completo$TIENDA)
 
 for (tienda_actual in nombres_TIENDAs) {
   df_filtrado3 <- tickets_x_hora_completo %>%
-    filter(TIENDA == tienda_actual) %>% 
-    left_join(horarios, by = c("TIENDA" = "TIENDA", "DIA_SEMANA_etiqueta" = "DIA_SEMANA")) %>%
+    filter(TIENDA == tienda_actual) %>%
+    left_join(horarios, join_by(TIENDA == TIENDA, DIA_SEMANA_etiqueta == DIA_SEMANA,
+                                FECHA >= fecha_desde, FECHA <= fecha_hasta)) %>%
     mutate(HORA_NUM = as.numeric(as.character(HORA_FACTOR))) %>%
-    filter(HORA_NUM >= start_hour & HORA_NUM <= end_hour)
+    filter(HORA_NUM >= start_hour & HORA_NUM <= end_hour) %>%
+    mutate(HORA_FACTOR = factor(HORA, levels = rev(sort(unique(HORA))))) %>%
+    select(-fecha_desde, -fecha_hasta)
   
   if (nrow(df_filtrado3) == 0) next
   
@@ -665,12 +729,17 @@ for (tienda_actual in nombres_TIENDAs) {
     if (nrow(tabla_mes) > 0) {
       dias_presentes <- dias_ordenados[dias_ordenados %in% unique(tabla_mes$DIA_SEMANA)]
       
-      # Base con rango completo de horas del horario de la tienda
-      horario_tienda_excel <- horarios %>% filter(TIENDA == tienda_actual) %>% slice(1)
+      # Base con rango completo de horas del horario de la tienda, según período del mes
+      fecha_ref_mes <- mes_fecha_ref %>% filter(MES == mes_actual) %>% pull(fecha_ref)
+      horario_tienda_excel <- horarios %>%
+        filter(TIENDA == tienda_actual,
+               fecha_ref_mes >= fecha_desde,
+               fecha_ref_mes <= fecha_hasta) %>%
+        slice(1)
       if (nrow(horario_tienda_excel) > 0) {
         tabla_final_mes <- tibble(HORA = horario_tienda_excel$start_hour:horario_tienda_excel$end_hour)
       } else {
-        warning(paste("Tienda sin horario definido:", tienda_actual, "— usando horas presentes en los datos"))
+        warning(paste("Tienda sin horario definido:", tienda_actual, mes_actual, "— usando horas presentes en los datos"))
         tabla_final_mes <- tabla_mes %>% select(HORA) %>% distinct() %>% arrange(HORA)
       }
 
