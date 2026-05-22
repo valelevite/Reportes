@@ -25,7 +25,7 @@ library(digest)
 url <- "https://ellucerocuero.odoo.com/"
 db <- "mgintar-ellucerocuero-main-22449024"
 username <- "rocio.martinez@el-lucero.com"
-password <- "RM2468"
+password <- "COMERCIAL2468"
 
 placeholder_hash <- "b2fb48cc6443c33335829912145bfba5"
 
