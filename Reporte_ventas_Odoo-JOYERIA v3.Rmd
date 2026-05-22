@@ -70,7 +70,8 @@ FACTURAS_MES2_JOYERIA <- FACTURAS_MES_JOYERIA %>%
 ```{r le agrego los proveedores}
 
 proveedores_odoo_LUCERO <- read_excel(paste0("Proveedores/proveedores_odoo_LUCERO_", fecha_proveedores, ".xlsx")) |> 
-  rename(CODIGO_BARRAS = "Código de barras", PRODUCTO = Producto, PROVEEDOR = Proveedores)
+  rename(CODIGO_BARRAS = "Código de barras", PRODUCTO = Producto, PROVEEDOR = Proveedores) %>% 
+  mutate(PROVEEDOR = if_else(is.na(PROVEEDOR) & PRODUCTO == "[102536] PULSERA PIEDRA NATURAL MEDIANA", "Muestra", PROVEEDOR))
 
 FACTURAS_MES2_JOYERIA$PROVEEDOR <- proveedores_odoo_LUCERO$PROVEEDOR[match(FACTURAS_MES2_JOYERIA$CODIGO_BARRAS, proveedores_odoo_LUCERO$CODIGO_BARRAS)]
 
@@ -734,13 +735,14 @@ Stock_con_subfamilia_JOYERIA <- Stock_JOYERIA |>
 #Le agrego los precios desde la lista de precios de Odoo
   Precios <- read_excel(paste0("Lista_precios/Lista_precios_", fecha_precios, ".xlsx")) |> 
     rename(PRODUCTO = "Reglas de lista de precios/Variante", PRECIO_SIN_IMP = "Reglas de lista de precios/Precio fijo") |> 
-    mutate(PRECIO = round(PRECIO_SIN_IMP*1.21)) |> 
-    select(-PRECIO_SIN_IMP)
-  # %>% 
-  #   filter(!(PRODUCTO == "[105212] PULSERA HILO CUBO INICIAL (I, MARRON)" & PRECIO == 299000))
+    mutate(PRECIO = round(PRECIO_SIN_IMP*1.21)) |>
+    mutate(REFERENCIA_INTERNA = str_extract(PRODUCTO, "(?<=\\[)\\d{6}(?=\\])")) %>% 
+    select(-PRECIO_SIN_IMP, -PRODUCTO)
+  
 
+  
 Stock_con_precios_JOYERIA <- Stock_con_subfamilia_JOYERIA |> 
-  left_join(Precios, by = "PRODUCTO")
+  left_join(Precios, by = "REFERENCIA_INTERNA")
 
 
 REVISAR_STOCK_SIN_PRECIO_JOYERIA <- Stock_con_precios_JOYERIA %>% 
