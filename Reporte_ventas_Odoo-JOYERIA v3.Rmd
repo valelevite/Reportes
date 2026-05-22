@@ -25,16 +25,16 @@ REVISAR QUE LOS PROVEEDORES QUE AGREGO A MANO NO ESTÉN YA EN ODOO ASÍ NO HAY C
 
 ```{r filtro para el mes a analizar}
 
-fecha_inicio_mes <- as.Date("2026/03/01") 
-fecha_fin_mes <- as.Date("2026/03/31")
+fecha_inicio_mes <- as.Date("2026/04/01") 
+fecha_fin_mes <- as.Date("2026/04/30")
 
-mes <- "2026-03"
+mes <- "2026-04"
 
-fecha_stock <- strftime("2026/04/21","%Y%m%d")
+fecha_stock <- strftime("2026/05/21","%Y%m%d")
 
-fecha_precios <- strftime("2026/04/21","%Y%m%d")
+fecha_precios <- strftime("2026/05/22","%Y%m%d")
 
-fecha_proveedores <- strftime("2026/04/17","%Y%m%d")
+fecha_proveedores <- strftime("2026/05/06","%Y%m%d")
 
 ```
 
