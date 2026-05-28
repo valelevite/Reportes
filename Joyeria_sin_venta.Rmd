@@ -1,0 +1,118 @@
+---
+title: "Joyeria sin venta"
+output: html_document
+date: "2026-05-27"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+1. Actualizo las facturas de venta y el stock
+2. Corro Arreglo base
+
+```{r}
+
+fecha_stock_descripcion <- strftime("2026/05/27","%Y%m%d")
+
+```
+
+#Filtro las facturas para quedarme con joyería
+```{r}
+
+FACTURAS_JOYERIA <- Odoo_mas_Alegra %>%
+  select(-PRECIO_UNITARIO_SIN_IMP) %>% 
+  filter(TIENDA %in% c("Güemes 2", "El Solar")) %>% 
+  mutate(SUBFAMILIA = if_else(DESCRIPCION == "TIENTO CUERO", "TIENTOS", SUBFAMILIA)) #cambio unisex por lo que es porque sino se pierde el dato. 
+
+REVISAR_SUBFAMILIA_JOYERIA_completo <- FACTURAS_JOYERIA %>% 
+  filter(PRODUCTO_NOMBRE_COMPLETO != "Anticipo del cliente") %>% 
+  filter(is.na(SUBFAMILIA))
+
+if (nrow(REVISAR_SUBFAMILIA_JOYERIA_completo) > 0)
+  message("⚠️  SUBFAMILIA sin asignar: ", nrow(REVISAR_SUBFAMILIA_JOYERIA_completo), " fila(s)\n",
+          paste(unique(REVISAR_SUBFAMILIA_JOYERIA_completo$DESCRIPCION), collapse = ", "))
+
+
+```
+
+```{r elimino las facturas y/o notas de crédito que tienen sólo una diferencia mínima ante un cambio para que no lo compute como un artículo}
+
+FACTURAS_JOYERIA2 <- FACTURAS_JOYERIA %>% 
+  filter(PRECIO_UNITARIO>100) 
+
+```
+
+##Concateno los atributos
+```{r}
+
+FACTURAS_JOYERIA_CONCA <- FACTURAS_JOYERIA2 %>% 
+  mutate(PRODUCTO = pmap_chr(
+    list(DESCRIPCION, COLOR, MATERIAL, TALLE, VARIANTE, MEDIDA, DIAMETRO, GROSOR, PESO, PIEDRA, TERMINACION),
+    \(...) str_flatten(na.omit(c(...)), collapse = " - ")
+  ))
+  
+```
+
+## Agrupo las ventas por modelos
+```{r}
+
+Modelos_vendidos_joyeria <- FACTURAS_JOYERIA_CONCA %>% 
+  group_by(DESCRIPCION) %>% 
+  summarise(Total = sum(PRODUCTO_CANTIDAD),
+            .groups = "drop") %>% 
+  filter(Total >0)
+  
+```
+
+
+#STOCK
+```{r cargo el stock de odoo}
+
+Stock_descripcion <- read_excel(paste0("Stock/Stock_x_modelo_", fecha_stock_descripcion,".xlsx")) %>% 
+  select(TIENDA = Ubicación, RUBRO = "Categoría del producto/Categoría principal/Categoría principal", FAMILIA =
+"Categoría del producto/Categoría principal/Nombre", SUBFAMILIA = "Categoría del producto/Nombre", DESCRIPCION = "Producto/Nombre", CANTIDAD = "Cantidad en inventario") |> 
+  filter(TIENDA != "WHLUC/Fallado") |> 
+  mutate(TIENDA = case_when(TIENDA == "WHASG/Stock" ~ "AS Güemes",
+                            TIENDA == "WHASS/Stock" ~ "AS San Telmo",
+                            TIENDA == "WHBAS/Barracas" ~ "AS Barracas", 
+                            TIENDA == "WHBAS/Reserva" ~ "AS Reserva",
+                            TIENDA == "WHBLU/Stock" ~ "Barracas", 
+                            TIENDA == "WHFLO/Stock" ~ "Florida",
+                            TIENDA == "WHFRE/Stock" ~ "French",
+                            TIENDA == "WHGU1/Stock" ~ "Güemes",
+                            TIENDA == "WHGU2/Stock" ~ "Güemes 2",
+                            TIENDA == "WHLUC/Stock" ~ "Florida Depósito",
+                            TIENDA == "WHREC/Stock" ~ "Recoleta", 
+                            TIENDA == "WHSOL/Stock" ~ "El Solar",
+                            TIENDA == "WHST1/Stock" ~ "San Telmo 1",
+                            TIENDA == "WHST2/Stock" ~ "San Telmo 2",
+                            TRUE ~ TIENDA))
+  
+#Dejo en stock lo que es joyería y cambio a 0 las cantidades en negativo. Selecciono las columnas
+Stock_JOYERIA_descripcion <- Stock_descripcion |> 
+  filter(TIENDA %in% c("Güemes 2", "El Solar", "Florida Depósito", "Barracas")) %>% 
+  filter(!is.na(FAMILIA)) %>% 
+  mutate(CANTIDAD = if_else(CANTIDAD<0, 0, CANTIDAD)) %>% 
+  filter(FAMILIA == "JOYERIA" | (FAMILIA == "ACCESORIOS" & str_detect(DESCRIPCION, "ANILLO|BRAZALETE|PULSERA|TIENTO") )) %>% 
+  group_by(TIENDA, DESCRIPCION) %>% 
+  summarise(Total = sum(CANTIDAD),
+            .groups = "drop")
+
+```
+
+
+#STOCK SIN VENTA
+```{r}
+
+Stock_joyeria_sin_venta <- Stock_JOYERIA_descripcion %>% 
+  anti_join(Modelos_vendidos_joyeria, by = "DESCRIPCION") %>% 
+  pivot_wider(names_from = TIENDA,
+              values_from = Total,
+              values_fill = 0) %>% 
+  relocate("Güemes 2", .after = "El Solar")
+
+
+AGREGAR FOTOS. VER CÓMO MACHEAR SIN NRO DE REFERENCIA
+```
+

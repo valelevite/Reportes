@@ -26,11 +26,11 @@ REVISAR QUE LOS PROVEEDORES QUE AGREGO A MANO NO ESTÉN YA EN ODOO ASÍ NO HAY C
 ```{r filtro para el mes a analizar}
 
 fecha_inicio_mes <- as.Date("2026/04/01") 
-fecha_fin_mes <- as.Date("2026/04/30")
+fecha_fin_mes <- as.Date("2026/05/27")
 
 mes <- "2026-04"
 
-fecha_stock <- strftime("2026/05/21","%Y%m%d")
+fecha_stock <- strftime("2026/05/27","%Y%m%d")
 
 fecha_precios <- strftime("2026/05/22","%Y%m%d")
 
@@ -45,7 +45,7 @@ FACTURAS_MES_JOYERIA <- Odoo_mas_Alegra %>%
   filter(as.Date(FECHA_EMISION) >= fecha_inicio_mes,
          as.Date(FECHA_EMISION) <= fecha_fin_mes,
          TIENDA %in% c("Güemes 2", "El Solar")) %>% 
-  mutate(SUBFAMILIA = if_else(DESCRIPCION == "TIENTO CUERO", "TIENTOS", SUBFAMILIA)) #cambio unisex por lo que es porque sino se pierde el dato. 
+  mutate(SUBFAMILIA = if_else(RUBRO == "MARRO CHICA", "ACCESORIOS DE CUERO", SUBFAMILIA)) #Le agrego la categoría a lo que es cuero dentro de lo que va a llamarse FAMILIA en el reporte 
 
 REVISAR_SUBFAMILIA_JOYERIA <- FACTURAS_MES_JOYERIA %>% 
   filter(PRODUCTO_NOMBRE_COMPLETO != "Anticipo del cliente") %>% 
@@ -729,7 +729,7 @@ Base_para_stock_JOYERIA <- Base_Articulos_Odoo_para_machear |>
 
 Stock_con_subfamilia_JOYERIA <- Stock_JOYERIA |> 
   left_join(Base_para_stock_JOYERIA, by = "REFERENCIA_INTERNA") |> 
-  filter(FAMILIA %in% c("ANILLOS", "AROS", "CADENAS Y COLLARES", "PULSERAS", "DIJES Y COLGANTES", "TIENTOS") |          str_detect(PRODUCTO, "TIENTO CUERO|COLLAR TUBO CUERO")) %>% 
+  filter(FAMILIA %in% c("ANILLOS", "AROS", "CADENAS Y COLLARES", "PULSERAS", "DIJES Y COLGANTES", "ACCESORIOS DE CUERO") |  str_detect(PRODUCTO, "TIENTO CUERO|COLLAR TUBO CUERO")) %>% 
   mutate(FAMILIA = if_else(str_detect(PRODUCTO, "TIENTO CUERO"), "TIENTOS", FAMILIA))
 
 #Le agrego los precios desde la lista de precios de Odoo
