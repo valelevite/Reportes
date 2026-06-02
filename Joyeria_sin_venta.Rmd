@@ -22,8 +22,11 @@ fecha_stock_descripcion <- strftime("2026/05/27","%Y%m%d")
 
 FACTURAS_JOYERIA <- Odoo_mas_Alegra %>%
   select(-PRECIO_UNITARIO_SIN_IMP) %>% 
-  filter(TIENDA %in% c("Güemes 2", "El Solar")) %>% 
-  mutate(SUBFAMILIA = if_else(DESCRIPCION == "TIENTO CUERO", "TIENTOS", SUBFAMILIA)) #cambio unisex por lo que es porque sino se pierde el dato. 
+  filter(TIENDA %in% c("Güemes 2", "El Solar", "San Telmo 2")) %>% 
+  filter(TIENDA != "San Telmo 2" | FECHA_EMISION > as.Date("2026-05-22")) %>% #filtro, para ST2, desde que es joyería
+  mutate(SUBFAMILIA = case_when(
+  RUBRO == "MARRO CHICA" ~ "ACCESORIOS DE CUERO",
+  TRUE ~ SUBFAMILIA)) #Le agrego la categoría a lo que es cuero dentro de lo que va a llamarse FAMILIA en el reporte 
 
 REVISAR_SUBFAMILIA_JOYERIA_completo <- FACTURAS_JOYERIA %>% 
   filter(PRODUCTO_NOMBRE_COMPLETO != "Anticipo del cliente") %>% 
@@ -43,21 +46,11 @@ FACTURAS_JOYERIA2 <- FACTURAS_JOYERIA %>%
 
 ```
 
-##Concateno los atributos
-```{r}
-
-FACTURAS_JOYERIA_CONCA <- FACTURAS_JOYERIA2 %>% 
-  mutate(PRODUCTO = pmap_chr(
-    list(DESCRIPCION, COLOR, MATERIAL, TALLE, VARIANTE, MEDIDA, DIAMETRO, GROSOR, PESO, PIEDRA, TERMINACION),
-    \(...) str_flatten(na.omit(c(...)), collapse = " - ")
-  ))
-  
-```
 
 ## Agrupo las ventas por modelos
 ```{r}
 
-Modelos_vendidos_joyeria <- FACTURAS_JOYERIA_CONCA %>% 
+Modelos_vendidos_joyeria <- FACTURAS_JOYERIA2 %>% 
   group_by(DESCRIPCION) %>% 
   summarise(Total = sum(PRODUCTO_CANTIDAD),
             .groups = "drop") %>% 
@@ -71,7 +64,7 @@ Modelos_vendidos_joyeria <- FACTURAS_JOYERIA_CONCA %>%
 
 Stock_descripcion <- read_excel(paste0("Stock/Stock_x_modelo_", fecha_stock_descripcion,".xlsx")) %>% 
   select(TIENDA = Ubicación, RUBRO = "Categoría del producto/Categoría principal/Categoría principal", FAMILIA =
-"Categoría del producto/Categoría principal/Nombre", SUBFAMILIA = "Categoría del producto/Nombre", DESCRIPCION = "Producto/Nombre", CANTIDAD = "Cantidad en inventario") |> 
+"Categoría del producto/Categoría principal/Nombre", SUBFAMILIA = "Categoría del producto/Nombre", DESCRIPCION = "Producto/Nombre", CANTIDAD = "Cantidad en inventario", CODIGO = "Código de referencia de producto") |> 
   filter(TIENDA != "WHLUC/Fallado") |> 
   mutate(TIENDA = case_when(TIENDA == "WHASG/Stock" ~ "AS Güemes",
                             TIENDA == "WHASS/Stock" ~ "AS San Telmo",
@@ -91,11 +84,14 @@ Stock_descripcion <- read_excel(paste0("Stock/Stock_x_modelo_", fecha_stock_desc
   
 #Dejo en stock lo que es joyería y cambio a 0 las cantidades en negativo. Selecciono las columnas
 Stock_JOYERIA_descripcion <- Stock_descripcion |> 
-  filter(TIENDA %in% c("Güemes 2", "El Solar", "Florida Depósito", "Barracas")) %>% 
+  filter(TIENDA %in% c("Güemes 2", "El Solar", "San Telmo 2",  "Florida Depósito", "Barracas")) %>% 
   filter(!is.na(FAMILIA)) %>% 
   mutate(CANTIDAD = if_else(CANTIDAD<0, 0, CANTIDAD)) %>% 
   filter(FAMILIA == "JOYERIA" | (FAMILIA == "ACCESORIOS" & str_detect(DESCRIPCION, "ANILLO|BRAZALETE|PULSERA|TIENTO") )) %>% 
-  group_by(TIENDA, DESCRIPCION) %>% 
+  group_by(DESCRIPCION) |> 
+  mutate(CODIGO = min(CODIGO)) |> #para quedarme sólo con un ´codigo por descripción. Si lo ponía después, no funcionaba bien porque mantenía uno por tienda 
+  ungroup() %>% 
+  group_by(DESCRIPCION, CODIGO, TIENDA) %>% 
   summarise(Total = sum(CANTIDAD),
             .groups = "drop")
 
@@ -110,9 +106,132 @@ Stock_joyeria_sin_venta <- Stock_JOYERIA_descripcion %>%
   pivot_wider(names_from = TIENDA,
               values_from = Total,
               values_fill = 0) %>% 
-  relocate("Güemes 2", .after = "El Solar")
+  mutate("Total tiendas" = `El Solar` + `Güemes 2` + `San Telmo 2`) %>% 
+relocate("Florida Depósito", .after = "Total tiendas") %>% 
+  arrange(desc(`Total tiendas`))
+
+```
+
+#Creo el wb y los estilos
+```{r}
+
+wb <- createWorkbook()
+addWorksheet(wb, "Stock sin venta")
+
+# Estilos
+st_header <- createStyle(
+  fontName = "Arial", fontSize = 10, fontColour = "white",
+  fgFill = "#2F4F6E", halign = "center", valign = "center",
+  textDecoration = "bold", wrapText = TRUE, border = "TopBottomLeftRight"
+)
+st_data <- createStyle(
+  fontName = "Arial", fontSize = 10, valign = "center",
+  border = "TopBottomLeftRight"
+)
+st_num <- createStyle(
+  fontName = "Arial", fontSize = 10, valign = "center",
+  numFmt = "#,##0", border = "TopBottomLeftRight", halign = "center"
+)
+
+# Datos
+writeData(wb, "Stock sin venta", Stock_joyeria_sin_venta, startRow = 1, startCol = 1)
+
+# Estilo encabezado
+addStyle(wb, "Stock sin venta", st_header,
+         rows = 1, cols = 1:ncol(Stock_joyeria_sin_venta), gridExpand = TRUE)
+
+# Estilo filas de datos
+n <- nrow(Stock_joyeria_sin_venta)
+addStyle(wb, "Stock sin venta", st_data,
+         rows = 2:(n + 1), cols = 1:2, gridExpand = TRUE)
+addStyle(wb, "Stock sin venta", st_num,
+         rows = 2:(n + 1), cols = 3:ncol(Stock_joyeria_sin_venta), gridExpand = TRUE)
+
+# Anchos de columna
+setColWidths(wb, "Stock sin venta",
+             cols    = 1:ncol(Stock_joyeria_sin_venta),
+             widths  = c(40, 10, 10, 10, 10, 12, 14))
+```
+
+#Le pongo las imágenes a la tabla
+```{r}
+
+compress_img <- function(filepath, max_px = 180, quality = 72) {
+  img  <- magick::image_read(filepath)
+  info <- magick::image_info(img)
+  if (info$width > max_px || info$height > max_px) {
+    img <- magick::image_scale(img, paste0(max_px, "x", max_px))
+  }
+  tmp <- tempfile(fileext = paste0(".", tolower(tools::file_ext(filepath))))
+  magick::image_write(img, path = tmp, quality = quality)
+  tmp
+}
 
 
-AGREGAR FOTOS. VER CÓMO MACHEAR SIN NRO DE REFERENCIA
+img_folder <- file.path("imagenes")
+img_col_idx <- ncol(Stock_joyeria_sin_venta) + 1
+
+# Encabezado de la nueva columna
+writeData(wb, "Stock sin venta", "IMAGEN", startRow = 1, startCol = img_col_idx)
+addStyle(wb, "Stock sin venta", st_header, rows = 1, cols = img_col_idx)
+setColWidths(wb, "Stock sin venta", cols = img_col_idx, widths = 11)
+
+
+
+# Índice de imágenes disponibles: extrae el número del inicio del nombre
+img_files  <- list.files(img_folder, full.names = TRUE,
+                          pattern = "\\.(jpg|jpeg|png|webp)$",
+                          ignore.case = TRUE)
+
+img_lookup <- tibble(
+  filepath = img_files,
+  ref      = str_extract(basename(img_files), "^\\d+")
+) %>% filter(!is.na(ref))
+
+# Dimensiones de celda para las imágenes
+IMG_IN <- 0.65   # tamaño de imagen en pulgadas
+IMG_PT <- 50     # alto de fila en puntos (≈ 67px)
+
+# Filas de datos
+filas_datos <- seq_len(nrow(Stock_joyeria_sin_venta))
+
+for (i in filas_datos) {
+  excel_row <- i + 1  # +1 por el encabezado
+
+  setRowHeights(wb, "Stock sin venta", rows = excel_row, heights = IMG_PT)
+
+  codigo <- as.character(Stock_joyeria_sin_venta$CODIGO[i])
+  if (is.na(codigo) || codigo == "") next
+
+  # Intento 1: coincidencia exacta con el número de la imagen
+  # Intento 2: los primeros 6 caracteres del código (por si CODIGO es EAN/barcode largo)
+  match_idx <- which(img_lookup$ref == codigo)
+  if (length(match_idx) == 0 && nchar(codigo) >= 6)
+    match_idx <- which(img_lookup$ref == substr(codigo, 1, 6))
+
+  if (length(match_idx) == 0) next
+
+  img_tmp <- compress_img(img_lookup$filepath[match_idx[1]])  # ← comprimida
+  insertImage(wb, "Stock sin venta",
+              file      = img_tmp,
+              startRow  = excel_row,
+              startCol  = img_col_idx,
+              width     = IMG_IN,
+              height    = IMG_IN,
+              units     = "in")
+}
+
+freezePane(wb, "Stock sin venta", firstActiveRow = 2)
+addFilter(wb, "Stock sin venta", row = 1, cols = 1:ncol(Stock_joyeria_sin_venta))
+
+```
+
+#Guardo el archivo
+```{r}
+
+nombre_archivo <- paste0("Reporte_ventas/Reporte_SIN_Ventas_JOYERIA_", fecha_stock_descripcion, ".xlsx")
+saveWorkbook(wb, nombre_archivo, overwrite = TRUE)
+message("\u2714 Guardado: ", nombre_archivo)
+
 ```
 
