@@ -932,7 +932,7 @@ Stock_para_machear <- Stock_con_precios %>%
   filter(CANTIDAD >0) %>% 
   pivot_wider(names_from = TIENDA,
               values_from = CANTIDAD,
-              values_fill = 0) %>% 
+              values_fill = list(CANTIDAD = 0)) %>% 
    mutate(`STOCK DEPOSITOS` = Barracas + `Florida Depósito`,
           `STOCK TIENDAS` = Florida +`San Telmo 1` + Recoleta + French + `Güemes` + `San Telmo 2`,
     STOCK_TOTAL = `STOCK DEPOSITOS` + `STOCK TIENDAS`) %>% 
