@@ -27,11 +27,11 @@ library(purrr)
 #Pongo las fechas y leo los archivos
 ```{r pongo la fecha de corte}
 
-fecha_hasta <- strftime("2026/05/27","%Y%m%d")
+fecha_hasta <- strftime("2026/06/01","%Y%m%d")
 
 fecha_desde <- strftime("2025/12/09", "%Y%m%d")
 
-fecha_base_articulos <- strftime("2026/05/27", "%Y%m%d")
+fecha_base_articulos <- strftime("2026/06/01", "%Y%m%d")
 ```
 
 #FACTURAS EN ODOO
@@ -283,12 +283,14 @@ Odoo_Facturas_arreglada <- Odoo_Facturas_descuento2 |>
     Nota_general== "SERVIA TAX FREE" ~ "SERBIA TAX FREE",
     Nota_general== "GRAN BRETAÑA TAX FREE" ~ "REINO UNIDO TAX FREE",
     Nota_general == "SLOVAKIA TAX FREE" ~ "ESLOVAQUIA TAX FREE",
+    Nota_general == "TAX FREE MALASYA" ~ "TAX FREE MALASIA",
     Nota_general== "VCHINA" ~ "CHINA",
     Nota_general %in% c("VENEAUELA", "VENEZOLANO") ~ "VENEZUELA",
-    Nota_general %in% c("UAS", "U7SA", "EWSTADOS UNIDOS", "ETADOS NIDOS", "ESTADS UNIDOS", "ESTADOS UNIUDOS", "ESTADOS UNIDSO", "ESTADOS UNIDIOS", "ESTADOS UNHIDOS", "ESTADO UNIDOS", "ESTADOS UNIDOS", "ESTADOS UNDOS", "ESTADOS UNIDOIS", "ETADOS UNIDOS", "ESATDOS UNIDOS", "ESTADOUNIDENSE", "HAWAI", "ESTADOS UNNIDOS") ~ "USA",
+    Nota_general %in% c("UAS", "U7SA", "EWSTADOS UNIDOS", "ETADOS NIDOS", "ESTADS UNIDOS", "ESTADOS UNIUDOS", "ESTADOS UNIDSO", "ESTADOS UNIDIOS", "ESTADOS UNHIDOS", "ESTADO UNIDOS", "ESTADOS UNIDOS", "ESTADOS UNDOS", "ESTADOS UNIDOIS", "ETADOS UNIDOS", "ESATDOS UNIDOS", "ESTADOUNIDENSE", "HAWAI", "ESTADOS UNNIDOS", "ESTADOS UIDOS") ~ "USA",
     Nota_general %in% c("RGENTINA", "ARRGENTINA", "ARGGENTINA", "ARGETINO", "ARGENTUNA", "ARGENTIUNA", "ARGENTINO", "ARGENTINBA", "ARGENTINA 6 CUOTAS", "ARGENTIN", "ARG", "AGENTINA", "AREGENTINA", "ARGENRINA", "ARGENTTINO", "ARGENTINA 3CUOTAS", "ARGENTNA", "ARGWENTINA", "ARGENTINA DESCUENTO A EMPLEADO ROCIO MARTINEZ") ~ "ARGENTINA",
     Nota_general %in% c("ALEMANIS", "ALEMANA", "GERMAN", "ALEMANNIA", "GERMANY") ~ "ALEMANIA",
     Nota_general == "SLOVENIA" ~ "ESLOVENIA",
+    Nota_general == "COLMBIANO" ~ "COLOMBIA",
     Nota_general == "GUATEMLA" ~ "GUATEMALA",
     Nota_general %in% c("RUSO", "RUSA") ~ "RUSIA",
     Nota_general== "ROMANIA" ~ "RUMANIA",
@@ -302,12 +304,15 @@ Odoo_Facturas_arreglada <- Odoo_Facturas_descuento2 |>
     Nota_general %in% c("KOREA", "COREA DEL SUR", "KOREA DEL SUR") ~ "COREA",
     Nota_general %in% c("CHNA", "CHN", "HONG KONG", "TAIWAN") ~ "CHINA",
     Nota_general== "CAN" ~ "CANADA",
-    Nota_general %in% c("BRAZIL", "BRA", "BRASILERA", "BRASUK") ~ "BRASIL",
+    Nota_general %in% c("BRAZIL", "BRA", "BRASILERA", "BRASUK", "BRASIIL") ~ "BRASIL",
     Nota_general %in% c("INGLATERRA", "GRAN BRETAÑA", "GRAN BRETANIA", "UK", "LONDRES") ~ "REINO UNIDO",
     Nota_general == "MONTE NEGRO" ~ "MONTENEGRO",
     Nota_general == "SINGAPORE" ~ "SINGAPUR",
     Nota_general == "SOUTH AFRICA" ~ "SUDAFRICA",
     Nota_general %in% c("UKRANIA") ~ "UCRANIA",
+    Nota_general == "ITALIANO" ~ "ITALIA",
+    Nota_general == "MASEDONIA" ~ "MACEDONIA",
+    Nota_general == "TURKEY" ~ "TURQUIA",
     TRUE~ Nota_general))
 
 ```
@@ -332,13 +337,18 @@ Odoo_Facturas_arreglada2 <- Odoo_Facturas_arreglada |>
   mutate(Nota_interna = case_when(
     Nota_interna %in% c("SPAIN", "ESPANA") ~ "ESPAÑA",
     Nota_interna== "ESTADO UNIDOS TAXFREE" ~ "USA TAX FREE",
-   # Nota_interna== "BRASIL TAXFREE" ~ "BRASIL TAX FREE",
-    Nota_interna %in% c("MEXICA", "MEXICANA") ~ "MEXICO",
+    Nota_interna == "TAX FREE EGYPT" ~ "EGIPTO TAX FREE",
+    Nota_interna %in% c("ENGLAND TAX FREE", "TAX FREE IINGLATERRA", "TAX FREE UNITED KINDOM") ~ "REINO UNIDO TAX FREE",
+    Nota_interna == "ISRAREL TAX FREE" ~ "ISRAEL",
+    Nota_interna %in% c("MEXICA", "MEXICANA", "CHILE MEXICO") ~ "MEXICO",
+    Nota_interna %in% c("USA MEXICO", "USA USA") ~ "USA",
     Nota_interna %in% c("ARGENTINO", "ARGERTINA") ~ "ARGENTINA",
     Nota_interna== "ALE" ~ "ALEMANIA",
-    Nota_interna %in% c("INGLATERRA", "GRAN BRETAÑA", "UK") ~ "REINO UNIDO",
+    Nota_interna== "CROATIA" ~ "CROACIA",
+    Nota_interna %in% c("INGLATERRA", "GRAN BRETAÑA", "UK", "ENGLAND") ~ "REINO UNIDO",
     Nota_interna == "VENEZYYELA" ~ "VENEZUELA",
-   Nota_interna %in% c("RETIRO CARLOS", "PAR") ~ "",
+    Nota_interna == "TURKEY" ~ "TURQUIA",
+   Nota_interna %in% c("RETIRO CARLOS", "PAR", "MALISHA") ~ "",
     TRUE~ Nota_interna))
 
 ```

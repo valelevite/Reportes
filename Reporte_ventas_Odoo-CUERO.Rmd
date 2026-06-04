@@ -24,16 +24,16 @@ VER SI PROVEEDORES LO CRUZO CON DESCRIPCIÓN (SE LLAMA NOMBRE EN ODOO) EN VEZ DE
 
 ```{r filtro para el mes a analizar}
 
-fecha_inicio_mes <- as.Date("2026/04/01") 
-fecha_fin_mes <- as.Date("2026/04/30")
+fecha_inicio_mes <- as.Date("2026/05/01") 
+fecha_fin_mes <- as.Date("2026/05/31")
 
-mes <- "2026-04"
+mes <- "2026-05"
 
-fecha_stock <- strftime("2026/05/06","%Y%m%d")
+fecha_stock <- strftime("2026/06/03","%Y%m%d")
 
-fecha_precios <- strftime("2026/05/06","%Y%m%d")
+fecha_precios <- strftime("2026/06/01","%Y%m%d")
 
-fecha_proveedores <- strftime("2026/05/06","%Y%m%d")
+fecha_proveedores <- strftime("2026/06/01","%Y%m%d")
 
 fecha_maestro <- strftime("2025/08/22", "%Y%m%d")
 
@@ -48,7 +48,8 @@ FACTURAS_MES <- Odoo_mas_Alegra %>%
   select(-PRECIO_UNITARIO_SIN_IMP) %>% 
   filter(as.Date(FECHA_EMISION) >= fecha_inicio_mes,
          as.Date(FECHA_EMISION) <= fecha_fin_mes,
-         TIENDA %in% c("San Telmo", "San Telmo 2", "Florida", "French", "Güemes", "Recoleta"))
+         TIENDA %in% c("San Telmo", "San Telmo 2", "Florida", "French", "Güemes", "Recoleta")) %>% 
+  filter(TIENDA != "San Telmo 2" | FECHA_EMISION < as.Date("2026-05-22")) #filtro, para ST2, hasta que fue cuero
 
 ```
 
@@ -63,15 +64,35 @@ FACTURAS_MES2 <- FACTURAS_MES %>%
 
 ```{r le agrego los proveedores}
 
+#CAMBIO sb perdriel, SD y Chaco al genérico
 proveedores_odoo_LUCERO <- read_excel(paste0("Proveedores/proveedores_odoo_LUCERO_", fecha_proveedores, ".xlsx")) |> 
-  rename(CODIGO_BARRAS = "Código de barras", PRODUCTO = Producto, PROVEEDOR = Proveedores)
+  rename(CODIGO_BARRAS = "Código de barras", PRODUCTO = Producto, PROVEEDOR = Proveedores) %>% 
+  mutate(PROVEEDOR = str_squish(PROVEEDOR)) %>% #para quitar espacios en blanco al ppio y al final del texto
+  mutate(PROVEEDOR = if_else(
+  PROVEEDOR %in% c("SUCCESSFUL BOXES S.R.L., PERDRIEL", "SUCCESSFUL BOXES S.R.L., CHACO", "SUCCESSFUL BOXES S.R.L., SD 2463"),
+  "SUCCESSFUL BOXES S.R.L.",
+  PROVEEDOR)) %>% 
+  mutate(PROVEEDOR = if_else(PROVEEDOR == "PASSA DISEGNI SRL", "PASSA DISEGNI S.R.L. (ALAIMO)", PROVEEDOR))
+
+
+#Reviso los proveedores entre aquellos productos con más de uno 
+REVISO_PROVEEDORES <- proveedores_odoo_LUCERO |>
+  filter(PRODUCTO != "[Delivery_007] Envío estándar" | is.na(PRODUCTO)) %>% #borro esta fila que aparece en primer lugar
+  fill(CODIGO_BARRAS, PRODUCTO, .direction = "down") |>
+  group_by(PRODUCTO) |>
+  summarise(
+    n_proveedores = n_distinct(PROVEEDOR),
+    proveedores   = paste(sort(unique(PROVEEDOR)), collapse = " | "),
+    .groups = "drop"
+  ) %>% 
+  filter(n_proveedores > 1)
+
 
 FACTURAS_MES2$PROVEEDOR <- proveedores_odoo_LUCERO$PROVEEDOR[match(FACTURAS_MES2$CODIGO_BARRAS, proveedores_odoo_LUCERO$CODIGO_BARRAS)]
 
 FACTURAS_MES2 <- FACTURAS_MES2 |> 
   mutate(PROVEEDOR = case_when(str_starts(DESCRIPCION, "PRODUCTO OUTLET|PRODUCTOS OUTLET") ~ "OUTLET", 
-                              # PROVEEDOR == "SUCCESSFUL BOXES S.R.L." ~ "SUCCESSFUL BOXES S.R.L., PERDRIEL",
-                               TRUE ~ PROVEEDOR))
+                              TRUE ~ PROVEEDOR))
 
 ```
 
@@ -565,7 +586,7 @@ MARRO_CHICA_MATERIAL_COLOR <- bind_rows(
 
 #Tabla general proveedor
 PROVEEDOR_EXTERNO <- FACTURAS_MES2 %>% 
-  filter(!PROVEEDOR %in% c("SUCCESSFUL BOXES S.R.L., PERDRIEL", "SUCCESSFUL BOXES S.R.L., CHACO", "SUCCESSFUL BOXES S.R.L., SD 2463")) %>% 
+  filter(!PROVEEDOR %in% c("SUCCESSFUL BOXES S.R.L.")) %>% 
   group_by(PROVEEDOR) %>% 
   summarise(Unidades = sum(PRODUCTO_CANTIDAD, na.rm = TRUE),
     Facturación = round(sum(PRODUCTO_TOTAL, na.rm = TRUE))) %>% 
@@ -843,11 +864,15 @@ Stock <- read_excel(paste0("Stock/Stock_", fecha_stock,".xlsx")) %>%
                             TIENDA == "WHST2/Stock" ~ "San Telmo 2",
                             TRUE ~ TIENDA))
   
-#Quito del stock lo que es AS o joyería y cambio a 0 las cantidades en negativo
+#Quito del stock lo que es AS o joyería y cambio a 0 las cantidades en negativo. Quito la joyería de ST 2
 Stock_Lucero <- Stock |> 
   filter(TIENDA %in% c("Florida", "French", "Güemes", "Recoleta", "San Telmo 1", "San Telmo 2", "Barracas", "Florida Depósito"),
          !is.na(REFERENCIA_INTERNA)) |> 
-  mutate(CANTIDAD = if_else(CANTIDAD<0, 0, CANTIDAD))
+  mutate(CANTIDAD = if_else(CANTIDAD<0, 0, CANTIDAD)) %>%  
+  filter(!(TIENDA == "San Telmo 2" & 
+           str_detect(PRODUCTO, "\\bANILLO\\b|\\bPULSERA\\b|\\bCOLLAR\\b|\\bARO\\b|\\bCADENA\\b|\\bCOLGANTE\\b|\\bDIJE\\b|\\bTIENTO CUERO\\b") &
+           !str_detect(PRODUCTO, "ANILLO CORAZON|ANILLO PICA|PULSERA TRENZA 3 CABOS")))
+  
 
 #Le agrego las columnas que necesito de los productos
 ##Primero preparo los datos
@@ -1058,6 +1083,7 @@ meses_referencia <- data.frame(
 ## Datos historicos
 Datos_historicos <- Odoo_mas_Alegra %>%
   filter(TIENDA %in% c("San Telmo", "San Telmo 2", "Florida", "French", "Güemes", "Recoleta")) %>% 
+  filter(TIENDA != "San Telmo 2" | FECHA_EMISION < as.Date("2026-05-22")) %>%  #filtro, para ST2, hasta que fue cuero
   filter(FECHA_EMISION>= fecha_inicio_historica, FECHA_EMISION <= fecha_final_historico) %>% 
   filter(PRECIO_UNITARIO>100) |> 
   mutate(
@@ -1624,6 +1650,6 @@ pos11 <- add_formatted_table(wb, "AUX", tabla_historica_FAMILIA,
 
 
 # 4. Guardar el archivo ----
-saveWorkbook(wb, paste0("Reporte_ventas/Reporte_Ventas_", mes, ".xlsx"), overwrite = TRUE)
+saveWorkbook(wb, paste0("Reporte_ventas/Reporte_Ventas_CUERO_", mes, ".xlsx"), overwrite = TRUE)
 ```
 
