@@ -18,29 +18,29 @@ library(janitor)
 library(magick)
 
 ```
-TENER EN CUENTA LA FECHA DE LA QUITA DEL IMPUESTO INTERNO. AFECTA??
+QUITO LOS ANTICIPOS POR ANILLOS DOS LETRAS PERO PONERLOS CON EL MONTO ENTERO CUANDO PAGUEN EL SALDO!!
 
-REVISAR QUE LOS PROVEEDORES QUE AGREGO A MANO NO ESTÉN YA EN ODOO ASÍ NO HAY CONFLICTO DE NOMBRES
 #1.Corro Arreglo_base_Odoo
 #2.Corro este
 
 ```{r filtro para el mes a analizar}
 
-QUITAR EL IS.NA(PRECIO) DEL STOCK QUE ES SOLO PARA ABRIL Y EL ANTI_JOIN DE STOCK SIN VENTA!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-Y HABILITAR ESTO: #col_fact_es <- if (has_sufij) "San Telmo 2.y"  else "San Telmo 2"
+#Estas son las 3 cosas que tengo que hacer por San Telmo 2 cuando incluye período que abarca ventas tanto en joyería como cuero y que tenga stock de los 2
+# QUITAR EL IS.NA(PRECIO) DEL STOCK QUE ES SOLO PARA ABRIL Y EL ANTI_JOIN DE STOCK SIN VENTA!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+# Y HABILITAR ESTO: #col_fact_es <- if (has_sufij) "San Telmo 2.y"  else "San Telmo 2"
 
 
 
-fecha_inicio_mes <- as.Date("2026/04/01") 
-fecha_fin_mes <- as.Date("2026/04/30")
+fecha_inicio_mes <- as.Date("2026/05/01") 
+fecha_fin_mes <- as.Date("2026/05/31")
 
-mes <- "2026-04"
+mes <- "2026-05"
 
-fecha_stock <- strftime("2026/05/27","%Y%m%d")
+fecha_stock <- strftime("2026/06/03","%Y%m%d")
 
-fecha_precios <- strftime("2026/05/22","%Y%m%d")
+fecha_precios <- strftime("2026/06/01","%Y%m%d")
 
-fecha_proveedores <- strftime("2026/05/06","%Y%m%d")
+fecha_proveedores <- strftime("2026/06/01","%Y%m%d")
 
 ```
 
@@ -48,6 +48,7 @@ fecha_proveedores <- strftime("2026/05/06","%Y%m%d")
 
 FACTURAS_MES_JOYERIA <- Odoo_mas_Alegra %>%
   select(-PRECIO_UNITARIO_SIN_IMP) %>% 
+  filter(CODIGO_BARRAS != "Anticipo") |> 
   filter(as.Date(FECHA_EMISION) >= fecha_inicio_mes,
          as.Date(FECHA_EMISION) <= fecha_fin_mes,
          TIENDA %in% c("Güemes 2", "El Solar", "San Telmo 2")) %>% 
@@ -57,7 +58,7 @@ FACTURAS_MES_JOYERIA <- Odoo_mas_Alegra %>%
   TRUE ~ SUBFAMILIA)) #Le agrego la categoría a lo que es cuero dentro de lo que va a llamarse FAMILIA en el reporte 
 
 REVISAR_SUBFAMILIA_JOYERIA <- FACTURAS_MES_JOYERIA %>% 
-  filter(PRODUCTO_NOMBRE_COMPLETO != "Anticipo del cliente") %>% 
+ # filter(PRODUCTO_NOMBRE_COMPLETO != "Anticipo del cliente") %>% 
   filter(is.na(SUBFAMILIA))
 
 if (nrow(REVISAR_SUBFAMILIA_JOYERIA) > 0)
@@ -78,19 +79,45 @@ FACTURAS_MES2_JOYERIA <- FACTURAS_MES_JOYERIA %>%
 
 ```{r le agrego los proveedores}
 
-proveedores_odoo_LUCERO <- read_excel(paste0("Proveedores/proveedores_odoo_LUCERO_", fecha_proveedores, ".xlsx")) |> 
+proveedores_odoo_LUCERO_a_revisar <- read_excel(paste0("Proveedores/proveedores_odoo_LUCERO_", fecha_proveedores, ".xlsx")) |> 
   rename(CODIGO_BARRAS = "Código de barras", PRODUCTO = Producto, PROVEEDOR = Proveedores) %>% 
+  mutate(PROVEEDOR = str_squish(PROVEEDOR)) %>% #para quitar espacios en blanco al ppio y al final del texto
+  mutate(PROVEEDOR = if_else(
+  PROVEEDOR %in% c("SUCCESSFUL BOXES S.R.L., PERDRIEL", "SUCCESSFUL BOXES S.R.L., CHACO", "SUCCESSFUL BOXES S.R.L., SD 2463"),
+  "SUCCESSFUL BOXES S.R.L.",
+  PROVEEDOR)) %>%
+  mutate(PROVEEDOR = if_else(PROVEEDOR == "PASSA DISEGNI SRL", "PASSA DISEGNI S.R.L. (ALAIMO)", PROVEEDOR)) |> 
   mutate(PROVEEDOR = if_else(is.na(PROVEEDOR) & PRODUCTO == "[102536] PULSERA PIEDRA NATURAL MEDIANA", "Muestra", PROVEEDOR))
+
+#Reviso los proveedores entre aquellos productos con más de uno 
+REVISO_PROVEEDORES <- proveedores_odoo_LUCERO_a_revisar |>
+  filter(PRODUCTO != "[Delivery_007] Envío estándar" | is.na(PRODUCTO)) %>% #borro esta fila que aparece en primer lugar
+  fill(CODIGO_BARRAS, PRODUCTO, .direction = "down") |>
+  group_by(PRODUCTO) |>
+  summarise(
+    n_proveedores = n_distinct(PROVEEDOR),
+    proveedores   = paste(sort(unique(PROVEEDOR)), collapse = " | "),
+    .groups = "drop"
+  ) %>% 
+  filter(n_proveedores > 1)
+
+#Le cambio el nombre a los proveedores para que estén como los quiere Carlos
+
+Proveedores_joyeria_Carlos <- read_excel("Proveedores/Proveedores_joyeria_Carlos.xlsx")
+
+proveedores_odoo_LUCERO <- proveedores_odoo_LUCERO_a_revisar |> 
+  left_join(Proveedores_joyeria_Carlos, by = "PROVEEDOR") |> 
+  rename(PROVEEDOR_ORIGINAL = PROVEEDOR, PROVEEDOR = NOMBRE_NUEVO)
+
 
 FACTURAS_MES2_JOYERIA$PROVEEDOR <- proveedores_odoo_LUCERO$PROVEEDOR[match(FACTURAS_MES2_JOYERIA$CODIGO_BARRAS, proveedores_odoo_LUCERO$CODIGO_BARRAS)]
 
 FACTURAS_MES2_JOYERIA <- FACTURAS_MES2_JOYERIA |> 
-  mutate(PROVEEDOR = case_when(DESCRIPCION == "TIENTO CUERO" & is.na(PROVEEDOR) ~ "SUCCESSFUL BOXES S.R.L., PERDRIEL",
-                               DESCRIPCION == "ANILLO DOS LETRAS" ~ "LINI",
+  mutate(PROVEEDOR = case_when(DESCRIPCION == "ANILLO DOS LETRAS" ~ "MARIEL LINI",
                                TRUE ~PROVEEDOR))
 
 REVISAR_PROVEEDORES_JOYERIA <- FACTURAS_MES2_JOYERIA %>% 
-  filter(PRODUCTO_NOMBRE_COMPLETO != "Anticipo del cliente") %>% 
+  #filter(PRODUCTO_NOMBRE_COMPLETO != "Anticipo del cliente") %>% 
   filter(is.na(PROVEEDOR))
 
 if (nrow(REVISAR_PROVEEDORES_JOYERIA) > 0)
@@ -461,7 +488,7 @@ DIJE_INICIAL_VARIANTE <- FACTURAS_MES2_JOYERIA %>%
 
 #Tabla general proveedor
 TABLA_PROVEEDOR <- FACTURAS_MES2_JOYERIA %>% 
-  filter(!is.na(PROVEEDOR)) %>%
+ # filter(!is.na(PROVEEDOR)) %>%
   group_by(PROVEEDOR) %>% 
   summarise(Unidades = sum(PRODUCTO_CANTIDAD, na.rm = TRUE),
     Facturación = round(sum(PRODUCTO_TOTAL, na.rm = TRUE))) %>% 
@@ -477,7 +504,7 @@ fila_total_proveedor_JOYERIA <- tibble(
 PROVEEDOR_JOYERIA_TOTAL <- bind_rows(fila_total_proveedor_JOYERIA, TABLA_PROVEEDOR) 
   
   
-#Tabla de subfamilias entre los proveedores externos  
+#Tabla de familias entre los proveedores  
 PROVEEDOR_SUBFAMILIAS <- FACTURAS_MES2_JOYERIA %>% 
   select(-FAMILIA) %>% 
   rename(FAMILIA = SUBFAMILIA) %>% 
@@ -494,7 +521,29 @@ fila_total_proveedor_subfamilia_JOYERIA <- tibble(
   Facturación = sum(PROVEEDOR_SUBFAMILIAS$Facturación, na.rm = TRUE),
   Participación = 1)
 
-PROVEEDOR_SUBFAMILIAS_TOTAL_JOYERIA <- bind_rows(fila_total_proveedor_subfamilia_JOYERIA, PROVEEDOR_SUBFAMILIAS) 
+# Subtotales por familia
+subt_fam_prov <- PROVEEDOR_SUBFAMILIAS %>%
+  group_by(FAMILIA) %>%
+  summarise(
+    PROVEEDOR     = paste("Total", first(FAMILIA)),
+    Unidades      = sum(Unidades, na.rm = TRUE),
+    Facturación   = sum(Facturación, na.rm = TRUE),
+    Participación = sum(Participación, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# Combinar: subtotales después de los datos de cada familia
+PROVEEDOR_SUBFAMILIAS_con_subt <- bind_rows(
+  PROVEEDOR_SUBFAMILIAS %>% mutate(tipo_fila = 0),
+  subt_fam_prov %>% mutate(tipo_fila = 1)
+) %>%
+  arrange(FAMILIA, tipo_fila, desc(Facturación)) %>%
+  select(-tipo_fila)
+
+PROVEEDOR_SUBFAMILIAS_TOTAL_JOYERIA <- bind_rows(
+  fila_total_proveedor_subfamilia_JOYERIA,
+  PROVEEDOR_SUBFAMILIAS_con_subt
+)
 
 ```
 
@@ -688,8 +737,7 @@ unidades_x_tienda_JOYERIA <- FACTURAS_MES2_JOYERIA |>
 ```
 
 
-#OTROS
-##Ventas agrupadas por precio unitario
+#PRECIO UNITARIO
 ```{r}
 #EN GENERAL
 PRECIO_UNITARIO_JOYERIA <- FACTURAS_MES2_JOYERIA %>% 
@@ -702,19 +750,43 @@ PRECIO_UNITARIO_JOYERIA <- FACTURAS_MES2_JOYERIA %>%
     mutate(Acumulado = cumsum(Participación)) %>%
   filter(Acumulado <= 0.81)
 
-#POR SUBFAMILIA
-PRECIO_UNITARIO_SUBFAMILIA_JOYERIA <- FACTURAS_MES2_JOYERIA %>% 
-  select(FAMILIA=SUBFAMILIA, Precio = PRECIO_UNITARIO, CANTIDAD = PRODUCTO_CANTIDAD) %>% 
+#POR FAMILIA
+PRECIO_UNITARIO_SUBFAMILIA_datos <- FACTURAS_MES2_JOYERIA %>%
+  select(FAMILIA = SUBFAMILIA, Precio = PRECIO_UNITARIO, CANTIDAD = PRODUCTO_CANTIDAD) %>%
   mutate(Precio = round(Precio)) %>%
-  group_by(FAMILIA, Precio) %>% 
-  summarise(Cantidad = sum(CANTIDAD, na.rm = TRUE), .groups = "drop") %>% 
-  mutate(Facturación = Cantidad*Precio, Participación = round((Facturación / sum(Facturación, na.rm = TRUE)), 4)) %>% 
-  arrange(desc(Participación)) %>% 
-    mutate(Acumulado = cumsum(Participación)) %>%
-  filter(Acumulado <= 0.81)
-
-PRECIO_UNITARIO_SUBFAMILIA_JOYERIA <- PRECIO_UNITARIO_SUBFAMILIA_JOYERIA %>%
+  group_by(FAMILIA, Precio) %>%
+  summarise(Cantidad = sum(CANTIDAD, na.rm = TRUE), .groups = "drop") %>%
+  mutate(Facturación = Cantidad * Precio) %>%
+  group_by(FAMILIA) %>%
+  arrange(FAMILIA, desc(Facturación), .by_group = TRUE) %>%
+  mutate(
+    Participación = round(Facturación / sum(Facturación, na.rm = TRUE), 4),
+    Acumulado     = cumsum(Participación)
+  ) %>%
+  ungroup() %>%
   arrange(FAMILIA, desc(Precio))
+
+# Subtotales por familia
+subt_pu_fam <- PRECIO_UNITARIO_SUBFAMILIA_datos %>%
+  group_by(FAMILIA) %>%
+  summarise(
+    Cantidad      = sum(Cantidad, na.rm = TRUE),
+    Facturación   = sum(Facturación, na.rm = TRUE),
+    Participación = 1,
+    Acumulado     = 1,
+    .groups       = "drop"
+  ) %>%
+  mutate(fam_orig = FAMILIA,
+         FAMILIA  = paste("Total", FAMILIA),
+         Precio   = NA_real_)
+
+PRECIO_UNITARIO_SUBFAMILIA_JOYERIA <- bind_rows(
+  PRECIO_UNITARIO_SUBFAMILIA_datos %>% mutate(tipo = 0, fam_orig = FAMILIA),
+  subt_pu_fam %>% mutate(tipo = 1)
+) %>%
+  arrange(fam_orig, tipo, desc(Precio)) %>%
+  select(-tipo, -fam_orig)
+
 ```
 
 #STOCK
@@ -779,7 +851,7 @@ if (nrow(REVISAR_STOCK_SIN_PRECIO_JOYERIA) > 0)
           paste(unique(REVISAR_STOCK_SIN_PRECIO_JOYERIA$PRODUCTO), collapse = ", "))
 
 STOCK_TIENDA_JOYERIA <-  Stock_con_precios_JOYERIA %>%
-  filter(!is.na(PRECIO)) %>% #PARA BORRAR!!!!
+ # filter(!is.na(PRECIO)) %>% #PARA BORRAR!!!!
 
   mutate(TOTAL = PRECIO*CANTIDAD) |> 
   select(FAMILIA, TIENDA, TOTAL) %>% 
@@ -809,7 +881,7 @@ STOCK_VALOR_TOTAL_JOYERIA <- STOCK_VALOR_JOYERIA %>%
 Stock_para_machear_JOYERIA <- Stock_con_precios_JOYERIA %>% 
   select(TIENDA, CODIGO_BARRAS, PRODUCTO, COLOR, TALLE, VARIANTE, MEDIDA, DIAMETRO, GROSOR, PESO, CANTIDAD) %>% 
   filter(CANTIDAD > 0) %>%
-  anti_join(REVISAR_STOCK_SIN_PRECIO_JOYERIA, by = "CODIGO_BARRAS") %>% #PARA BORRAR!!!!!!
+  #anti_join(REVISAR_STOCK_SIN_PRECIO_JOYERIA, by = "CODIGO_BARRAS") %>% #PARA BORRAR!!!!!!
   pivot_wider(names_from  = TIENDA,
               values_from = CANTIDAD,
               values_fill = 0) %>% 
@@ -1024,7 +1096,7 @@ mergeCells(wb, ws, cols = 1:4, rows = 1)
 
 ```
 
-### Tabla
+### Tabla Resumen familia
 ```{r}
 writeData(wb, ws, tabla_venta_subfamilia_JOYERIA,
           startRow = 3, startCol = 1, borders = "all")
@@ -1044,6 +1116,17 @@ apply_table_styles(wb, ws, tabla_venta_subfamilia_JOYERIA,
 
 setColWidths(wb, ws, cols = 1, widths = 28)
 setColWidths(wb, ws, cols = 2:4, widths = 15)
+
+# Tamaño de fuente 12 y altura de fila 21 para toda la tabla
+st_size12 <- createStyle(fontSize = 12)
+addStyle(wb, ws, st_size12,
+         rows = 3:(3 + nrow(tabla_venta_subfamilia_JOYERIA)),
+         cols = 1:ncol(tabla_venta_subfamilia_JOYERIA),
+         gridExpand = TRUE, stack = TRUE)
+
+setRowHeights(wb, ws,
+              rows = 3:(3 + nrow(tabla_venta_subfamilia_JOYERIA)),
+              heights = 21)
 
 ```
 
@@ -1079,140 +1162,126 @@ insertImage(wb, ws, img_sf, startRow = 3, startCol = 6,
 
 addWorksheet(wb, "SKU", gridLines = FALSE)
 ws <- "SKU"
-writeData(wb, ws, SKU_total_JOYERIA, startRow = 1, startCol = 1, borders = "all")
 
-total_row_sku  <- which(SKU_total_JOYERIA$PROVEEDOR == "TOTAL")  + 1
-#descto_row_sku <- which(SKU_total_JOYERIA$PROVEEDOR == "DESCUENTO") + 1
-num_cols_sku   <- which(names(SKU_total_JOYERIA) %in%
-                          c("VENTA", "PRECIO", "TOTAL", "STOCK", "D/S"))
+# Reordenar: TOTAL queda arriba, resto ordenado por PROVEEDOR asc / TOTAL desc
+SKU_excel <- bind_rows(
+  SKU_total_JOYERIA %>% filter(PROVEEDOR == "TOTAL"),
+  SKU_total_JOYERIA %>% filter(PROVEEDOR != "TOTAL") %>% arrange(PROVEEDOR, desc(TOTAL))
+) %>%
+  mutate(IMAGEN = "") %>%
+  relocate(IMAGEN, .before = PROVEEDOR)
 
-apply_table_styles(wb, ws, SKU_total_JOYERIA,
+writeData(wb, ws, SKU_excel, startRow = 1, startCol = 1, borders = "all")
+
+total_row_sku <- which(SKU_excel$PROVEEDOR == "TOTAL") + 1
+num_cols_sku  <- which(names(SKU_excel) %in%
+                         c("VENTA", "PRECIO", "TOTAL", "STOCK", "D/S"))
+
+apply_table_styles(wb, ws, SKU_excel,
                    start_row = 1, start_col = 1,
-                   total_rows  = total_row_sku,
-                  # descto_rows = descto_row_sku,
-                   num_cols    = num_cols_sku)
+                   total_rows = total_row_sku,
+                   num_cols   = num_cols_sku)
 
-setColWidths(wb, ws, cols = 1, widths = 58)
-setColWidths(wb, ws, cols = 2, widths = 21)
-setColWidths(wb, ws, cols = 3, widths = 14)
-setColWidths(wb, ws, cols = 4, widths = 90)
-setColWidths(wb, ws, cols = 5:ncol(SKU_total_JOYERIA), widths = 13)
+# Anchos: IMAGEN | PROVEEDOR | FAMILIA | CODIGO | PRODUCTO | ...
+setColWidths(wb, ws, cols = 1, widths = 11)   # IMAGEN
+setColWidths(wb, ws, cols = 2, widths = 58)   # PROVEEDOR
+setColWidths(wb, ws, cols = 3, widths = 21)   # FAMILIA
+setColWidths(wb, ws, cols = 4, widths = 14)   # CODIGO
+setColWidths(wb, ws, cols = 5, widths = 90)   # PRODUCTO
+setColWidths(wb, ws, cols = 6:ncol(SKU_excel), widths = 13)
 
-# ---- Columna de imágenes en SKU --------------------------------
+# ---- Columna de imágenes (col 1) --------------------------------
 img_folder <- file.path("imagenes")
-img_col_idx <- ncol(SKU_total_JOYERIA) + 1
-
-# Encabezado de la nueva columna
-writeData(wb, "SKU", "IMAGEN", startRow = 1, startCol = img_col_idx)
-addStyle(wb, "SKU", st_header, rows = 1, cols = img_col_idx)
-setColWidths(wb, "SKU", cols = img_col_idx, widths = 11)
-
-# Índice de imágenes disponibles: extrae el número del inicio del nombre
 img_files  <- list.files(img_folder, full.names = TRUE,
                           pattern = "\\.(jpg|jpeg|png|webp)$",
                           ignore.case = TRUE)
-
 img_lookup <- tibble(
   filepath = img_files,
   ref      = str_extract(basename(img_files), "^\\d+")
 ) %>% filter(!is.na(ref))
 
-# Dimensiones de celda para las imágenes
-IMG_IN <- 0.65   # tamaño de imagen en pulgadas
-IMG_PT <- 50     # alto de fila en puntos (≈ 67px)
+IMG_IN <- 0.65
+IMG_PT <- 50
 
-# Filas de datos reales (sin TOTAL ni DESCUENTO)
-filas_datos <- which(!SKU_total_JOYERIA$PROVEEDOR %in% c("TOTAL", "DESCUENTO"))
+filas_datos <- which(!SKU_excel$PROVEEDOR %in% c("TOTAL", "DESCUENTO"))
 
 for (i in filas_datos) {
-  excel_row <- i + 1  # +1 por el encabezado
+  excel_row <- i + 1
+  setRowHeights(wb, ws, rows = excel_row, heights = IMG_PT)
 
-  setRowHeights(wb, "SKU", rows = excel_row, heights = IMG_PT)
-
-  codigo <- as.character(SKU_total_JOYERIA$CODIGO[i])
+  codigo <- as.character(SKU_excel$CODIGO[i])
   if (is.na(codigo) || codigo == "") next
 
-  # Intento 1: coincidencia exacta con el número de la imagen
-  # Intento 2: los primeros 6 caracteres del código (por si CODIGO es EAN/barcode largo)
   match_idx <- which(img_lookup$ref == codigo)
   if (length(match_idx) == 0 && nchar(codigo) >= 6)
     match_idx <- which(img_lookup$ref == substr(codigo, 1, 6))
-
   if (length(match_idx) == 0) next
 
-  img_tmp <- compress_img(img_lookup$filepath[match_idx[1]])  # ← comprimida
-  insertImage(wb, "SKU",
-              file      = img_tmp,
-              startRow  = excel_row,
-              startCol  = img_col_idx,
-              width     = IMG_IN,
-              height    = IMG_IN,
-              units     = "in")
+  img_tmp <- compress_img(img_lookup$filepath[match_idx[1]])
+  insertImage(wb, ws, file = img_tmp,
+              startRow = excel_row, startCol = 1,
+              width = IMG_IN, height = IMG_IN, units = "in")
 }
 
 freezePane(wb, ws, firstActiveRow = 2)
-addFilter(wb, ws, row = 1, cols = 1:ncol(SKU_total_JOYERIA))
+addFilter(wb, ws, row = 1, cols = 1:ncol(SKU_excel))
 
 ```
 
 # 3. FAMILIAS
 ```{r}
+
 addWorksheet(wb, "Familias", gridLines = FALSE)
 ws <- "Familias"
-writeData(wb, ws, SKU_SUBFAMILIA_JOYERIA_final, startRow = 1, startCol = 1, borders = "all")
+
+# Agregar columna IMAGEN al principio
+SKU_SUBFAMILIA_excel <- SKU_SUBFAMILIA_JOYERIA_final %>%
+  mutate(IMAGEN = "") %>%
+  relocate(IMAGEN, .before = PROVEEDOR)
+
+writeData(wb, ws, SKU_SUBFAMILIA_excel, startRow = 1, startCol = 1, borders = "all")
 
 total_rows_fam <- which(str_detect(
-  SKU_SUBFAMILIA_JOYERIA_final$PRODUCTO, "^Total")) + 1
-num_cols_fam <- which(names(SKU_SUBFAMILIA_JOYERIA_final) %in%
-                        c("VENTA", "PRECIO", "TOTAL", "STOCK", "D/S"))
+  replace_na(SKU_SUBFAMILIA_excel$PRODUCTO, ""), "^Total")) + 1
+num_cols_fam   <- which(names(SKU_SUBFAMILIA_excel) %in%
+                          c("VENTA", "PRECIO", "TOTAL", "STOCK", "D/S"))
 
-apply_table_styles(wb, ws, SKU_SUBFAMILIA_JOYERIA_final,
+apply_table_styles(wb, ws, SKU_SUBFAMILIA_excel,
                    start_row = 1, start_col = 1,
                    total_rows = total_rows_fam,
                    num_cols   = num_cols_fam)
 
-setColWidths(wb, ws, cols = 1, widths = 58)
-setColWidths(wb, ws, cols = 2, widths = 22)
-setColWidths(wb, ws, cols = 3, widths = 13)
-setColWidths(wb, ws, cols = 4, widths = 86)
-setColWidths(wb, ws, cols = 5:ncol(SKU_SUBFAMILIA_JOYERIA_final), widths = 13)
+# Anchos: IMAGEN | PROVEEDOR | FAMILIA | CODIGO | PRODUCTO | ...
+setColWidths(wb, ws, cols = 1, widths = 11)
+setColWidths(wb, ws, cols = 2, widths = 58)
+setColWidths(wb, ws, cols = 3, widths = 22)
+setColWidths(wb, ws, cols = 4, widths = 13)
+setColWidths(wb, ws, cols = 5, widths = 86)
+setColWidths(wb, ws, cols = 6:ncol(SKU_SUBFAMILIA_excel), widths = 13)
+
 freezePane(wb, ws, firstActiveRow = 2)
-addFilter(wb, ws, row = 1, cols = 1:ncol(SKU_SUBFAMILIA_JOYERIA_final))
+addFilter(wb, ws, row = 1, cols = 1:ncol(SKU_SUBFAMILIA_excel))
 
-
-# ---- Columna de imágenes en Familias --------------------------------
-img_col_idx_fam <- ncol(SKU_SUBFAMILIA_JOYERIA_final) + 1
-
-writeData(wb, ws, "IMAGEN", startRow = 1, startCol = img_col_idx_fam)
-addStyle(wb, ws, st_header, rows = 1, cols = img_col_idx_fam)
-setColWidths(wb, ws, cols = img_col_idx_fam, widths = 11)
-
-# Filas de datos reales (excluye filas de totales)
+# ---- Imágenes ----
 filas_datos_fam <- which(!str_detect(
-  replace_na(SKU_SUBFAMILIA_JOYERIA_final$PRODUCTO, ""), "^Total"))
+  replace_na(SKU_SUBFAMILIA_excel$PRODUCTO, ""), "^Total"))
 
 for (i in filas_datos_fam) {
-  excel_row <- i + 1  # +1 por el encabezado
-
+  excel_row <- i + 1
   setRowHeights(wb, ws, rows = excel_row, heights = IMG_PT)
 
-  codigo <- as.character(SKU_SUBFAMILIA_JOYERIA_final$CODIGO[i])
+  codigo <- as.character(SKU_SUBFAMILIA_excel$CODIGO[i])
   if (is.na(codigo) || codigo == "") next
 
   match_idx <- which(img_lookup$ref == codigo)
   if (length(match_idx) == 0 && nchar(codigo) >= 6)
     match_idx <- which(img_lookup$ref == substr(codigo, 1, 6))
-
   if (length(match_idx) == 0) next
 
   img_tmp <- compress_img(img_lookup$filepath[match_idx[1]])
-  insertImage(wb, ws,
-              file     = img_tmp,
-              startRow = excel_row,
-              startCol = img_col_idx_fam,
-              width    = IMG_IN,
-              height   = IMG_IN,
-              units    = "in")
+  insertImage(wb, ws, file = img_tmp,
+              startRow = excel_row, startCol = 1,
+              width = IMG_IN, height = IMG_IN, units = "in")
 }
 
 ```
@@ -1223,59 +1292,82 @@ for (i in filas_datos_fam) {
 
 addWorksheet(wb, "Modelos", gridLines = FALSE)
 ws <- "Modelos"
-writeData(wb, ws, Modelos_total_JOYERIA, startRow = 1, startCol = 1, borders = "all")
 
-total_row_mod  <- which(Modelos_total_JOYERIA$PROVEEDOR == "TOTAL")  + 1
-#descto_row_mod <- which(Modelos_total_JOYERIA$PROVEEDOR == "DESCUENTO") + 1
-num_cols_mod   <- which(names(Modelos_total_JOYERIA) %in%
+# Reordenar: TOTAL arriba; resto por PROVEEDOR asc, FAMILIA asc, TOTAL desc
+Modelos_excel <- bind_rows(
+  Modelos_total_JOYERIA %>% filter(PROVEEDOR == "TOTAL"),
+  Modelos_total_JOYERIA %>% filter(PROVEEDOR != "TOTAL") %>%
+    arrange(PROVEEDOR, FAMILIA, desc(TOTAL))
+) %>%
+  mutate(IMAGEN = "") %>%
+  relocate(IMAGEN, .before = PROVEEDOR)
+
+writeData(wb, ws, Modelos_excel, startRow = 1, startCol = 1, borders = "all")
+
+total_row_mod <- which(Modelos_excel$PROVEEDOR == "TOTAL") + 1
+num_cols_mod  <- which(names(Modelos_excel) %in%
                           c("VENTA", "PRECIO", "TOTAL", "STOCK", "D/S"))
 
-apply_table_styles(wb, ws, Modelos_total_JOYERIA,
+apply_table_styles(wb, ws, Modelos_excel,
                    start_row = 1, start_col = 1,
-                   total_rows  = total_row_mod,
-                   #descto_rows = descto_row_mod,
-                   num_cols    = num_cols_mod)
+                   total_rows = total_row_mod,
+                   num_cols   = num_cols_mod)
 
-setColWidths(wb, ws, cols = 1, widths = 58)
-setColWidths(wb, ws, cols = 2, widths = 22)
-setColWidths(wb, ws, cols = 3, widths = 63)
-setColWidths(wb, ws, cols = 4:ncol(Modelos_total_JOYERIA), widths = 13)
+# Anchos: IMAGEN | PROVEEDOR | FAMILIA | DESCRIPCION | CODIGO | ...
+setColWidths(wb, ws, cols = 1, widths = 11)
+setColWidths(wb, ws, cols = 2, widths = 58)
+setColWidths(wb, ws, cols = 3, widths = 22)
+setColWidths(wb, ws, cols = 4, widths = 63)
+setColWidths(wb, ws, cols = 5:ncol(Modelos_excel), widths = 13)
+
 freezePane(wb, ws, firstActiveRow = 2)
-addFilter(wb, ws, row = 1, cols = 1:ncol(Modelos_total_JOYERIA))
+addFilter(wb, ws, row = 1, cols = 1:ncol(Modelos_excel))
 
+# ---- Resaltar filas que representan el 80% de las ventas ----
+total_fact_mod <- sum(
+  Modelos_excel$TOTAL[!Modelos_excel$PROVEEDOR %in% c("TOTAL", "DESCUENTO")],
+  na.rm = TRUE
+)
 
-# ---- Columna de imágenes en Modelos --------------------------------
-img_col_idx_mod <- ncol(Modelos_total_JOYERIA) + 1
+modelos_top80 <- Modelos_excel %>%
+  mutate(orig_row = row_number()) %>%
+  filter(!PROVEEDOR %in% c("TOTAL", "DESCUENTO")) %>%
+  arrange(desc(TOTAL)) %>%
+  mutate(
+    cum_pct  = cumsum(TOTAL) / total_fact_mod,
+    cum_prev = lag(cum_pct, default = 0),
+    es_80    = cum_prev < 0.80
+  ) %>%
+  filter(es_80) %>%
+  pull(orig_row)
 
-writeData(wb, ws, "IMAGEN", startRow = 1, startCol = img_col_idx_mod)
-addStyle(wb, ws, st_header, rows = 1, cols = img_col_idx_mod)
-setColWidths(wb, ws, cols = img_col_idx_mod, widths = 11)
+style_80 <- createStyle(fgFill = "#FFE699")  # amarillo claro
+for (r in modelos_top80) {
+  excel_row <- r + 1   # +1 por el encabezado
+  addStyle(wb, ws, style_80,
+           rows = excel_row, cols = 1:ncol(Modelos_excel),
+           gridExpand = TRUE, stack = TRUE)
+}
 
-# Filas de datos reales (excluye TOTAL y DESCUENTO)
-filas_datos_mod <- which(!Modelos_total_JOYERIA$PROVEEDOR %in% c("TOTAL", "DESCUENTO"))
+# ---- Imágenes ----
+filas_datos_mod <- which(!Modelos_excel$PROVEEDOR %in% c("TOTAL", "DESCUENTO"))
 
 for (i in filas_datos_mod) {
   excel_row <- i + 1
-
   setRowHeights(wb, ws, rows = excel_row, heights = IMG_PT)
 
-  codigo <- as.character(Modelos_total_JOYERIA$CODIGO[i])
+  codigo <- as.character(Modelos_excel$CODIGO[i])
   if (is.na(codigo) || codigo == "") next
 
   match_idx <- which(img_lookup$ref == codigo)
   if (length(match_idx) == 0 && nchar(codigo) >= 6)
     match_idx <- which(img_lookup$ref == substr(codigo, 1, 6))
-
   if (length(match_idx) == 0) next
 
   img_tmp <- compress_img(img_lookup$filepath[match_idx[1]])
-  insertImage(wb, ws,
-              file     = img_tmp,
-              startRow = excel_row,
-              startCol = img_col_idx_mod,
-              width    = IMG_IN,
-              height   = IMG_IN,
-              units    = "in")
+  insertImage(wb, ws, file = img_tmp,
+              startRow = excel_row, startCol = 1,
+              width = IMG_IN, height = IMG_IN, units = "in")
 }
 
 ```
@@ -1287,15 +1379,23 @@ addWorksheet(wb, "Atributos", gridLines = FALSE)
 ws <- "Atributos"
 
 # ---- Función: escribe título + tabla + mini-gráfico en un bloque ----
-# Devuelve el número de filas que ocupa el bloque para calcular cur_row
 write_attr_block <- function(wb, ws, df, titulo,
                              start_row, start_col,
-                             y_var,                   # nombre columna etiquetas (eje Y del gráfico)
-                             x_var  = "Participación",
-                             orden  = "facturacion") { # "facturacion" | "numerico"
+                             y_var,
+                             x_var = "Participación") {
+
+  # Ordenar siempre por Participación descendente
+  df <- df %>% arrange(desc(Participación))
 
   n_cols_df <- ncol(df)
   n_rows_df <- nrow(df)
+
+  # Identificar filas que representan el 80% acumulado
+  df_marc <- df %>%
+    mutate(cum_part = cumsum(Participación),
+           cum_prev = lag(cum_part, default = 0),
+           es_80    = cum_prev < 0.80)
+  filas_80 <- which(df_marc$es_80)
 
   # Título del bloque
   writeData(wb, ws, titulo, startRow = start_row, startCol = start_col)
@@ -1313,32 +1413,38 @@ write_attr_block <- function(wb, ws, df, titulo,
                      pct_cols = if (length(pct_idx) > 0) pct_idx else NULL,
                      num_cols = if (length(num_idx) > 0) num_idx else NULL)
 
-  # Anchos de columna para las columnas de esta tabla
+  # Resaltar filas dentro del 80%
+  style_80_attr <- createStyle(fgFill = "#FFE699")
+  for (r in filas_80) {
+    excel_row <- start_row + 1 + r
+    addStyle(wb, ws, style_80_attr,
+             rows = excel_row,
+             cols = start_col:(start_col + n_cols_df - 1),
+             gridExpand = TRUE, stack = TRUE)
+  }
+
+  # Anchos de columna
   setColWidths(wb, ws, cols = start_col, widths = 22)
   if (n_cols_df > 1)
     setColWidths(wb, ws, cols = (start_col + 1):(start_col + n_cols_df - 1),
                  widths = 13)
 
-  # Preparar datos para gráfico
-  if (orden == "numerico") {
-    df_plot <- df %>%
-      mutate(etiq = factor(.data[[y_var]],
-                           levels = sort(unique(.data[[y_var]]))))
-  } else {
-    df_plot <- df %>%
-      arrange(.data[[x_var]]) %>%
-      mutate(etiq = factor(.data[[y_var]], levels = .data[[y_var]]))
-  }
+  # Gráfico: por Cantidad descendente
+  df_plot <- df %>%
+    arrange(Cantidad) %>%   # asc para que el mayor quede arriba en el eje Y
+    mutate(etiq = factor(.data[[y_var]], levels = .data[[y_var]]))
 
-  p <- ggplot(df_plot,
-              aes(x = .data[[x_var]], y = etiq)) +
+  p <- ggplot(df_plot, aes(x = Cantidad, y = etiq)) +
     geom_col(fill = COL_HEADER, width = 0.65) +
-    geom_text(aes(label = percent(.data[[x_var]], accuracy = 0.1)),
+    geom_text(aes(label = format(Cantidad, big.mark = ".")),
               hjust = -0.1, size = 2.8, colour = COL_HEADER) +
-    scale_x_continuous(labels = percent,
-                       expand = expansion(mult = c(0, 0.2))) +
-    labs(title = titulo) +
-    tema_reporte()
+    scale_x_continuous(
+      labels = scales::label_number(accuracy = 1),   # ← enteros
+      expand = expansion(mult = c(0, 0.15))
+    ) +
+    labs(title = titulo, x = "Cantidad") +            # ← etiqueta eje X
+    tema_reporte() +
+    theme(axis.title.x = element_text(size = 9, colour = "grey40"))  # ← mostrar eje X
 
   img_h <- max(2, n_rows_df * 0.32)
   tmp   <- save_plot_tmp(p, width = 4.5, height = img_h)
@@ -1346,7 +1452,6 @@ write_attr_block <- function(wb, ws, df, titulo,
   insertImage(wb, ws, tmp, startRow = start_row + 1, startCol = img_col,
               width = 4.5, height = img_h, units = "in")
 
-  # filas que ocupa el bloque (título + datos + margen)
   max(n_rows_df + 3, ceiling(img_h / 0.21) + 2)
 }
 
@@ -1365,26 +1470,25 @@ addStyle(wb, ws, st_titulo_sec, rows = cur_row, cols = 1)
 cur_row <- cur_row + 2
 
 h_ctalle <- write_attr_block(wb, ws, CADENAS_TALLE,  "Cadenas",  cur_row, COL_A,
-                              y_var = "TALLE", orden = "numerico")
+                              y_var = "TALLE")
 h_ptalle <- write_attr_block(wb, ws, PULSERAS_TALLE, "Pulseras", cur_row, COL_B,
-                              y_var = "TALLE", orden = "numerico")
+                              y_var = "TALLE")
 h_atalle <- write_attr_block(wb, ws, ANILLOS_TALLE,  "Anillos",  cur_row, COL_C,
-                              y_var = "TALLE", orden = "numerico")
+                              y_var = "TALLE")
 
 cur_row <- cur_row + max(h_ctalle, h_ptalle, h_atalle) + 2
 
 # ══════════════════════════════════════
 # SECCIÓN 2: GROSOR
-# Cadenas en COL_A (mismo que su talle), Pulseras en COL_B
 # ══════════════════════════════════════
 writeData(wb, ws, "── GROSOR ──", startRow = cur_row, startCol = 1)
 addStyle(wb, ws, st_titulo_sec, rows = cur_row, cols = 1)
 cur_row <- cur_row + 2
 
 h_cgros <- write_attr_block(wb, ws, CADENAS_GROSOR,  "Cadenas",  cur_row, COL_A,
-                             y_var = "GROSOR", orden = "numerico")
+                             y_var = "GROSOR")
 h_pgros <- write_attr_block(wb, ws, PULSERAS_GROSOR, "Pulseras", cur_row, COL_B,
-                             y_var = "GROSOR", orden = "numerico")
+                             y_var = "GROSOR")
 
 cur_row <- cur_row + max(h_cgros, h_pgros) + 2
 
@@ -1420,8 +1524,9 @@ write_attr_block(wb, ws, DIJE_INICIAL_VARIANTE, "Dije Inicial – Variante", cur
 # 6. PROVEEDORES
 ```{r}
 
-addWorksheet(wb, "Proveedores", gridLines = FALSE)
 ws <- "Proveedores"
+addWorksheet(wb, "Proveedores", gridLines = FALSE)
+
 
 # Tabla resumen general (arriba a la derecha)
 writeData(wb, ws, "Resumen por proveedor", startRow = 1, startCol = 6)
@@ -1445,6 +1550,7 @@ setColWidths(wb, ws, cols = 9,    widths = 12)
 # Gráfico stacked bar: participación dentro de cada subfamilia
 datos_prov_chart <- PROVEEDOR_SUBFAMILIAS_TOTAL_JOYERIA %>%
   filter(FAMILIA != "TOTAL") %>%
+  filter(!str_detect(PROVEEDOR, "Total")) |> 
   group_by(FAMILIA) %>%
   mutate(Part_dentro_sf = Facturación / sum(Facturación, na.rm = TRUE)) %>%
   ungroup()
@@ -1460,7 +1566,7 @@ top_provs <- datos_prov_chart %>%
 datos_prov_chart2 <- datos_prov_chart %>%
   mutate(PROV_LABEL = if_else(PROVEEDOR %in% top_provs, PROVEEDOR, "Otros"))
 
-# Ordenar subfamilias por facturación total descendente (mayor abajo en Y)
+# Ordenar familias por facturación total descendente (mayor abajo en Y)
 orden_sf_prov <- datos_prov_chart %>%
   group_by(FAMILIA) %>%
   summarise(tot_sf = sum(Facturación, na.rm = TRUE)) %>%
@@ -1470,12 +1576,14 @@ orden_sf_prov <- datos_prov_chart %>%
 datos_prov_chart2 <- datos_prov_chart2 %>%
   mutate(FAMILIA = factor(FAMILIA, levels = orden_sf_prov))
 
-# Orden de proveedores dentro de cada barra: mayor facturación a la izquierda
-# rev() porque geom_col apila en orden del factor y el primero queda a la izquierda
+
+# Orden de proveedores: por facturación dentro de cada familia (per-family approximation)
+# Para cada proveedor, tomamos su facturación máxima en cualquier familia
 prov_order <- datos_prov_chart2 %>%
   group_by(PROV_LABEL) %>%
-  summarise(tot = sum(Facturación, na.rm = TRUE)) %>%
-  arrange(desc(tot)) %>%
+  summarise(max_en_familia = max(Facturación, na.rm = TRUE),
+            tot             = sum(Facturación, na.rm = TRUE)) %>%
+  arrange(desc(max_en_familia), desc(tot)) %>%
   pull(PROV_LABEL)
 
 datos_prov_chart2 <- datos_prov_chart2 %>%
@@ -1520,15 +1628,29 @@ pct_col_ps    <- which(names(PROVEEDOR_SUBFAMILIAS_TOTAL_JOYERIA) == "Participac
 num_cols_ps   <- which(names(PROVEEDOR_SUBFAMILIAS_TOTAL_JOYERIA) %in%
                          c("Unidades", "Facturación"))
 
+#ACA ESTABAN LOS ESTILOS
+
+# Resaltar también las filas de subtotal por familia
+subt_rows_ps <- which(str_detect(PROVEEDOR_SUBFAMILIAS_TOTAL_JOYERIA$PROVEEDOR, "^Total ") &
+                       PROVEEDOR_SUBFAMILIAS_TOTAL_JOYERIA$PROVEEDOR != "TOTAL") +
+  data_start_prov
+
+for (r in subt_rows_ps) {
+  addStyle(wb, ws, st_total, rows = r, cols = 1:ncol(PROVEEDOR_SUBFAMILIAS_TOTAL_JOYERIA),
+           gridExpand = TRUE, stack = FALSE)
+}
+
 apply_table_styles(wb, ws, PROVEEDOR_SUBFAMILIAS_TOTAL_JOYERIA,
                    start_row = data_start_prov, start_col = 1,
                    total_rows = total_rows_ps,
                    pct_cols   = pct_col_ps,
                    num_cols   = num_cols_ps)
 
+
 setColWidths(wb, ws, cols = 1:2, widths = 35)
 setColWidths(wb, ws, cols = 3:4, widths = 14)
 setColWidths(wb, ws, cols = 5, widths = 58)
+
 
 ```
 
@@ -1557,7 +1679,7 @@ if (has_sufij) {
 
 col_fact_g2 <- if (has_sufij) "Güemes 2.y" else "Güemes 2"
 col_fact_es <- if (has_sufij) "El Solar.y"  else "El Solar"
-#col_fact_es <- if (has_sufij) "San Telmo 2.y"  else "San Telmo 2"
+col_fact_es <- if (has_sufij) "San Telmo 2.y"  else "San Telmo 2"
 
 datos_nac_base <- NACIONALIDAD_ENTERA_JOYERIA %>%
   filter(NACIONALIDAD != "Total general") %>%
@@ -1706,6 +1828,7 @@ insertImage(wb, ws,
 
 # 9. PRECIO UNITARIO
 ```{r}
+
 addWorksheet(wb, "Precio unitario", gridLines = FALSE)
 ws <- "Precio unitario"
 
@@ -1715,10 +1838,8 @@ addStyle(wb, ws, st_titulo_bloque, rows = 1, cols = 1)
 writeData(wb, ws, PRECIO_UNITARIO_JOYERIA,
           startRow = 2, startCol = 1, borders = "all")
 
-pct_col_pu  <- which(names(PRECIO_UNITARIO_JOYERIA) %in%
-                       c("Participación", "Acumulado"))
-num_cols_pu <- which(names(PRECIO_UNITARIO_JOYERIA) %in%
-                       c("Precio", "Cantidad", "Facturación"))
+pct_col_pu  <- which(names(PRECIO_UNITARIO_JOYERIA) %in% c("Participación", "Acumulado"))
+num_cols_pu <- which(names(PRECIO_UNITARIO_JOYERIA) %in% c("Precio", "Cantidad", "Facturación"))
 
 apply_table_styles(wb, ws, PRECIO_UNITARIO_JOYERIA,
                    start_row = 2, start_col = 1,
@@ -1727,15 +1848,14 @@ apply_table_styles(wb, ws, PRECIO_UNITARIO_JOYERIA,
 n_cols_pu <- ncol(PRECIO_UNITARIO_JOYERIA)
 setColWidths(wb, ws, cols = 1:n_cols_pu, widths = 14)
 
-# Gráfico precio unitario (barras de facturación)
+# Gráfico tabla general (debajo)
 p_pu <- ggplot(PRECIO_UNITARIO_JOYERIA,
                aes(x = reorder(as.character(Precio), -Facturación))) +
   geom_col(aes(y = Facturación), fill = COL_HEADER, width = 0.7) +
   scale_y_continuous(labels = comma) +
   scale_x_discrete(labels = function(x)
     format(as.numeric(x), big.mark = ".", scientific = FALSE)) +
-  labs(title = "Distribución de ventas por precio unitario",
-       x = "Precio") +
+  labs(title = "Distribución de ventas por precio unitario", x = "Precio") +
   tema_reporte() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 
@@ -1744,26 +1864,67 @@ insertImage(wb, ws, img_pu,
             startRow = nrow(PRECIO_UNITARIO_JOYERIA) + 4, startCol = 1,
             width = 7, height = 4, units = "in")
 
-# -- Tabla por subfamilia (a la derecha) --
+# -- Tabla por familia (a la derecha) --
 col_sf_pu <- n_cols_pu + 3
 writeData(wb, ws, "Por familia y precio", startRow = 1, startCol = col_sf_pu)
 addStyle(wb, ws, st_titulo_bloque, rows = 1, cols = col_sf_pu)
 writeData(wb, ws, PRECIO_UNITARIO_SUBFAMILIA_JOYERIA,
           startRow = 2, startCol = col_sf_pu, borders = "all")
 
-pct_col_psf  <- which(names(PRECIO_UNITARIO_SUBFAMILIA_JOYERIA) %in%
-                        c("Participación", "Acumulado"))
-num_cols_psf <- which(names(PRECIO_UNITARIO_SUBFAMILIA_JOYERIA) %in%
-                        c("Precio", "Cantidad", "Facturación"))
+pct_col_psf  <- which(names(PRECIO_UNITARIO_SUBFAMILIA_JOYERIA) %in% c("Participación", "Acumulado"))
+num_cols_psf <- which(names(PRECIO_UNITARIO_SUBFAMILIA_JOYERIA) %in% c("Precio", "Cantidad", "Facturación"))
 
 apply_table_styles(wb, ws, PRECIO_UNITARIO_SUBFAMILIA_JOYERIA,
                    start_row = 2, start_col = col_sf_pu,
                    pct_cols = pct_col_psf, num_cols = num_cols_psf)
 
+# Resaltar filas de subtotal por familia
+subt_rows_psf <- which(str_detect(PRECIO_UNITARIO_SUBFAMILIA_JOYERIA$FAMILIA, "^Total ")) + 2
+for (r in subt_rows_psf) {
+  addStyle(wb, ws, st_total,
+           rows = r,
+           cols = col_sf_pu:(col_sf_pu + ncol(PRECIO_UNITARIO_SUBFAMILIA_JOYERIA) - 1),
+           gridExpand = TRUE, stack = FALSE)
+}
+
 setColWidths(wb, ws,
              cols = col_sf_pu:(col_sf_pu + ncol(PRECIO_UNITARIO_SUBFAMILIA_JOYERIA) - 1),
              widths = 14)
-setColWidths(wb, ws, cols = col_sf_pu, widths = 22)  # columna SUBFAMILIA
+setColWidths(wb, ws, cols = col_sf_pu, widths = 22)
+
+# -- Gráficos por familia (uno debajo del otro, a la derecha de la tabla) --
+familias_ord <- unique(PRECIO_UNITARIO_SUBFAMILIA_datos$FAMILIA)
+chart_col    <- col_sf_pu + ncol(PRECIO_UNITARIO_SUBFAMILIA_JOYERIA) + 2
+
+img_h_chart <- 2.8
+img_w_chart <- 5
+
+cur_chart_row <- 1
+for (fam in familias_ord) {
+  datos_fam <- PRECIO_UNITARIO_SUBFAMILIA_datos %>%
+    filter(FAMILIA == fam) %>%
+    arrange(Precio)
+
+  if (nrow(datos_fam) == 0) next
+
+  p_fam <- ggplot(datos_fam, aes(x = factor(Precio), y = Cantidad)) +
+    geom_col(fill = COL_HEADER, width = 0.7) +
+    geom_text(aes(label = format(Cantidad, big.mark = ".")),
+              vjust = -0.3, size = 2.6, colour = COL_HEADER) +
+    scale_x_discrete(labels = function(x)
+      format(as.numeric(x), big.mark = ".", scientific = FALSE)) +
+    scale_y_continuous(expand = expansion(mult = c(0, 0.15))) +
+    labs(title = fam, x = "Precio", y = "Cantidad") +
+    tema_reporte() +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 8))
+
+  tmp <- save_plot_tmp(p_fam, width = img_w_chart, height = img_h_chart)
+  insertImage(wb, ws, tmp,
+              startRow = cur_chart_row, startCol = chart_col,
+              width = img_w_chart, height = img_h_chart, units = "in")
+
+  cur_chart_row <- cur_chart_row + ceiling(img_h_chart / 0.21) + 1
+}
 
 ```
 
