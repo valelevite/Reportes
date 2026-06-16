@@ -10,7 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 1. Corro Arreglo base Odoo
 2. Descargo el costo de los productos (en inventario). VER CÓMO SEPARAR LOS COSTOS POR MES YA QUE VAN A IR CAMBIANDO. POR AHORA AGREGO EL NUEVO MES (CON EL COSTO ACTUAL) A LA TABLA ANTERIOR (CALCULADA CON EL COSTO ANTERIOR). ASÍ NO CAMBIO LO ANTERIOR
-3. Actualizo el archivo de gastos (gastos desde 2025-05.xlsx)
+3. Actualizo el archivo de gastos (gastos desde 2025-05.xlsx SOLO HASTA MAYO 2026). A partir de junio 2026 descargar de Odoo.
 4. Actualizo el archivo de cupones de tarjetas (fiserv/Ventas y pagos/detalle de cupones, filtros (FECHA DE OPERACIÓN), rango de fechas)
 5. Agrego el archivo mensual de Silvina (Ventas 2026) en la fc para que calcule el costo de MP (línea 390 aprox)
 6. Actualizo el archivo de sueldos del estudio (Sueldos desde...). REVISAR QUE LAS VACACIONES Y LAS LIQUIDACIONES TENGAN BIEN EL MES Y AÑO EN COLUMNA PERÍODO. TAMBIÉN QUE NO ESTÉN ESCRITAS DE UN MODO DISTINTO Y NO SEAN COMPUTADAS POR EL R.
@@ -22,7 +22,7 @@ knitr::opts_chunk$set(echo = TRUE)
 fecha_costo <- strftime("2026/05/12", "%Y%m%d")
 
 año_minimo <- 2026
-mes_maximo <- 4
+mes_maximo <- 5
 ```
 
 ```{r defino el nombre de las tiendas}
@@ -398,7 +398,8 @@ venta_MP <- bind_rows(
   leer_mp("Cupones Tarjetas/VENTAS ENERO 2026.xlsx", 2026, 1, hojas_validas),
   leer_mp("Cupones Tarjetas/VENTAS FEBRERO 2026.xlsx", 2026, 2, hojas_validas),
   leer_mp("Cupones Tarjetas/VENTAS MARZO 2026.xlsx", 2026, 3, hojas_validas),
-  leer_mp("Cupones Tarjetas/VENTAS ABRIL 2026.xlsx", 2026, 4, hojas_validas)
+  leer_mp("Cupones Tarjetas/VENTAS ABRIL 2026.xlsx", 2026, 4, hojas_validas),
+  leer_mp("Cupones Tarjetas/VENTAS MAYO 2026.xlsx", 2026, 5, hojas_validas)
   ) 
 
 Costo_MP <- venta_MP |> 
@@ -513,17 +514,17 @@ Sueldos_limpio <- Sueldos |>
 
 #primero selecciono los conceptos que son de liquidaciones finales, convierto a fecha el período y pongo bien los decimales
 SAC_vac_liq <- Sueldos_limpio |>
-  mutate(CONCEPTO = if_else(CONCEPTO %in% c("liq final", "Liq final"), "Liq Final", CONCEPTO)) %>% 
+  mutate(CONCEPTO = if_else(tolower(trimws(CONCEPTO)) %in% c("liq final"), "Liq Final", CONCEPTO)) %>% 
   filter(CONCEPTO %in% c("Liq Final", "SAC", "Vacaciones"))
 
 #Tomo la parte del sueldo a las liquidaciones finales
 Sueldo_en_liq_finales <- SAC_vac_liq |> 
   group_by(Empleado, Periodo) |>
   filter(
-    any(CONCEPTO == ("Liq Final")) &
+    any(tolower(trimws(CONCEPTO)) == tolower(trimws("Liq Final"))) &
     any(Concepto == 9)
   ) |>
-  filter(!Concepto %in% c(860, 871, 880, 1501)) |>
+  filter(!Concepto %in% c(820, 821, 860, 871, 880, 1501)) |>
   ungroup() |> 
   select(-CONCEPTO)
   
@@ -567,14 +568,21 @@ SAC_vac_liq_TIENDA <- SAC_vac_liq_TOTAL %>%
 ```
 
 
-##Calculo los sueldos y contribuciones
+
+##Calculo los sueldos, premios (incentivos) y contribuciones
 ```{r edito el sueldo y calculo el sueldo bruto}
 
 #primero elimino los conceptos que son de liquidaciones finales, convierto a fecha el período y pongo bien los decimales
 Sueldos_sin_SAC_vac_liq <- Sueldos_limpio |>
   anti_join(SAC_vac_liq_sin_sueldos, by = c("Periodo", "Empleado", "Concepto", "CONCEPTO")) 
+
+#Calculo el premio
+Premio <- Sueldos_sin_SAC_vac_liq %>% 
+  filter(Concepto == 32) %>% 
+  group_by(Periodo, Empleado) %>% 
+  summarise(Premio = sum(Remunerativo, na.rm = TRUE),
+            .groups = "drop")
   
- 
 #Calculo el sueldo bruto
 Sueldo_bruto <- Sueldos_sin_SAC_vac_liq %>% 
   group_by(Periodo, Empleado) %>% 
@@ -587,7 +595,7 @@ Sueldo_bruto <- Sueldos_sin_SAC_vac_liq %>%
 
 ```
 
-```{r calculo las contribuciones}
+```{r calculo las contribuciones y premios (incentivos)}
 
 Sueldo_mas_contribuciones <- Sueldo_bruto %>% 
   mutate(ART = if_else(Periodo < "2026-02-01", 1355+ 0.0215*Total_remunerativo, 1624+ 0.0215*Total_remunerativo),
@@ -602,7 +610,13 @@ Sueldo_mas_contribuciones <- Sueldo_bruto %>%
   mutate(CONTRIBUCIONES = ART + Previsional + PAMI + Fondo_empleo + ANSSAL + Asig_familiar + OS + OS_extra + ANSSAL_extra) %>% 
   mutate(AÑO = year(Periodo),
          MES = month(Periodo)) %>% 
-  select(Periodo, AÑO, MES, Empleado, SUELDOS, CONTRIBUCIONES)
+  select(Periodo, AÑO, MES, Empleado, SUELDOS_CON_PREMIOS = SUELDOS, CONTRIBUCIONES)
+
+#Separo los premios del sueldo
+Sueldo_contribuciones_premios <- Sueldo_mas_contribuciones %>% 
+  left_join(Premio, by = c("Periodo", "Empleado")) %>% 
+  mutate(Premio = if_else(is.na(Premio), 0, Premio),
+          SUELDOS_SIN_PREMIO = SUELDOS_CON_PREMIOS - Premio)
 
 ```
 
@@ -618,11 +632,11 @@ REVISAR_HORAS <- Horas_trabajadas %>%
   ) %>% 
   select(-Empleado)
 
-Sueldos_horas <- Sueldo_mas_contribuciones %>% 
+Sueldos_horas <- Sueldo_contribuciones_premios %>% 
   full_join(Horas_trabajadas, by = c("AÑO", "MES", "Empleado")) 
 
 Sueldos_valor_hora <- Sueldos_horas %>% 
-  mutate(Valor_hora_SUELDO = SUELDOS/HORAS) %>% 
+  mutate(Valor_hora_SUELDO = SUELDOS_CON_PREMIOS/HORAS) %>% 
   mutate(Valor_hora_CONTRIBUCIONES = CONTRIBUCIONES/HORAS)
   
 ```
@@ -662,7 +676,7 @@ calcular_sueldo_tienda <- function(data, nombre_tienda) {
             Subtotal_CONTRIBUCIONES = Valor_hora_CONTRIBUCIONES * .data[[nombre_tienda]]) %>%
     ungroup() %>%
     group_by(AÑO, MES) %>%
-   summarise(SUELDOS = sum(Subtotal_SUELDOS),
+   summarise(SUELDOS_CON_PREMIOS = sum(Subtotal_SUELDOS),
           CONTRIBUCIONES = sum(Subtotal_CONTRIBUCIONES),
           .groups = "drop") %>%
     mutate(TIENDA = nombre_tienda)
@@ -674,24 +688,30 @@ Sueldos_tiendas <- lapply(tiendas, function(t) calcular_sueldo_tienda(Sueldos_fi
 #Separo entre sueldos y contribuciones
 Tabla_sueldos <- Sueldos_tiendas %>% 
   select(-CONTRIBUCIONES) %>% 
-  mutate(CONCEPTO = "Sueldo") %>% 
-  rename(TOTAL = SUELDOS)
+  mutate(CONCEPTO = "Sueldo_con_premios") %>% 
+  rename(TOTAL = SUELDOS_CON_PREMIOS)
 
 Tabla_contribuciones <- Sueldos_tiendas %>% 
-  select(-SUELDOS) %>% 
+  select(-SUELDOS_CON_PREMIOS) %>% 
   mutate(CONCEPTO = "Contribuciones") %>% 
   rename(TOTAL = CONTRIBUCIONES)
 
-#Calculo el incentivo que se basa en las ventas
-Tabla_incentivo <- Tabla_ventas %>% 
-  group_by(AÑO,  MES, TIENDA) %>% 
-  summarise(TOTAL = round(VENTA_CON_IMP*0.01),
+#Agrego el premio
+Tabla_incentivo <- Premio %>%
+  left_join(vendedora_tienda, by = "Empleado") %>% 
+  mutate(AÑO = year(Periodo),
+         MES = month(Periodo),
+         Tienda = if_else(Periodo<Fecha_nueva_tienda | is.na(Fecha_nueva_tienda), Tienda, Nueva_tienda)) %>% 
+  select(-Fecha_nueva_tienda, -Nueva_tienda) %>% 
+  group_by(AÑO, MES, Tienda) %>% 
+  summarise(TOTAL = sum(Premio),
             .groups = "drop") %>% 
-  mutate(CONCEPTO = "Incentivo")
+  mutate(CONCEPTO = "Incentivo") %>% 
+  rename(TIENDA =Tienda)
 
 ```
 
-##Unifico sueldos, SAC, vacaciones y liquidaciones finales
+##Unifico sueldos, premios, SAC, vacaciones y liquidaciones finales
 ```{r}
 
 Tabla_SAC_vac_liq <- SAC_vac_liq_TIENDA %>%
@@ -702,15 +722,38 @@ Tabla_SAC_vac_liq <- SAC_vac_liq_TIENDA %>%
 Sueldos_unificado <- bind_rows(Tabla_sueldos, Tabla_contribuciones, Tabla_incentivo, Tabla_SAC_vac_liq) %>% 
   relocate(TOTAL, .after = TIENDA) 
 
-fila_total_sueldos <- Sueldos_unificado %>% 
+#calculo el sueldo sin premio
+Sueldos_completo <- Sueldos_unificado |>
+  pivot_wider(
+    names_from = CONCEPTO,
+    values_from = TOTAL,
+    values_fill = 0  # por si faltan valores
+  ) |>
+  mutate(
+    Sueldo_sin_premios = Sueldo_con_premios - Incentivo
+  ) |>
+  pivot_longer(
+    cols = -c(AÑO, MES, TIENDA),
+    names_to = "CONCEPTO",
+    values_to = "TOTAL"
+  ) |>
+  arrange(AÑO, MES, TIENDA, CONCEPTO)
+
+
+fila_total_sueldos <- Sueldos_completo %>% 
+  filter(CONCEPTO != "Sueldo_con_premios") %>% 
   group_by(AÑO, MES, TIENDA) %>% 
   summarise(TOTAL = sum(TOTAL, na.rm = TRUE),
             .groups = "drop") %>% 
   mutate(CONCEPTO = "Subtotal_sueldos")
   
-Tabla_sueldos_FINAL <- bind_rows(Sueldos_unificado, fila_total_sueldos) %>% 
+Tabla_sueldos_FINAL <- bind_rows(Sueldos_completo, fila_total_sueldos) %>% 
   mutate(CATEGORIA = "Sueldos")
 
+
+SEPARAR AL FINAL LOS SUELDOS SIN Y CON PREMIOS EN DOS TABLAS, UNA PARA EL DASHBOARD Y OTRA PARA REPORTE GASTOS.
+VER QUÉ PASA QUE HAY VALORES 0 PARA NA EN tiendas
+VER QUÉ PASA CON RESULTADO FINAL 0 PARA NA EN TIENDA.
 ```
 
 #IMPUESTOS
@@ -787,9 +830,35 @@ fila_resultado_final <- fila_resultado_operativo %>%
 ##Creo tabla final
 ```{r}
 
-TABLA_PRESUPUESTO <- bind_rows(Tabla_ventas_costo_margen, Tabla_gastos, Tabla_gasto_financiero, Tabla_sueldos_FINAL, fila_resultado_operativo, Tabla_impuestos, fila_resultado_final) %>% 
+Tablas_unidas <- bind_rows(Tabla_ventas_costo_margen, Tabla_gastos, Tabla_gasto_financiero, Tabla_sueldos_FINAL, fila_resultado_operativo, Tabla_impuestos, fila_resultado_final) %>% 
   select(-CATEGORIA) %>% 
    filter(AÑO >= año_minimo & MES <= mes_maximo) 
+
+#Le agrego columna SECCION para que la lea bien el dashboard
+TABLA_PRESUPUESTO <- Tablas_unidas %>% 
+  mutate(SECCION = case_when(
+    CONCEPTO %in% c("Venta_con_imp", "Venta_sin_imp", "Costo",
+                    "Margen_bruto_valor", "Margen_bruto_porc")          ~ "Ventas",
+    
+    CONCEPTO %in% c("Alquiler", "Expensas", "ABL", "AYSA",
+                    "Administración", "Edesur", "Fumigación", "Internet",
+                    "Logística", "Mantenimiento", "Matafuegos", "Packaging",
+                    "Alarma", "Servicios", "Multa", "Otros gastos",
+                    "Subtotal_gastos")                                   ~ "Gastos Operativos",
+    
+    CONCEPTO %in% c("Tarjeta crédito 1 cuota", "Tarjeta crédito 2 cuotas",
+                    "Tarjeta crédito 3 cuotas", "Tarjeta crédito 6 cuotas",
+                    "Tarjeta débito", "Mercado Pago",
+                    "Subtotal_gastos_financieros")                       ~ "Gastos Financieros",
+    
+    CONCEPTO %in% c("Sueldo", "Contribuciones", "Incentivo",
+                    "Vacaciones", "Liq Final", "Subtotal_sueldos")       ~ "Sueldos",
+    
+    CONCEPTO %in% c("Resultado operativo", "IIBB",
+                    "Subtotal_impuestos", "Resultado final")             ~ "Resultado",
+    
+    TRUE ~ "Otros"  # captura cualquier concepto nuevo que aparezca
+  ))
  
 write.xlsx(TABLA_PRESUPUESTO, paste0("Presupuestos tiendas/Tabla presupuestos_", año_minimo, mes_maximo, ".xlsx"))
 ```

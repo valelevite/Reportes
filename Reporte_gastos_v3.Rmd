@@ -21,7 +21,7 @@ library(openxlsx)
 
 #Completo la info de ventas reales en el archivo correspondiente
 ```{r}
-MES_GASTOS <- 4
+MES_GASTOS <- 5
 AÑO_GASTOS <- 2026
 
 ```
@@ -40,7 +40,7 @@ tomo_valores <- TABLA_PRESUPUESTO %>%
   ) |>
   mutate(
     Venta                    = Venta_con_imp,
-    Sueldos                  = Sueldo + Contribuciones,
+    Sueldos                  = Sueldo_con_premios + Contribuciones,
     `Total_alquileres+expensas` = Alquiler + Expensas,
     Otros_gastos             = ABL + AYSA + Alarma + Edesur + Fumigación + Internet + Mantenimiento + Matafuegos + SERVICIOS + Multa
   ) |>
