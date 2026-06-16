@@ -9,7 +9,8 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 1. Corro Arreglo base Odoo
-2. Descargo el costo de los productos (en inventario). VER CÓMO SEPARAR LOS COSTOS POR MES YA QUE VAN A IR CAMBIANDO. POR AHORA AGREGO EL NUEVO MES (CON EL COSTO ACTUAL) A LA TABLA ANTERIOR (CALCULADA CON EL COSTO ANTERIOR). ASÍ NO CAMBIO LO ANTERIOR
+2. Descargo el costo de los productos (en inventario). HASTA QUE NO ESTÉN TODOS LOS COSTOS AL DÍA, CARGO DOS COSTOS PARA INTENTAR SUPLIR LA MAYOR CANTIDAD DE DATOS FALTANTES ENTRE LOS DOS.
+VER CÓMO SEPARAR LOS COSTOS POR MES YA QUE VAN A IR CAMBIANDO. POR AHORA AGREGO EL NUEVO MES (CON EL COSTO ACTUAL) A LA TABLA ANTERIOR (CALCULADA CON EL COSTO ANTERIOR). ASÍ NO CAMBIO LO ANTERIOR
 3. Actualizo el archivo de gastos (gastos desde 2025-05.xlsx SOLO HASTA MAYO 2026). A partir de junio 2026 descargar de Odoo.
 4. Actualizo el archivo de cupones de tarjetas (fiserv/Ventas y pagos/detalle de cupones, filtros (FECHA DE OPERACIÓN), rango de fechas)
 5. Agrego el archivo mensual de Silvina (Ventas 2026) en la fc para que calcule el costo de MP (línea 390 aprox)
@@ -20,6 +21,7 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 fecha_costo <- strftime("2026/05/12", "%Y%m%d")
+fecha_costo2 <- strftime("2026/06/16", "%Y%m%d")
 
 año_minimo <- 2026
 mes_maximo <- 5
@@ -27,7 +29,9 @@ mes_maximo <- 5
 
 ```{r defino el nombre de las tiendas}
  
-tiendas <- c("AS Güemes", "AS San Telmo", "El Solar", "Florida", "French", "Güemes", "Güemes 2", "Recoleta", "San Telmo", "San Telmo 2")
+tiendas <- c("AS San Telmo", "El Solar", "Florida", "French", "Güemes", "Güemes 2", "Recoleta", "San Telmo", "San Telmo 2")
+#"AS Güemes", 
+
 ```
 
 ```{r Leo los archivos}
@@ -35,7 +39,8 @@ tiendas <- c("AS Güemes", "AS San Telmo", "El Solar", "Florida", "French", "Gü
 #Gastos
 FACTURAS_TIENDAS <- read_excel("Reporte_gastos/gastos desde 2025-05.xlsx", 
     col_types = c("text", "text", 
-        "text", "text", "date", "numeric", "numeric", "numeric", "text")) 
+        "text", "text", "date", "numeric", "numeric", "numeric", "text")) |> 
+  filter(!TIENDA %in% c("COM AS GUEMES", "COM LUCERO GUEMES GONDOLA 13", "COM LUCERO GUEMES GONDOLA 13 (AS)"))
 
 #Sueldos
 Sueldos <- read_excel("Reporte_gastos/Sueldos/Sueldos_desde_2025-09.xlsx", 
@@ -50,11 +55,12 @@ Horas_trabajadas <- read_excel("Reporte_gastos/Sueldos/Horas trabajadas Tiendas 
   filter(!Empleado %in% c(2, 9, 47)) |> #supervisoras y visual
   mutate(AÑO = year(Periodo),
          MES = month(Periodo)) |> 
-  select(-Periodo)
+  select(-Periodo, -"AS Güemes")
 
 
 vendedora_tienda <- read_excel("Reporte_gastos/Sueldos/Horas trabajadas Tiendas desde 2025-09.xlsx", 
-    sheet = "vendedora-tienda")
+    sheet = "vendedora-tienda") |> 
+  filter(Tienda != "AS Güemes")
 
 #Impuesto interno
 # productos_impuesto_interno <- read_excel("Presupuestos tiendas/Productos_impuesto_interno.xlsx", 
@@ -76,7 +82,8 @@ Ventas <- Odoo_mas_Alegra |>
   mutate(AÑO = year(FECHA),
          MES = month(FECHA),
          PRODUCTO_TOTAL_SIN_IMP = CANTIDAD*PRECIO_UNITARIO_SIN_IMP) |> 
-  filter(AÑO >= año_minimo & MES <= mes_maximo)
+  filter(AÑO >= año_minimo & MES <= mes_maximo) |> 
+  filter(TIENDA != "AS Güemes")
 
 Factura_sin_impuestos <- Ventas %>% 
   group_by(FECHA, AÑO, MES, TIENDA, NOMBRE_FACTURA) |>
@@ -122,18 +129,32 @@ Tabla_ventas <- Ventas |>
 #   filter(n()>1)
 
 
-Costo <- read_excel(paste0("Costos/Costo ", fecha_costo, ".xlsx")) |> 
+Costo1 <- read_excel(paste0("Costos/Costo ", fecha_costo, ".xlsx")) |> 
   select(CODIGO_BARRAS = "Código de barras", COSTO = Costo) |> 
-  filter(COSTO>0) %>% 
+  filter(COSTO>0) %>%
+  filter(!is.na(CODIGO_BARRAS)) |> 
   mutate(CODIGO_BARRAS = case_when(CODIGO_BARRAS== "OUT54990" ~ "103252", 
                                    CODIGO_BARRAS== "OUT159990" ~ "103260",
                                    TRUE ~ CODIGO_BARRAS))
 
-Costo2 <- Ventas |> 
-  select(-PRODUCTO, -PRODUCTO_TOTAL) |> 
-  left_join(Costo, by = "CODIGO_BARRAS")
 
-REVISO_PRODUCTOS_SIN_COSTO <- Costo2 %>% 
+Costo2 <- read_excel(paste0("Costos/Costo ", fecha_costo2, ".xlsx")) |> 
+  select(CODIGO_BARRAS = "Código de barras", COSTO = Costo) |> 
+  filter(COSTO>0) %>%
+  filter(!is.na(CODIGO_BARRAS)) |> 
+  mutate(CODIGO_BARRAS = case_when(CODIGO_BARRAS== "OUT54990" ~ "103252", 
+                                   CODIGO_BARRAS== "OUT159990" ~ "103260",
+                                   TRUE ~ CODIGO_BARRAS))
+
+
+Costo_total <- full_join(Costo1, Costo2, by = c("CODIGO_BARRAS", "COSTO"))
+
+
+Costo3 <- Ventas |> 
+  select(-PRODUCTO, -PRODUCTO_TOTAL) |> 
+  left_join(Costo_total, by = "CODIGO_BARRAS")
+
+REVISO_PRODUCTOS_SIN_COSTO <- Costo3 %>% 
   filter(AÑO >= año_minimo & MES <= mes_maximo) %>% 
   filter(is.na(COSTO)) %>% 
   select(-TOTAL_FACTURA, -DESCUENTO) %>% 
@@ -146,18 +167,18 @@ REVISO_PRODUCTOS_SIN_COSTO <- Costo2 %>%
   filter(!PRODUCTO %in% c("Anticipo del cliente")) %>% 
   arrange(PRODUCTO)
 
-REVISO_COSTO_MAS_CARO <- Costo2 %>% 
+REVISO_COSTO_MAS_CARO <- Costo3 %>% 
   select(CODIGO_BARRAS, PRECIO_UNITARIO_SIN_IMP, COSTO) %>% 
   distinct() %>% 
   filter(COSTO > PRECIO_UNITARIO_SIN_IMP,
          PRECIO_UNITARIO_SIN_IMP>10)
 
-Costo_mensual <- Costo2 |> 
+Costo_mensual <- Costo3 |> 
   mutate(AÑO = year(FECHA),
          MES = month(FECHA),
          COSTO_FACTURA = round(COSTO*CANTIDAD, 2)) |>   group_by(AÑO, MES, TIENDA) |> 
-  summarise(Costo = sum(COSTO_FACTURA, na.rm = TRUE)) |> 
-  ungroup()
+  summarise(Costo = sum(COSTO_FACTURA, na.rm = TRUE),
+            .groups = "drop")
 
 Tabla_ventas_costo <- Tabla_ventas |> 
   left_join(Costo_mensual, by = c("AÑO", "MES", "TIENDA")) 
@@ -198,9 +219,11 @@ FACTURAS_TIENDAS <- FACTURAS_TIENDAS %>%
                             TIENDA == "COM LUCERO SOLAR" ~ "El Solar",
                             TIENDA %in% c("COM LUCERO ST", "COM LUCERO SAN TELMO") ~ "San Telmo",
                             TIENDA == "COM LUCERO ST 2" ~ "San Telmo 2",
-                            TIENDA %in% c("COM LUCERO GUEMES GONDOLA 13", "COM AS GUEMES", "COM LUCERO GUEMES GONDOLA 13 (AS)") ~ "AS Güemes",
+                            #TIENDA %in% c("COM LUCERO GUEMES GONDOLA 13", "COM AS GUEMES", "COM LUCERO GUEMES GONDOLA 13 (AS)") ~ "AS Güemes",
                             TIENDA %in% c("COM LUCERO GUEMES GONDOLA 7", "COM LUCERO GUEMES 2", "COM LUCERO GUEMES GONDOLA 7 (LC 2)") ~ "Güemes 2",
-                            TRUE ~ TIENDA))
+                            TRUE ~ TIENDA)) |> 
+  filter(AÑO >= año_minimo,
+         MES_ASIGNADO <= mes_maximo)
 
 ```
 
@@ -415,7 +438,7 @@ Costo_MP <- venta_MP |>
                            TIENDA == "LUCERO GUEMES" ~ "Güemes",
                            TIENDA == "LUCERO GUEMES 2" ~ "Güemes 2",
                            TIENDA == "LUCERO EL SOLAR" ~ "El Solar",
-                           TIENDA == "AS GUEMES" ~ "AS Güemes",
+                          # TIENDA == "AS GUEMES" ~ "AS Güemes",
                            TRUE ~ TIENDA))|>
   mutate(CONCEPTO = "Mercado Pago")
   
@@ -430,7 +453,8 @@ tarjetas <- read_excel("Cupones Tarjetas/Cupones.xlsx") |>
     select(TERMINAL = Terminal, TARJETA = Marca, NRO_TICKET = Ticket, FECHA = "Fecha de operación", TIPO_MOV = "Tipo de mov.", NRO_TARJETA = Tarjeta, MONTO = "Monto Bruto", NRO_CUOTAS = Cuotas, PLAN_CUOTAS = "Plan Cuotas", ARANCEL = "Arancel", COSTO_FINANCIERO = "Costo Financiero", TASA = "Tasa Directa") |> 
   mutate(FECHA = as.Date(FECHA, format = "%d/%m/%Y %H:%M:%S")) |> 
   filter(NRO_TICKET>0) |> 
-  mutate(TIENDA = case_when(TERMINAL == "69443501" ~ "AS Güemes",
+  filter(TERMINAL != "69443501") |> #quita a AS Güemes
+  mutate(TIENDA = case_when(#TERMINAL == "69443501" ~ "AS Güemes",
                             TERMINAL == "69371606" ~ "AS San Telmo",
                             TERMINAL == "69433783" ~ "El Solar",
                             TERMINAL == "69364945" ~ "Florida",
@@ -445,10 +469,13 @@ tarjetas <- read_excel("Cupones Tarjetas/Cupones.xlsx") |>
   mutate(AÑO = year(FECHA),
          MES = month(FECHA))
 
+REVISAR_TARJETAS_SIN_TIENDA <- tarjetas |> 
+  filter(is.na(TIENDA))
 
 Costo_tarjetas <- tarjetas |> 
   #filter(AÑO >= año_minimo & MES <= mes_maximo) |> 
    mutate(CONCEPTO = if_else(TARJETA %in% c("Maestro", "Mastercard Debit", "Visa Débito"), "Tarjeta débito", "Tarjeta crédito")) |> 
+  filter(!is.na(TIENDA)) |> 
   group_by(AÑO, MES, TIENDA, NRO_CUOTAS, CONCEPTO) |> 
   summarise(
     TOTAL = round(sum(ARANCEL, na.rm = TRUE) + sum(COSTO_FINANCIERO, na.rm = TRUE) + sum(TASA, na.rm = TRUE)),
@@ -562,7 +589,8 @@ SAC_vac_liq_TIENDA <- SAC_vac_liq_TOTAL %>%
   mutate(AÑO = year(Periodo),
          MES = month(Periodo),
          Tienda = if_else(Periodo<Fecha_nueva_tienda | is.na(Fecha_nueva_tienda), Tienda, Nueva_tienda)) %>% 
-  select(-Fecha_nueva_tienda, -Nueva_tienda)
+  select(-Fecha_nueva_tienda, -Nueva_tienda) |> 
+  filter(!is.na(Tienda))
   
   
 ```
@@ -703,6 +731,8 @@ Tabla_incentivo <- Premio %>%
          MES = month(Periodo),
          Tienda = if_else(Periodo<Fecha_nueva_tienda | is.na(Fecha_nueva_tienda), Tienda, Nueva_tienda)) %>% 
   select(-Fecha_nueva_tienda, -Nueva_tienda) %>% 
+  filter(!is.na(Tienda)) |> 
+  filter(Premio>0) |> 
   group_by(AÑO, MES, Tienda) %>% 
   summarise(TOTAL = sum(Premio),
             .groups = "drop") %>% 
@@ -750,10 +780,6 @@ fila_total_sueldos <- Sueldos_completo %>%
 Tabla_sueldos_FINAL <- bind_rows(Sueldos_completo, fila_total_sueldos) %>% 
   mutate(CATEGORIA = "Sueldos")
 
-
-SEPARAR AL FINAL LOS SUELDOS SIN Y CON PREMIOS EN DOS TABLAS, UNA PARA EL DASHBOARD Y OTRA PARA REPORTE GASTOS.
-VER QUÉ PASA QUE HAY VALORES 0 PARA NA EN tiendas
-VER QUÉ PASA CON RESULTADO FINAL 0 PARA NA EN TIENDA.
 ```
 
 #IMPUESTOS
@@ -777,7 +803,8 @@ Multa <- data.frame(
 Impuestos_unificados <- bind_rows(IIBB, Multa)
   
 #Fila total impuestos
-fila_total_impuestos <- Impuestos_unificados %>% 
+fila_total_impuestos <- Impuestos_unificados %>%
+  filter(MES<= mes_maximo) |> 
   group_by(AÑO, MES, TIENDA) %>% 
   summarise(TOTAL = sum(TOTAL, na.rm = TRUE),
             .groups = "drop") %>% 
@@ -785,7 +812,7 @@ fila_total_impuestos <- Impuestos_unificados %>%
 
 #Tabla final
 Tabla_impuestos <- bind_rows(Impuestos_unificados, fila_total_impuestos) %>% 
-  mutate(CATEGORIA = "Impuestos")
+  mutate(CATEGORIA = "Impuestos") 
 
 ```
 
@@ -829,13 +856,14 @@ fila_resultado_final <- fila_resultado_operativo %>%
 
 ##Creo tabla final
 ```{r}
-
 Tablas_unidas <- bind_rows(Tabla_ventas_costo_margen, Tabla_gastos, Tabla_gasto_financiero, Tabla_sueldos_FINAL, fila_resultado_operativo, Tabla_impuestos, fila_resultado_final) %>% 
   select(-CATEGORIA) %>% 
    filter(AÑO >= año_minimo & MES <= mes_maximo) 
 
 #Le agrego columna SECCION para que la lea bien el dashboard
 TABLA_PRESUPUESTO <- Tablas_unidas %>% 
+  filter(CONCEPTO != "Sueldo_con_premios") |> 
+  mutate(CONCEPTO = if_else(CONCEPTO == "Sueldo_sin_premios", "Sueldo", CONCEPTO)) |> 
   mutate(SECCION = case_when(
     CONCEPTO %in% c("Venta_con_imp", "Venta_sin_imp", "Costo",
                     "Margen_bruto_valor", "Margen_bruto_porc")          ~ "Ventas",
@@ -859,9 +887,51 @@ TABLA_PRESUPUESTO <- Tablas_unidas %>%
     
     TRUE ~ "Otros"  # captura cualquier concepto nuevo que aparezca
   ))
- 
+
+```
+
+
+#Creo tabla para reporte de gastos
+```{r}
+
+TABLA_REPORTE_GASTOS <- Tablas_unidas %>% 
+  filter(CONCEPTO != "Sueldo_sin_premios") |> 
+  mutate(CONCEPTO = if_else(CONCEPTO == "Sueldo_con_premios", "Sueldo", CONCEPTO)) |> 
+  mutate(SECCION = case_when(
+    CONCEPTO %in% c("Venta_con_imp", "Venta_sin_imp", "Costo",
+                    "Margen_bruto_valor", "Margen_bruto_porc")          ~ "Ventas",
+    
+    CONCEPTO %in% c("Alquiler", "Expensas", "ABL", "AYSA",
+                    "Administración", "Edesur", "Fumigación", "Internet",
+                    "Logística", "Mantenimiento", "Matafuegos", "Packaging",
+                    "Alarma", "Servicios", "Multa", "Otros gastos",
+                    "Subtotal_gastos")                                   ~ "Gastos Operativos",
+    
+    CONCEPTO %in% c("Tarjeta crédito 1 cuota", "Tarjeta crédito 2 cuotas",
+                    "Tarjeta crédito 3 cuotas", "Tarjeta crédito 6 cuotas",
+                    "Tarjeta débito", "Mercado Pago",
+                    "Subtotal_gastos_financieros")                       ~ "Gastos Financieros",
+    
+    CONCEPTO %in% c("Sueldo", "Contribuciones", "Incentivo",
+                    "Vacaciones", "Liq Final", "Subtotal_sueldos")       ~ "Sueldos",
+    
+    CONCEPTO %in% c("Resultado operativo", "IIBB",
+                    "Subtotal_impuestos", "Resultado final")             ~ "Resultado",
+    
+    TRUE ~ "Otros"  # captura cualquier concepto nuevo que aparezca
+  ))
+
+```
+
+
+
+```{r}
 write.xlsx(TABLA_PRESUPUESTO, paste0("Presupuestos tiendas/Tabla presupuestos_", año_minimo, mes_maximo, ".xlsx"))
 ```
+
+
+
+
 
 #ESCRIBO EL EXCEL
 ## Primero creo el orden de las filas

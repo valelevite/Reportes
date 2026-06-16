@@ -319,6 +319,7 @@
       ⬆ Cargar datos
       <input type="file" id="file-input" accept=".xlsx" style="display:none" onchange="handleFileUpload(this.files[0])">
     </label>
+    <button class="btn-download" onclick="saveDashboard()" title="Descargar el dashboard completo con los datos actuales">💾 Guardar dashboard</button>
     <span id="upload-status" style="font-size:11px;color:rgba(255,255,255,.8);white-space:nowrap"></span>
   </div>
 </header>
@@ -492,6 +493,27 @@ function showUploadStatus(msg, isError = false) {
   el.textContent = msg;
   el.style.color = isError ? '#f87171' : 'rgba(255,255,255,.85)';
   if (!isError) setTimeout(() => { el.textContent = ''; }, 5000);
+}
+
+// ── GUARDAR DASHBOARD (descarga HTML completo con los datos actuales) ──
+function saveDashboard() {
+  try {
+    const newRawJson = JSON.stringify(RAW);
+    let html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+    html = html.replace(/let RAW = \[.*?\];/s, 'let RAW = ' + newRawJson + ';');
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'dashboard_el_lucero.html';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showUploadStatus('✓ Dashboard guardado');
+  } catch (err) {
+    showUploadStatus('⚠ Error al guardar: ' + err.message, true);
+  }
 }
 
 document.addEventListener('click', e => {

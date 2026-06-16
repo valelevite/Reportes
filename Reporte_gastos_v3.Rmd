@@ -29,20 +29,28 @@ AÑO_GASTOS <- 2026
 #Tomo los valores de los dataframes creados en el R de Presupuestos
 ```{r}
 
-tomo_valores <- TABLA_PRESUPUESTO %>% 
+DA ERROR EL ACROSS
+
+tomo_valores <- TABLA_REPORTE_GASTOS %>% 
   filter(MES == MES_GASTOS,
          AÑO == AÑO_GASTOS) %>% 
-  filter(CONCEPTO %in% c("Venta_con_imp", "Alquiler", "Expensas", "Sueldo", "Contribuciones", "ABL", "AYSA", "Alarma", "Edesur", "Fumigación", "Internet", "Mantenimiento", "Matafuegos", "Alarma", "SERVICIOS", "Multa")) %>% 
+  filter(SECCION == "Gastos Operativos" | 
+         CONCEPTO %in% c("Venta_con_imp", "Sueldo", "Contribuciones", "Multa")) %>% 
+  filter(!CONCEPTO %in% c("Subtotal_gastos", "Packaging", "Logística", "Otros gastos", "Administración")) |> 
+  select(-SECCION) |> 
   pivot_wider(
     names_from  = CONCEPTO,
     values_from = TOTAL,
     values_fill = 0
   ) |>
   mutate(
+    Otros_gastos = rowSums(across(-c(AÑO, MES, TIENDA, 
+                                       Venta_con_imp, Sueldos, Contribuciones, 
+                                       Alquiler, Expensas)), na.rm = TRUE)) |>
+  mutate(
     Venta                    = Venta_con_imp,
-    Sueldos                  = Sueldo_con_premios + Contribuciones,
-    `Total_alquileres+expensas` = Alquiler + Expensas,
-    Otros_gastos             = ABL + AYSA + Alarma + Edesur + Fumigación + Internet + Mantenimiento + Matafuegos + SERVICIOS + Multa
+    Sueldos                  = Sueldos + Contribuciones,
+    `Total_alquileres+expensas` = Alquiler + Expensas
   ) |>
   select(TIENDA,
          Venta, Sueldos, Alquileres = Alquiler, Expensas,
@@ -90,6 +98,8 @@ df_final <- bind_rows(bloques, sin_zona, total_general)
 
 ```
 
+
+  
 
 #Escribo la tabla
 ```{r}
