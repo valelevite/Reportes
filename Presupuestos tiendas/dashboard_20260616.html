@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dashboard El Lucero</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:           #F4F6F8;
+    --surface:      #FFFFFF;
+    --surface2:     #EEF1F4;
+    --border:       #DDE2E8;
+    --border-soft:  #EEF1F4;
+    --brand:        #005363;
+    --brand-mid:    #006f85;
+    --brand-light:  #e6f2f4;
+    --brand-xlight: #f0f8f9;
+    --text:         #111827;
+    --text-mid:     #374151;
+    --muted:        #5A6A7A;
+    --green:        #0E9E6E;
+    --green-bg:     #EDFAF4;
+    --red:          #D94040;
+    --red-bg:       #FEF0F0;
+    --amber:        #B45309;
+    --amber-bg:     #FFFBEB;
+    --shadow-sm:    0 1px 3px rgba(0,83,99,.06), 0 1px 2px rgba(0,0,0,.04);
+    --shadow-md:    0 4px 16px rgba(0,83,99,.08), 0 2px 4px rgba(0,0,0,.04);
+    --radius:       12px;
+    --radius-sm:    8px;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', system-ui, sans-serif;
+    font-size: 13px;
+    line-height: 1.5;
+  }
+
+  /* ── HEADER ── */
+  header {
+    background: var(--brand);
+    padding: 0 32px;
+    height: 60px;
+    display: flex; align-items: center; gap: 20px;
+    position: sticky; top: 0; z-index: 100;
+    box-shadow: 0 2px 12px rgba(0,0,0,.15);
+  }
+  .header-logo {
+    display: flex; align-items: center; gap: 10px;
+    text-decoration: none;
+  }
+  .logo-mark {
+    width: 32px; height: 32px; border-radius: 8px;
+    background: rgba(255,255,255,.15);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; flex-shrink: 0;
+  }
+  header h1 {
+    font-size: 15px; font-weight: 600;
+    color: #fff; white-space: nowrap; letter-spacing: -.01em;
+  }
+  header .divider {
+    width: 1px; height: 24px;
+    background: rgba(255,255,255,.2); flex-shrink: 0;
+  }
+  header span.year {
+    font-size: 12px; color: rgba(255,255,255,.6);
+    font-weight: 400;
+  }
+
+  /* ── FILTERS ── */
+  .filters { display: flex; align-items: center; gap: 10px; margin-left: auto; flex-wrap: wrap; }
+  .filter-group { display: flex; align-items: center; gap: 6px; position: relative; }
+  label {
+    font-size: 11px; color: rgba(255,255,255,.65);
+    text-transform: uppercase; letter-spacing: .06em; font-weight: 500;
+  }
+
+  /* Multiselect */
+  .ms-trigger {
+    background: rgba(255,255,255,.12);
+    border: 1px solid rgba(255,255,255,.2);
+    color: #fff;
+    padding: 6px 12px; border-radius: var(--radius-sm); font-size: 12px; cursor: pointer;
+    min-width: 180px; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+    user-select: none; transition: all .15s; font-family: 'DM Sans', sans-serif;
+  }
+  .ms-trigger:hover { background: rgba(255,255,255,.2); border-color: rgba(255,255,255,.35); }
+  .ms-trigger.open { background: rgba(255,255,255,.22); border-color: rgba(255,255,255,.4); }
+  .ms-trigger .ms-arrow { font-size: 9px; color: rgba(255,255,255,.6); transition: transform .2s; }
+  .ms-trigger.open .ms-arrow { transform: rotate(180deg); }
+  .ms-dropdown {
+    display: none; position: absolute; top: calc(100% + 6px); right: 0;
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm);
+    min-width: 220px; z-index: 999; box-shadow: var(--shadow-md);
+    overflow: hidden;
+  }
+  .ms-dropdown.open { display: block; }
+  .ms-header {
+    padding: 8px 12px; border-bottom: 1px solid var(--border-soft);
+    display: flex; gap: 8px; background: var(--surface2);
+  }
+  .ms-btn {
+    font-size: 11px; color: var(--brand-mid); cursor: pointer; background: none; border: none;
+    padding: 2px 8px; border-radius: 4px; font-weight: 500; font-family: 'DM Sans', sans-serif;
+    transition: background .1s;
+  }
+  .ms-btn:hover { background: var(--brand-light); }
+  .ms-list { max-height: 260px; overflow-y: auto; padding: 4px 0; }
+  .ms-item {
+    display: flex; align-items: center; gap: 8px; padding: 7px 14px; cursor: pointer;
+    font-size: 12px; transition: background .1s; color: var(--text);
+  }
+  .ms-item:hover { background: var(--brand-xlight); }
+  .ms-item input[type=checkbox] { accent-color: var(--brand-mid); width: 13px; height: 13px; cursor: pointer; }
+
+  /* Download button */
+  .btn-download {
+    background: rgba(255,255,255,.12); border: 1px solid rgba(255,255,255,.25); color: #fff;
+    padding: 6px 14px; border-radius: var(--radius-sm); font-size: 12px; cursor: pointer;
+    display: flex; align-items: center; gap: 6px; white-space: nowrap;
+    transition: all .15s; font-family: 'DM Sans', sans-serif; font-weight: 500;
+  }
+  .btn-download:hover { background: rgba(255,255,255,.22); border-color: rgba(255,255,255,.4); }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 2px; background: rgba(0,0,0,.15); padding: 3px; border-radius: var(--radius-sm); }
+  .tab {
+    padding: 5px 16px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: 500;
+    color: rgba(255,255,255,.65); border: none; background: transparent; transition: all .15s;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .tab.active { background: #fff; color: var(--brand); font-weight: 600; }
+
+  /* ── LAYOUT ── */
+  main { padding: 24px 32px; }
+
+  /* ── KPI CARDS ── */
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin-bottom: 24px; }
+  .kpi {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    box-shadow: var(--shadow-sm);
+    border-left: 3px solid var(--brand);
+    transition: box-shadow .2s;
+  }
+  .kpi:hover { box-shadow: var(--shadow-md); }
+  .kpi .kpi-label {
+    font-size: 10px; text-transform: uppercase; letter-spacing: .08em;
+    color: var(--muted); margin-bottom: 8px; font-weight: 600;
+  }
+  .kpi .kpi-val { font-size: 22px; font-weight: 700; letter-spacing: -.02em; color: var(--text); }
+  .kpi .kpi-val.pos { color: var(--green); }
+  .kpi .kpi-val.neg { color: var(--red); }
+  .kpi .kpi-val.neutral { color: var(--brand); }
+  .kpi .kpi-sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+  /* ── CHART PANELS ── */
+  .chart-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: var(--shadow-sm);
+  }
+  .chart-panel h2 {
+    font-size: 11px; font-weight: 600; color: var(--muted);
+    margin-bottom: 16px; text-transform: uppercase; letter-spacing: .08em;
+  }
+  .chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 900px) { .chart-row { grid-template-columns: 1fr; } }
+  .chart-wrap { position: relative; height: 220px; }
+
+  #breakdown-row-inner { display: grid; grid-template-columns: 1fr; gap: 20px; }
+  #breakdown-row-inner.side-by-side { grid-template-columns: 1fr 1fr; }
+  .chart-subpanel { display: flex; flex-direction: column; }
+  .chart-subpanel-title {
+    font-size: 11px; font-weight: 600; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .08em;
+    text-align: center; margin-bottom: 6px;
+  }
+
+  /* ── TABLE ── */
+  .table-panel {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow-sm);
+  }
+  .table-panel h2 {
+    font-size: 13px; font-weight: 600; color: var(--text);
+    padding: 16px 20px; border-bottom: 1px solid var(--border);
+    letter-spacing: -.01em;
+  }
+  .table-scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  th {
+    background: var(--surface2); color: #3D4F5F; font-weight: 700; font-size: 11px;
+    text-transform: uppercase; letter-spacing: .06em;
+    padding: 10px 14px; white-space: nowrap;
+    border-bottom: 2px solid var(--border);
+    text-align: center;
+  }
+  th:first-child { text-align: left; }
+  td {
+    padding: 7px 14px; text-align: right;
+    border-bottom: 1px solid var(--border-soft);
+    white-space: nowrap; color: var(--text);
+  }
+  td:first-child { text-align: left; }
+  tr:hover td { background: var(--brand-xlight); }
+
+  /* Row types */
+  tr.group-header td {
+    background: var(--brand); color: #fff; font-weight: 700; font-size: 11px;
+    text-transform: uppercase; letter-spacing: .07em; padding: 9px 14px;
+  }
+  tr.group-header.exp-header td:first-child { }
+  tr.group-header.exp-header .sub-th {
+    color: rgba(255,255,255,.75); font-size: 10px; letter-spacing: .05em;
+    vertical-align: middle;
+  }
+  tr.subtotal td {
+    background: var(--brand-light); font-weight: 700; color: #004050;
+    border-top: 1px solid rgba(0,83,99,.15);
+  }
+  tr.result-op td {
+    background: var(--amber-bg); font-weight: 700; color: #92400E;
+    border-top: 1px solid #F5D89A;
+  }
+  tr.result-final td {
+    font-weight: 800; font-size: 13px;
+    border-top: 2px solid var(--border);
+    background: var(--surface2);
+  }
+  tr.result-final td.pos { color: var(--green); }
+  tr.result-final td.neg { color: var(--red); }
+  tr.detail td:first-child { padding-left: 30px; color: #374151; }
+  tr.perc td { font-style: italic; color: #005363; }
+
+  .pos-num { color: var(--green); }
+  .neg-num { color: var(--red); }
+  .zero-num { color: #6B7A8D; }
+  .muted-pct { color: #4A5D6E !important; font-size: 11px; font-style: italic; }
+  .perc-cell { font-style: italic; }
+
+  tr.subheader th { background: var(--surface2); color: var(--muted); font-size: 10px; }
+  tr.col-subheader td, tr.col-subheader th { background: var(--brand-light); padding: 5px 10px; }
+  .sub-th { font-size: 10px; text-transform: uppercase; letter-spacing: .05em; text-align: right; font-weight: 700; color: #4A5D6E; }
+
+  /* Month column tints */
+  .m-even { background: rgba(0,83,99,.04); }
+  .m-total { background: rgba(0,83,99,.07); }
+  th.m-even { background: #d3e8ed; color: #004050; }
+  th.m-total { background: #b8d8df; color: #003340; }
+  th.m-even.sub-th { background: #e0eef1; }
+  th.m-total.sub-th { background: #cce2e7; }
+  td.m-start, th.m-start { border-left: 2px solid rgba(0,83,99,.2) !important; }
+  th.th-concepto { vertical-align: middle; }
+
+  /* View toggle */
+  #view-tabla { display: block; }
+  #view-graficos { display: none; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-logo">
+    <div class="logo-mark">✦</div>
+    <h1>El Lucero</h1>
+  </div>
+  <div class="divider"></div>
+  <span class="year">2026</span>
+  <div class="filters">
+    <div class="filter-group">
+      <label>Meses</label>
+      <div class="ms-trigger" id="ms-trigger-mes" onclick="toggleDropdownMes()">
+        <span id="ms-label-mes">Todos los meses</span>
+        <span class="ms-arrow">▼</span>
+      </div>
+      <div class="ms-dropdown" id="ms-dropdown-mes">
+        <div class="ms-header">
+          <button class="ms-btn" onclick="selectAllMes(event)">Todos</button>
+          <button class="ms-btn" onclick="selectNoneMes(event)">Ninguno</button>
+        </div>
+        <div class="ms-list" id="ms-list-mes"></div>
+      </div>
+    </div>
+    <div class="filter-group">
+      <label>Tiendas</label>
+      <div class="ms-trigger" id="ms-trigger" onclick="toggleDropdown()">
+        <span id="ms-label">Todas las tiendas</span>
+        <span class="ms-arrow">▼</span>
+      </div>
+      <div class="ms-dropdown" id="ms-dropdown">
+        <div class="ms-header">
+          <button class="ms-btn" onclick="selectAll(event)">Todas</button>
+          <button class="ms-btn" onclick="selectNone(event)">Ninguna</button>
+        </div>
+        <div class="ms-list" id="ms-list"></div>
+      </div>
+    </div>
+    <div class="tabs">
+      <button class="tab active" onclick="setView('tabla')">Tabla</button>
+      <button class="tab" onclick="setView('graficos')">Gráficos</button>
+    </div>
+    <button class="btn-download" id="btn-excel" onclick="downloadExcel()">⬇ Descargar tabla</button>
+    <label class="btn-download" style="cursor:pointer" title="Cargar nuevo archivo de datos">
+      ⬆ Cargar datos
+      <input type="file" id="file-input" accept=".xlsx" style="display:none" onchange="handleFileUpload(this.files[0])">
+    </label>
+    <button class="btn-download" onclick="saveDashboard()" title="Descargar el dashboard completo con los datos actuales">💾 Guardar dashboard</button>
+    <span id="upload-status" style="font-size:11px;color:rgba(255,255,255,.8);white-space:nowrap"></span>
+  </div>
+</header>
+
+<main>
+  <div class="kpis" id="kpis"></div>
+
+  <div id="view-tabla">
+    <div class="table-panel">
+      <h2 id="table-title">Estado de Resultados</h2>
+      <div class="table-scroll">
+        <table id="pnl-table"></table>
+      </div>
+    </div>
+  </div>
+
+  <div id="view-graficos">
+    <div class="chart-panel">
+      <h2 id="chart-title">Comparativa por tienda</h2>
+      <div class="chart-row">
+        <div class="chart-wrap"><canvas id="chart-result"></canvas></div>
+        <div class="chart-wrap"><canvas id="chart-margen"></canvas></div>
+      </div>
+    </div>
+    <div class="chart-panel" id="panel-breakdown-row">
+      <div id="breakdown-row-inner">
+        <div class="chart-subpanel">
+          <div class="chart-subpanel-title">Composición de egresos</div>
+          <div class="chart-wrap" style="height:290px"><canvas id="chart-breakdown"></canvas></div>
+        </div>
+        <div class="chart-wrap" style="height:300px"><canvas id="chart-gastos-stack"></canvas></div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+let RAW = [{"AÑO": 2026, "MES": 1, "TIENDA": "AS San Telmo", "CONCEPTO": "Venta_con_imp", "TOTAL": 16125916.84}, {"AÑO": 2026, "MES": 1, "TIENDA": "AS San Telmo", "CONCEPTO": "Venta_sin_imp", "TOTAL": 13327204.08}, {"AÑO": 2026, "MES": 1, "TIENDA": "AS San Telmo", "CONCEPTO": "Costo", "TOTAL": 3066505.76}, {"AÑO": 2026, "MES": 1, "TIENDA": "AS San Telmo", "CONCEPTO": "Margen_bruto_valor", "TOTAL": 10260698.32}, {"AÑO": 2026, "MES": 1, "TIENDA": "AS San Telmo", "CONCEPTO": "Margen_bruto_porc", "TOTAL": 0.77}, {"AÑO": 2026, "MES": 1, "TIENDA": "El Solar", "CONCEPTO": "Venta_con_imp", "TOTAL": 4959712.82}, {"AÑO": 2026, "MES": 1, "TIENDA": "El Solar", "CONCEPTO": "Venta_sin_imp", "TOTAL": 3397771.15}, {"AÑO": 2026, "MES": 1, "TIENDA": "El Solar", "CONCEPTO": "Costo", "TOTAL": 673377.54}, {"AÑO": 2026, "MES": 1, "TIENDA": "El Solar", "CONCEPTO": "Margen_bruto_valor", "TOTAL": 2724393.61}, {"AÑO": 2026, "MES": 1, "TIENDA": "El Solar", "CONCEPTO": "Margen_bruto_porc", "TOTAL": 0.8}, {"AÑO": 2026, "MES": 1, "TIENDA": "Florida", "CONCEPTO": "Venta_con_imp", "TOTAL": 49769692.16}, {"AÑO": 2026, "MES": 1, "TIENDA": "Florida", "CONCEPTO": "Venta_sin_imp", "TOTAL": 41671685.85}, {"AÑO": 2026, "MES": 1, "TIENDA": "Florida", "CONCEPTO": "Costo", "TOTAL": 10149189.03}, {"AÑO": 2026, "MES": 1, "TIENDA": "Florida", "CONCEPTO": "Margen_bruto_valor", "TOTAL": 31522496.82}, {"AÑO": 2026, "MES": 1, "TIENDA": "Florida", "CONCEPTO": "Margen_bruto_porc", "TOTAL": 0.76}, {"AÑO": 2026, "MES": 1, "TIENDA": "French", "CONCEPTO": "Venta_con_imp", "TOTAL": 21769881.93}, {"AÑO": 2026, "MES": 1, "TIENDA": "French", "CONCEPTO": "Venta_sin_imp", "TOTAL": 17995338.76}, {"AÑO": 2026, "MES": 1, "TIENDA": "French", "CONCEPTO": "Costo", "TOTAL": 4426118.13}, {"AÑO": 2026, "MES": 1, "TIENDA": "French", "CONCEPTO": "Margen_bruto_valor", "TOTAL": 13569220.63}, {"AÑO": 2026, "MES": 1, "TIENDA": "French", "CONCEPTO": "Margen_bruto_porc", "TOTAL": 0.75}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes", "CONCEPTO": "Venta_con_imp", "TOTAL": 3623339.96}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes", "CONCEPTO": "Venta_sin_imp", "TOTAL": 3168024.75}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes", "CONCEPTO": "Costo", "TOTAL": 790606.59}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes", "CONCEPTO": "Margen_bruto_valor", "TOTAL": 2377418.16}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes", "CONCEPTO": "Margen_bruto_porc", "TOTAL": 0.75}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes 2", "CONCEPTO": "Venta_con_imp", "TOTAL": 4982999.91}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes 2", "CONCEPTO": "Venta_sin_imp", "TOTAL": 3413013.61}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes 2", "CONCEPTO": "Costo", "TOTAL": 648033.41}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes 2", "CONCEPTO": "Margen_bruto_valor", "TOTAL": 2764980.2}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes 2", "CONCEPTO": "Margen_bruto_porc", "TOTAL": 0.81}, {"AÑO": 2026, "MES": 1, "TIENDA": "Recoleta", "CONCEPTO": "Venta_con_imp", "TOTAL": 25475593.41}, {"AÑO": 2026, "MES": 1, "TIENDA": "Recoleta", "CONCEPTO": "Venta_sin_imp", "TOTAL": 21460644.58}, {"AÑO": 2026, "MES": 1, "TIENDA": "Recoleta", "CONCEPTO": "Costo", "TOTAL": 5359035.5}, {"AÑO": 2026, "MES": 1, "TIENDA": "Recoleta", "CONCEPTO": "Margen_bruto_valor", "TOTAL": 16101609.08}, {"AÑO": 2026, "MES": 1, "TIENDA": "Recoleta", "CONCEPTO": "Margen_bruto_porc", "TOTAL": 0.75}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo", "CONCEPTO": "Venta_con_imp", "TOTAL": 39662999.96}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo", "CONCEPTO": "Venta_sin_imp", "TOTAL": 32800826.26}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo", "CONCEPTO": "Costo", "TOTAL": 6588266.97}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo", "CONCEPTO": "Margen_bruto_valor", "TOTAL": 26212559.29}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo", "CONCEPTO": "Margen_bruto_porc", "TOTAL": 0.8}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo 2", "CONCEPTO": "Venta_con_imp", "TOTAL": 17824030.18}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo 2", "CONCEPTO": "Venta_sin_imp", "TOTAL": 14846289.29}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo 2", "CONCEPTO": "Costo", "TOTAL": 3560181.5}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo 2", "CONCEPTO": "Margen_bruto_valor", "TOTAL": 11286107.79}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo 2", "CONCEPTO": "Margen_bruto_porc", "TOTAL": 0.76}, {"AÑO": 2026, "MES": 2, "TIENDA": "AS San Telmo", "CONCEPTO": "Venta_con_imp", "TOTAL": 13799296.42}, {"AÑO": 2026, "MES": 2, "TIENDA": "AS San Telmo", "CONCEPTO": "Venta_sin_imp", "TOTAL": 11404377.27}, {"AÑO": 2026, "MES": 2, "TIENDA": "AS San Telmo", "CONCEPTO": "Costo", "TOTAL": 2627930.23}, {"AÑO": 2026, "MES": 2, "TIENDA": "AS San Telmo", "CONCEPTO": "Margen_bruto_valor", "TOTAL": 8776447.04}, {"AÑO": 2026, "MES": 2, "TIENDA": "AS San Telmo", "CONCEPTO": "Margen_bruto_porc", "TOTAL": 0.77}, {"AÑO": 2026, "MES": 2, "TIENDA": "El Solar", "CONCEPTO": "Venta_con_imp", "TOTAL": 7961629.92}, {"AÑO": 2026, "MES": 2, "TIENDA": "El Solar", "CONCEPTO": "Venta_sin_imp", "TOTAL": 5471527.63}, {"AÑO": 2026, "MES": 2, "TIENDA": "El Solar", "CONCEPTO": "Costo", "TOTAL": 1150843.1}, {"AÑO": 2026, "MES": 2, "TIENDA": "El Solar", "CONCEPTO": "Margen_bruto_valor", "TOTAL": 4320684.53}, {"AÑO": 2026, "MES": 2, "TIENDA": "El Solar", "CONCEPTO": "Margen_bruto_porc", "TOTAL": 0.79}, {"AÑO": 2026, "MES": 2, "TIENDA": "Florida", "CONCEPTO": "Venta_con_imp", "TOTAL": 56105566.22}, {"AÑO": 2026, "MES": 2, "TIENDA": "Florida", "CONCEPTO": "Venta_sin_imp", "TOTAL": 47356462.45}, {"AÑO": 2026, "MES": 2, "TIENDA": "Florida", "CONCEPTO": "Costo", "TOTAL": 11192232.06}, {"AÑO": 2026, "MES": 2, "TIENDA": "Florida", "CONCEPTO": "Margen_bruto_valor", "TOTAL": 36164230.39}, {"AÑO": 2026, "MES": 2, "TIENDA": "Florida", "CONCEPTO": "Margen_bruto_porc", "TOTAL": 0.76}, {"AÑO": 2026, "MES": 2, "TIENDA": "French", "CONCEPTO": "Venta_con_imp", "TOTAL": 16278681.88}, {"AÑO": 2026, "MES": 2, "TIENDA": "French", "CONCEPTO": "Venta_sin_imp", "TOTAL": 13457156.91}, {"AÑO": 2026, "MES": 2, "TIENDA": "French", "CONCEPTO": "Costo", "TOTAL": 2874747.28}, {"AÑO": 2026, "MES": 2, "TIENDA": "French", "CONCEPTO": "Margen_bruto_valor", "TOTAL": 10582409.63}, {"AÑO": 2026, "MES": 2, "TIENDA": "French", "CONCEPTO": "Margen_bruto_porc", "TOTAL": 0.79}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes", "CONCEPTO": "Venta_con_imp", "TOTAL": 2967396.82}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes", "CONCEPTO": "Venta_sin_imp", "TOTAL": 2477148.73}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes", "CONCEPTO": "Costo", "TOTAL": 623461.2}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes", "CONCEPTO": "Margen_bruto_valor", "TOTAL": 1853687.53}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes", "CONCEPTO": "Margen_bruto_porc", "TOTAL": 0.75}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes 2", "CONCEPTO": "Venta_con_imp", "TOTAL": 9447799.86}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes 2", "CONCEPTO": "Venta_sin_imp", "TOTAL": 6481709.33}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes 2", "CONCEPTO": "Costo", "TOTAL": 1374407.31}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes 2", "CONCEPTO": "Margen_bruto_valor", "TOTAL": 5107302.02}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes 2", "CONCEPTO": "Margen_bruto_porc", "TOTAL": 0.79}, {"AÑO": 2026, "MES": 2, "TIENDA": "Recoleta", "CONCEPTO": "Venta_con_imp", "TOTAL": 20943355.21}, {"AÑO": 2026, "MES": 2, "TIENDA": "Recoleta", "CONCEPTO": "Venta_sin_imp", "TOTAL": 18052504.15}, {"AÑO": 2026, "MES": 2, "TIENDA": "Recoleta", "CONCEPTO": "Costo", "TOTAL": 4641224.72}, {"AÑO": 2026, "MES": 2, "TIENDA": "Recoleta", "CONCEPTO": "Margen_bruto_valor", "TOTAL": 13411279.43}, {"AÑO": 2026, "MES": 2, "TIENDA": "Recoleta", "CONCEPTO": "Margen_bruto_porc", "TOTAL": 0.74}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo", "CONCEPTO": "Venta_con_imp", "TOTAL": 30438640.07}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo", "CONCEPTO": "Venta_sin_imp", "TOTAL": 25155900.6}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo", "CONCEPTO": "Costo", "TOTAL": 5034875.21}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo", "CONCEPTO": "Margen_bruto_valor", "TOTAL": 20121025.39}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo", "CONCEPTO": "Margen_bruto_porc", "TOTAL": 0.8}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo 2", "CONCEPTO": "Venta_con_imp", "TOTAL": 12951444.02}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo 2", "CONCEPTO": "Venta_sin_imp", "TOTAL": 10942446.46}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo 2", "CONCEPTO": "Costo", "TOTAL": 2244969.41}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo 2", "CONCEPTO": "Margen_bruto_valor", "TOTAL": 8697477.05}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo 2", "CONCEPTO": "Margen_bruto_porc", "TOTAL": 0.79}, {"AÑO": 2026, "MES": 3, "TIENDA": "AS San Telmo", "CONCEPTO": "Venta_con_imp", "TOTAL": 14652695.72}, {"AÑO": 2026, "MES": 3, "TIENDA": "AS San Telmo", "CONCEPTO": "Venta_sin_imp", "TOTAL": 12109665.99}, {"AÑO": 2026, "MES": 3, "TIENDA": "AS San Telmo", "CONCEPTO": "Costo", "TOTAL": 2688360.99}, {"AÑO": 2026, "MES": 3, "TIENDA": "AS San Telmo", "CONCEPTO": "Margen_bruto_valor", "TOTAL": 9421305.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "AS San Telmo", "CONCEPTO": "Margen_bruto_porc", "TOTAL": 0.78}, {"AÑO": 2026, "MES": 3, "TIENDA": "El Solar", "CONCEPTO": "Venta_con_imp", "TOTAL": 10327999.73}, {"AÑO": 2026, "MES": 3, "TIENDA": "El Solar", "CONCEPTO": "Venta_sin_imp", "TOTAL": 7086708.7}, {"AÑO": 2026, "MES": 3, "TIENDA": "El Solar", "CONCEPTO": "Costo", "TOTAL": 1582383.92}, {"AÑO": 2026, "MES": 3, "TIENDA": "El Solar", "CONCEPTO": "Margen_bruto_valor", "TOTAL": 5504324.78}, {"AÑO": 2026, "MES": 3, "TIENDA": "El Solar", "CONCEPTO": "Margen_bruto_porc", "TOTAL": 0.78}, {"AÑO": 2026, "MES": 3, "TIENDA": "Florida", "CONCEPTO": "Venta_con_imp", "TOTAL": 63788150.53}, {"AÑO": 2026, "MES": 3, "TIENDA": "Florida", "CONCEPTO": "Venta_sin_imp", "TOTAL": 53597619.71}, {"AÑO": 2026, "MES": 3, "TIENDA": "Florida", "CONCEPTO": "Costo", "TOTAL": 12976162.45}, {"AÑO": 2026, "MES": 3, "TIENDA": "Florida", "CONCEPTO": "Margen_bruto_valor", "TOTAL": 40621457.26}, {"AÑO": 2026, "MES": 3, "TIENDA": "Florida", "CONCEPTO": "Margen_bruto_porc", "TOTAL": 0.76}, {"AÑO": 2026, "MES": 3, "TIENDA": "French", "CONCEPTO": "Venta_con_imp", "TOTAL": 22059683.74}, {"AÑO": 2026, "MES": 3, "TIENDA": "French", "CONCEPTO": "Venta_sin_imp", "TOTAL": 18238545.24}, {"AÑO": 2026, "MES": 3, "TIENDA": "French", "CONCEPTO": "Costo", "TOTAL": 3942990.86}, {"AÑO": 2026, "MES": 3, "TIENDA": "French", "CONCEPTO": "Margen_bruto_valor", "TOTAL": 14295554.38}, {"AÑO": 2026, "MES": 3, "TIENDA": "French", "CONCEPTO": "Margen_bruto_porc", "TOTAL": 0.78}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes", "CONCEPTO": "Venta_con_imp", "TOTAL": 3804986.83}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes", "CONCEPTO": "Venta_sin_imp", "TOTAL": 3271669.41}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes", "CONCEPTO": "Costo", "TOTAL": 784471.53}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes", "CONCEPTO": "Margen_bruto_valor", "TOTAL": 2487197.88}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes", "CONCEPTO": "Margen_bruto_porc", "TOTAL": 0.76}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes 2", "CONCEPTO": "Venta_con_imp", "TOTAL": 8695899.86}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes 2", "CONCEPTO": "Venta_sin_imp", "TOTAL": 5964586.65}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes 2", "CONCEPTO": "Costo", "TOTAL": 1444500.09}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes 2", "CONCEPTO": "Margen_bruto_valor", "TOTAL": 4520086.56}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes 2", "CONCEPTO": "Margen_bruto_porc", "TOTAL": 0.76}, {"AÑO": 2026, "MES": 3, "TIENDA": "Recoleta", "CONCEPTO": "Venta_con_imp", "TOTAL": 29608257.6}, {"AÑO": 2026, "MES": 3, "TIENDA": "Recoleta", "CONCEPTO": "Venta_sin_imp", "TOTAL": 25223396.63}, {"AÑO": 2026, "MES": 3, "TIENDA": "Recoleta", "CONCEPTO": "Costo", "TOTAL": 6543893.34}, {"AÑO": 2026, "MES": 3, "TIENDA": "Recoleta", "CONCEPTO": "Margen_bruto_valor", "TOTAL": 18679503.29}, {"AÑO": 2026, "MES": 3, "TIENDA": "Recoleta", "CONCEPTO": "Margen_bruto_porc", "TOTAL": 0.74}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo", "CONCEPTO": "Venta_con_imp", "TOTAL": 33874570.08}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo", "CONCEPTO": "Venta_sin_imp", "TOTAL": 27995512.1}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo", "CONCEPTO": "Costo", "TOTAL": 5754301.64}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo", "CONCEPTO": "Margen_bruto_valor", "TOTAL": 22241210.46}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo", "CONCEPTO": "Margen_bruto_porc", "TOTAL": 0.79}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo 2", "CONCEPTO": "Venta_con_imp", "TOTAL": 15136894.1}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo 2", "CONCEPTO": "Venta_sin_imp", "TOTAL": 12640743.87}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo 2", "CONCEPTO": "Costo", "TOTAL": 4001220.92}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo 2", "CONCEPTO": "Margen_bruto_valor", "TOTAL": 8639522.95}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo 2", "CONCEPTO": "Margen_bruto_porc", "TOTAL": 0.68}, {"AÑO": 2026, "MES": 1, "TIENDA": "AS San Telmo", "CONCEPTO": "Alquiler", "TOTAL": 1369897.5}, {"AÑO": 2026, "MES": 2, "TIENDA": "AS San Telmo", "CONCEPTO": "Alquiler", "TOTAL": 1199300.67}, {"AÑO": 2026, "MES": 3, "TIENDA": "AS San Telmo", "CONCEPTO": "Alquiler", "TOTAL": 1026394.29}, {"AÑO": 2026, "MES": 1, "TIENDA": "AS San Telmo", "CONCEPTO": "Expensas", "TOTAL": 1152902.26}, {"AÑO": 2026, "MES": 2, "TIENDA": "AS San Telmo", "CONCEPTO": "Expensas", "TOTAL": 1152902.26}, {"AÑO": 2026, "MES": 3, "TIENDA": "AS San Telmo", "CONCEPTO": "Expensas", "TOTAL": 1199963.34}, {"AÑO": 2026, "MES": 1, "TIENDA": "AS San Telmo", "CONCEPTO": "Alarma", "TOTAL": 20000.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "AS San Telmo", "CONCEPTO": "Alarma", "TOTAL": 20000.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "AS San Telmo", "CONCEPTO": "Alarma", "TOTAL": 20000.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "AS San Telmo", "CONCEPTO": "Administración", "TOTAL": 1612592.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "AS San Telmo", "CONCEPTO": "Administración", "TOTAL": 1379930.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "AS San Telmo", "CONCEPTO": "Administración", "TOTAL": 1465270.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "AS San Telmo", "CONCEPTO": "Edesur", "TOTAL": 45156.8}, {"AÑO": 2026, "MES": 2, "TIENDA": "AS San Telmo", "CONCEPTO": "Edesur", "TOTAL": 161810.85}, {"AÑO": 2026, "MES": 3, "TIENDA": "AS San Telmo", "CONCEPTO": "Edesur", "TOTAL": 126720.22}, {"AÑO": 2026, "MES": 1, "TIENDA": "AS San Telmo", "CONCEPTO": "Fumigación", "TOTAL": 19000.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "AS San Telmo", "CONCEPTO": "Fumigación", "TOTAL": 38780.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "AS San Telmo", "CONCEPTO": "Fumigación", "TOTAL": 38780.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "AS San Telmo", "CONCEPTO": "Internet", "TOTAL": 106252.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "AS San Telmo", "CONCEPTO": "Internet", "TOTAL": 109332.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "AS San Telmo", "CONCEPTO": "Internet", "TOTAL": 112799.2}, {"AÑO": 2026, "MES": 1, "TIENDA": "AS San Telmo", "CONCEPTO": "Logística", "TOTAL": 806296.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "AS San Telmo", "CONCEPTO": "Logística", "TOTAL": 689965.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "AS San Telmo", "CONCEPTO": "Logística", "TOTAL": 732635.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "AS San Telmo", "CONCEPTO": "Mantenimiento", "TOTAL": 136000.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "AS San Telmo", "CONCEPTO": "Mantenimiento", "TOTAL": 136000.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "AS San Telmo", "CONCEPTO": "Mantenimiento", "TOTAL": 136000.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "AS San Telmo", "CONCEPTO": "Matafuegos", "TOTAL": 50705.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "AS San Telmo", "CONCEPTO": "Otros gastos", "TOTAL": 645037.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "AS San Telmo", "CONCEPTO": "Otros gastos", "TOTAL": 551972.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "AS San Telmo", "CONCEPTO": "Otros gastos", "TOTAL": 586108.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "AS San Telmo", "CONCEPTO": "Packaging", "TOTAL": 133814.88}, {"AÑO": 2026, "MES": 2, "TIENDA": "AS San Telmo", "CONCEPTO": "Packaging", "TOTAL": 130365.15}, {"AÑO": 2026, "MES": 3, "TIENDA": "AS San Telmo", "CONCEPTO": "Packaging", "TOTAL": 136664.17}, {"AÑO": 2026, "MES": 1, "TIENDA": "El Solar", "CONCEPTO": "Alquiler", "TOTAL": 1619513.17}, {"AÑO": 2026, "MES": 2, "TIENDA": "El Solar", "CONCEPTO": "Alquiler", "TOTAL": 1619513.17}, {"AÑO": 2026, "MES": 3, "TIENDA": "El Solar", "CONCEPTO": "Alquiler", "TOTAL": 1872828.43}, {"AÑO": 2026, "MES": 1, "TIENDA": "El Solar", "CONCEPTO": "Expensas", "TOTAL": 163587.19}, {"AÑO": 2026, "MES": 2, "TIENDA": "El Solar", "CONCEPTO": "Expensas", "TOTAL": 163587.19}, {"AÑO": 2026, "MES": 3, "TIENDA": "El Solar", "CONCEPTO": "Expensas", "TOTAL": 173089.62}, {"AÑO": 2026, "MES": 1, "TIENDA": "El Solar", "CONCEPTO": "Administración", "TOTAL": 495971.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "El Solar", "CONCEPTO": "Administración", "TOTAL": 796163.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "El Solar", "CONCEPTO": "Administración", "TOTAL": 1032800.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "El Solar", "CONCEPTO": "Fumigación", "TOTAL": 20900.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "El Solar", "CONCEPTO": "Fumigación", "TOTAL": 20900.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "El Solar", "CONCEPTO": "Internet", "TOTAL": 21219.18}, {"AÑO": 2026, "MES": 2, "TIENDA": "El Solar", "CONCEPTO": "Internet", "TOTAL": 21742.82}, {"AÑO": 2026, "MES": 3, "TIENDA": "El Solar", "CONCEPTO": "Internet", "TOTAL": 22391.42}, {"AÑO": 2026, "MES": 1, "TIENDA": "El Solar", "CONCEPTO": "Logística", "TOTAL": 247986.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "El Solar", "CONCEPTO": "Logística", "TOTAL": 398081.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "El Solar", "CONCEPTO": "Logística", "TOTAL": 516400.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "El Solar", "CONCEPTO": "Otros gastos", "TOTAL": 198389.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "El Solar", "CONCEPTO": "Otros gastos", "TOTAL": 318465.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "El Solar", "CONCEPTO": "Otros gastos", "TOTAL": 413120.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Florida", "CONCEPTO": "Alquiler", "TOTAL": 7525000.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "Florida", "CONCEPTO": "Alquiler", "TOTAL": 7100000.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Florida", "CONCEPTO": "Alquiler", "TOTAL": 7100000.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Florida", "CONCEPTO": "Expensas", "TOTAL": 482850.5}, {"AÑO": 2026, "MES": 2, "TIENDA": "Florida", "CONCEPTO": "Expensas", "TOTAL": 482850.5}, {"AÑO": 2026, "MES": 3, "TIENDA": "Florida", "CONCEPTO": "Expensas", "TOTAL": 482850.5}, {"AÑO": 2026, "MES": 1, "TIENDA": "Florida", "CONCEPTO": "ABL", "TOTAL": 605731.74}, {"AÑO": 2026, "MES": 2, "TIENDA": "Florida", "CONCEPTO": "ABL", "TOTAL": 622615.99}, {"AÑO": 2026, "MES": 3, "TIENDA": "Florida", "CONCEPTO": "ABL", "TOTAL": 639986.33}, {"AÑO": 2026, "MES": 1, "TIENDA": "Florida", "CONCEPTO": "Alarma", "TOTAL": 40000.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "Florida", "CONCEPTO": "Alarma", "TOTAL": 40000.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Florida", "CONCEPTO": "Alarma", "TOTAL": 40000.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Florida", "CONCEPTO": "AYSA", "TOTAL": 425428.76}, {"AÑO": 2026, "MES": 2, "TIENDA": "Florida", "CONCEPTO": "AYSA", "TOTAL": 474575.79}, {"AÑO": 2026, "MES": 3, "TIENDA": "Florida", "CONCEPTO": "AYSA", "TOTAL": 470829.46}, {"AÑO": 2026, "MES": 1, "TIENDA": "Florida", "CONCEPTO": "Administración", "TOTAL": 4976969.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "Florida", "CONCEPTO": "Administración", "TOTAL": 5610557.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Florida", "CONCEPTO": "Administración", "TOTAL": 6378815.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Florida", "CONCEPTO": "Edesur", "TOTAL": 614759.3}, {"AÑO": 2026, "MES": 2, "TIENDA": "Florida", "CONCEPTO": "Edesur", "TOTAL": 655411.34}, {"AÑO": 2026, "MES": 3, "TIENDA": "Florida", "CONCEPTO": "Edesur", "TOTAL": 715310.73}, {"AÑO": 2026, "MES": 1, "TIENDA": "Florida", "CONCEPTO": "Fumigación", "TOTAL": 43900.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "Florida", "CONCEPTO": "Fumigación", "TOTAL": 48290.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Florida", "CONCEPTO": "Fumigación", "TOTAL": 48290.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Florida", "CONCEPTO": "Internet", "TOTAL": 46723.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "Florida", "CONCEPTO": "Internet", "TOTAL": 47882.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Florida", "CONCEPTO": "Internet", "TOTAL": 49311.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Florida", "CONCEPTO": "Logística", "TOTAL": 2488485.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "Florida", "CONCEPTO": "Logística", "TOTAL": 2805278.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Florida", "CONCEPTO": "Logística", "TOTAL": 3189408.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Florida", "CONCEPTO": "Mantenimiento", "TOTAL": 136000.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "Florida", "CONCEPTO": "Mantenimiento", "TOTAL": 136000.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Florida", "CONCEPTO": "Mantenimiento", "TOTAL": 231409.6}, {"AÑO": 2026, "MES": 2, "TIENDA": "Florida", "CONCEPTO": "Matafuegos", "TOTAL": 50705.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Florida", "CONCEPTO": "Otros gastos", "TOTAL": 1990788.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "Florida", "CONCEPTO": "Otros gastos", "TOTAL": 2244223.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Florida", "CONCEPTO": "Otros gastos", "TOTAL": 2551526.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "French", "CONCEPTO": "Alquiler", "TOTAL": 1028500.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "French", "CONCEPTO": "Alquiler", "TOTAL": 850000.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "French", "CONCEPTO": "Alquiler", "TOTAL": 1116951.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "French", "CONCEPTO": "Expensas", "TOTAL": 279156.28}, {"AÑO": 2026, "MES": 2, "TIENDA": "French", "CONCEPTO": "Expensas", "TOTAL": 334847.68}, {"AÑO": 2026, "MES": 3, "TIENDA": "French", "CONCEPTO": "Expensas", "TOTAL": 319028.67}, {"AÑO": 2026, "MES": 1, "TIENDA": "French", "CONCEPTO": "Alarma", "TOTAL": 40000.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "French", "CONCEPTO": "Alarma", "TOTAL": 40000.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "French", "CONCEPTO": "Alarma", "TOTAL": 40000.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "French", "CONCEPTO": "Administración", "TOTAL": 2176988.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "French", "CONCEPTO": "Administración", "TOTAL": 1627868.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "French", "CONCEPTO": "Administración", "TOTAL": 2205968.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "French", "CONCEPTO": "Edesur", "TOTAL": 183369.63}, {"AÑO": 2026, "MES": 2, "TIENDA": "French", "CONCEPTO": "Edesur", "TOTAL": 170311.52}, {"AÑO": 2026, "MES": 3, "TIENDA": "French", "CONCEPTO": "Edesur", "TOTAL": 200570.82}, {"AÑO": 2026, "MES": 1, "TIENDA": "French", "CONCEPTO": "Fumigación", "TOTAL": 35250.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "French", "CONCEPTO": "Fumigación", "TOTAL": 38780.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "French", "CONCEPTO": "Fumigación", "TOTAL": 38780.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "French", "CONCEPTO": "Internet", "TOTAL": 115400.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "French", "CONCEPTO": "Internet", "TOTAL": 118250.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "French", "CONCEPTO": "Internet", "TOTAL": 121750.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "French", "CONCEPTO": "Logística", "TOTAL": 1088494.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "French", "CONCEPTO": "Logística", "TOTAL": 813934.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "French", "CONCEPTO": "Logística", "TOTAL": 1102984.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "French", "CONCEPTO": "Mantenimiento", "TOTAL": 136000.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "French", "CONCEPTO": "Mantenimiento", "TOTAL": 575000.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "French", "CONCEPTO": "Mantenimiento", "TOTAL": 136000.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "French", "CONCEPTO": "Matafuegos", "TOTAL": 70898.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "French", "CONCEPTO": "Matafuegos", "TOTAL": 50705.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "French", "CONCEPTO": "Otros gastos", "TOTAL": 870795.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "French", "CONCEPTO": "Otros gastos", "TOTAL": 651147.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "French", "CONCEPTO": "Otros gastos", "TOTAL": 882387.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes", "CONCEPTO": "Alquiler", "TOTAL": 645479.21}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes", "CONCEPTO": "Alquiler", "TOTAL": 715965.54}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes", "CONCEPTO": "Alquiler", "TOTAL": 715965.54}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes", "CONCEPTO": "Expensas", "TOTAL": 373255.01}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes", "CONCEPTO": "Expensas", "TOTAL": 372670.03}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes", "CONCEPTO": "Expensas", "TOTAL": 373918.78}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes", "CONCEPTO": "Alarma", "TOTAL": 40000.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes", "CONCEPTO": "Alarma", "TOTAL": 40000.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes", "CONCEPTO": "Alarma", "TOTAL": 40000.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes", "CONCEPTO": "Administración", "TOTAL": 362334.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes", "CONCEPTO": "Administración", "TOTAL": 296740.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes", "CONCEPTO": "Administración", "TOTAL": 380499.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes", "CONCEPTO": "Fumigación", "TOTAL": 35250.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes", "CONCEPTO": "Fumigación", "TOTAL": 38780.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes", "CONCEPTO": "Fumigación", "TOTAL": 38780.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes", "CONCEPTO": "Internet", "TOTAL": 79700.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes", "CONCEPTO": "Internet", "TOTAL": 81650.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes", "CONCEPTO": "Internet", "TOTAL": 84050.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes", "CONCEPTO": "Logística", "TOTAL": 181167.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes", "CONCEPTO": "Logística", "TOTAL": 148370.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes", "CONCEPTO": "Logística", "TOTAL": 190249.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes", "CONCEPTO": "Mantenimiento", "TOTAL": 136000.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes", "CONCEPTO": "Mantenimiento", "TOTAL": 136000.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes", "CONCEPTO": "Mantenimiento", "TOTAL": 145177.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes", "CONCEPTO": "Matafuegos", "TOTAL": 50705.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes", "CONCEPTO": "Otros gastos", "TOTAL": 144934.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes", "CONCEPTO": "Otros gastos", "TOTAL": 118696.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes", "CONCEPTO": "Otros gastos", "TOTAL": 152199.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes 2", "CONCEPTO": "Alquiler", "TOTAL": 461056.58}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes 2", "CONCEPTO": "Alquiler", "TOTAL": 511403.96}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes 2", "CONCEPTO": "Alquiler", "TOTAL": 583226.46}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes 2", "CONCEPTO": "Expensas", "TOTAL": 57105.53}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes 2", "CONCEPTO": "Expensas", "TOTAL": 57016.04}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes 2", "CONCEPTO": "Expensas", "TOTAL": 57207.09}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes 2", "CONCEPTO": "Administración", "TOTAL": 498300.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes 2", "CONCEPTO": "Administración", "TOTAL": 944780.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes 2", "CONCEPTO": "Administración", "TOTAL": 869590.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes 2", "CONCEPTO": "Edesur", "TOTAL": 26426.71}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes 2", "CONCEPTO": "Edesur", "TOTAL": 24057.72}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes 2", "CONCEPTO": "Edesur", "TOTAL": 25208.64}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes 2", "CONCEPTO": "Fumigación", "TOTAL": 20900.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes 2", "CONCEPTO": "Fumigación", "TOTAL": 20900.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes 2", "CONCEPTO": "Logística", "TOTAL": 249150.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes 2", "CONCEPTO": "Logística", "TOTAL": 472390.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes 2", "CONCEPTO": "Logística", "TOTAL": 434795.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes 2", "CONCEPTO": "Otros gastos", "TOTAL": 199320.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes 2", "CONCEPTO": "Otros gastos", "TOTAL": 377912.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes 2", "CONCEPTO": "Otros gastos", "TOTAL": 347836.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Recoleta", "CONCEPTO": "Alquiler", "TOTAL": 2451875.16}, {"AÑO": 2026, "MES": 2, "TIENDA": "Recoleta", "CONCEPTO": "Alquiler", "TOTAL": 2300000.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Recoleta", "CONCEPTO": "Alquiler", "TOTAL": 2300000.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Recoleta", "CONCEPTO": "Expensas", "TOTAL": 2223483.52}, {"AÑO": 2026, "MES": 2, "TIENDA": "Recoleta", "CONCEPTO": "Expensas", "TOTAL": 2339286.6}, {"AÑO": 2026, "MES": 3, "TIENDA": "Recoleta", "CONCEPTO": "Expensas", "TOTAL": 2262542.07}, {"AÑO": 2026, "MES": 1, "TIENDA": "Recoleta", "CONCEPTO": "Alarma", "TOTAL": 40000.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "Recoleta", "CONCEPTO": "Alarma", "TOTAL": 40000.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Recoleta", "CONCEPTO": "Alarma", "TOTAL": 40000.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Recoleta", "CONCEPTO": "Administración", "TOTAL": 2547559.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "Recoleta", "CONCEPTO": "Administración", "TOTAL": 2094336.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Recoleta", "CONCEPTO": "Administración", "TOTAL": 2960826.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Recoleta", "CONCEPTO": "Edesur", "TOTAL": 109887.49}, {"AÑO": 2026, "MES": 2, "TIENDA": "Recoleta", "CONCEPTO": "Edesur", "TOTAL": 101908.09}, {"AÑO": 2026, "MES": 3, "TIENDA": "Recoleta", "CONCEPTO": "Edesur", "TOTAL": 110526.91}, {"AÑO": 2026, "MES": 1, "TIENDA": "Recoleta", "CONCEPTO": "Fumigación", "TOTAL": 35250.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "Recoleta", "CONCEPTO": "Fumigación", "TOTAL": 38780.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Recoleta", "CONCEPTO": "Fumigación", "TOTAL": 38780.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Recoleta", "CONCEPTO": "Internet", "TOTAL": 18382.82}, {"AÑO": 2026, "MES": 2, "TIENDA": "Recoleta", "CONCEPTO": "Internet", "TOTAL": 18838.68}, {"AÑO": 2026, "MES": 3, "TIENDA": "Recoleta", "CONCEPTO": "Internet", "TOTAL": 19401.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Recoleta", "CONCEPTO": "Logística", "TOTAL": 1273780.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "Recoleta", "CONCEPTO": "Logística", "TOTAL": 1047168.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Recoleta", "CONCEPTO": "Logística", "TOTAL": 1480413.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Recoleta", "CONCEPTO": "Mantenimiento", "TOTAL": 136000.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "Recoleta", "CONCEPTO": "Mantenimiento", "TOTAL": 136000.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Recoleta", "CONCEPTO": "Mantenimiento", "TOTAL": 208758.4}, {"AÑO": 2026, "MES": 2, "TIENDA": "Recoleta", "CONCEPTO": "Matafuegos", "TOTAL": 169603.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Recoleta", "CONCEPTO": "Otros gastos", "TOTAL": 1019024.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "Recoleta", "CONCEPTO": "Otros gastos", "TOTAL": 837734.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Recoleta", "CONCEPTO": "Otros gastos", "TOTAL": 1184330.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo", "CONCEPTO": "Alquiler", "TOTAL": 3323410.48}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo", "CONCEPTO": "Alquiler", "TOTAL": 2622347.04}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo", "CONCEPTO": "Alquiler", "TOTAL": 2012472.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo", "CONCEPTO": "Expensas", "TOTAL": 576451.13}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo", "CONCEPTO": "Expensas", "TOTAL": 576451.13}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo", "CONCEPTO": "Expensas", "TOTAL": 599981.67}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo", "CONCEPTO": "Alarma", "TOTAL": 40000.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo", "CONCEPTO": "Alarma", "TOTAL": 40000.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo", "CONCEPTO": "Alarma", "TOTAL": 40000.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo", "CONCEPTO": "Administración", "TOTAL": 3966300.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo", "CONCEPTO": "Administración", "TOTAL": 3043864.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo", "CONCEPTO": "Administración", "TOTAL": 3387457.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo", "CONCEPTO": "Edesur", "TOTAL": 94221.77}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo", "CONCEPTO": "Edesur", "TOTAL": 95209.71}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo", "CONCEPTO": "Edesur", "TOTAL": 114506.15}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo", "CONCEPTO": "Fumigación", "TOTAL": 35250.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo", "CONCEPTO": "Fumigación", "TOTAL": 38780.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo", "CONCEPTO": "Fumigación", "TOTAL": 38780.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo", "CONCEPTO": "Logística", "TOTAL": 1983150.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo", "CONCEPTO": "Logística", "TOTAL": 1521932.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo", "CONCEPTO": "Logística", "TOTAL": 1693729.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo", "CONCEPTO": "Mantenimiento", "TOTAL": 2528732.84}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo", "CONCEPTO": "Mantenimiento", "TOTAL": 136000.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo", "CONCEPTO": "Mantenimiento", "TOTAL": 159080.2}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo", "CONCEPTO": "Matafuegos", "TOTAL": 50705.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo", "CONCEPTO": "Otros gastos", "TOTAL": 1586520.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo", "CONCEPTO": "Otros gastos", "TOTAL": 1217546.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo", "CONCEPTO": "Otros gastos", "TOTAL": 1354983.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo 2", "CONCEPTO": "Alquiler", "TOTAL": 1374452.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo 2", "CONCEPTO": "Alquiler", "TOTAL": 1473060.3}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo 2", "CONCEPTO": "Alquiler", "TOTAL": 1070367.2}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo 2", "CONCEPTO": "Expensas", "TOTAL": 576451.13}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo 2", "CONCEPTO": "Expensas", "TOTAL": 576451.13}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo 2", "CONCEPTO": "Expensas", "TOTAL": 599981.67}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo 2", "CONCEPTO": "Alarma", "TOTAL": 20000.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo 2", "CONCEPTO": "Alarma", "TOTAL": 20000.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo 2", "CONCEPTO": "Alarma", "TOTAL": 20000.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo 2", "CONCEPTO": "Administración", "TOTAL": 1782403.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo 2", "CONCEPTO": "Administración", "TOTAL": 1295144.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo 2", "CONCEPTO": "Administración", "TOTAL": 1513689.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo 2", "CONCEPTO": "Edesur", "TOTAL": 113322.59}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo 2", "CONCEPTO": "Edesur", "TOTAL": 195097.91}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo 2", "CONCEPTO": "Edesur", "TOTAL": 123182.34}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo 2", "CONCEPTO": "Fumigación", "TOTAL": 35250.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo 2", "CONCEPTO": "Fumigación", "TOTAL": 38780.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo 2", "CONCEPTO": "Fumigación", "TOTAL": 38780.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo 2", "CONCEPTO": "Logística", "TOTAL": 891202.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo 2", "CONCEPTO": "Logística", "TOTAL": 647572.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo 2", "CONCEPTO": "Logística", "TOTAL": 756845.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo 2", "CONCEPTO": "Mantenimiento", "TOTAL": 136000.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo 2", "CONCEPTO": "Mantenimiento", "TOTAL": 136000.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo 2", "CONCEPTO": "Mantenimiento", "TOTAL": 136000.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo 2", "CONCEPTO": "Matafuegos", "TOTAL": 50705.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo 2", "CONCEPTO": "Otros gastos", "TOTAL": 712961.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo 2", "CONCEPTO": "Otros gastos", "TOTAL": 518058.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo 2", "CONCEPTO": "Otros gastos", "TOTAL": 605476.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "AS San Telmo", "CONCEPTO": "Subtotal_gastos", "TOTAL": 6046948.44}, {"AÑO": 2026, "MES": 1, "TIENDA": "El Solar", "CONCEPTO": "Subtotal_gastos", "TOTAL": 2746665.54}, {"AÑO": 2026, "MES": 1, "TIENDA": "Florida", "CONCEPTO": "Subtotal_gastos", "TOTAL": 19376635.3}, {"AÑO": 2026, "MES": 1, "TIENDA": "French", "CONCEPTO": "Subtotal_gastos", "TOTAL": 6024850.91}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes", "CONCEPTO": "Subtotal_gastos", "TOTAL": 1998119.22}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes 2", "CONCEPTO": "Subtotal_gastos", "TOTAL": 1491358.82}, {"AÑO": 2026, "MES": 1, "TIENDA": "Recoleta", "CONCEPTO": "Subtotal_gastos", "TOTAL": 9855241.99}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo", "CONCEPTO": "Subtotal_gastos", "TOTAL": 14134036.22}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo 2", "CONCEPTO": "Subtotal_gastos", "TOTAL": 5642041.72}, {"AÑO": 2026, "MES": 2, "TIENDA": "AS San Telmo", "CONCEPTO": "Subtotal_gastos", "TOTAL": 5570357.93}, {"AÑO": 2026, "MES": 2, "TIENDA": "El Solar", "CONCEPTO": "Subtotal_gastos", "TOTAL": 3338452.18}, {"AÑO": 2026, "MES": 2, "TIENDA": "Florida", "CONCEPTO": "Subtotal_gastos", "TOTAL": 20318388.62}, {"AÑO": 2026, "MES": 2, "TIENDA": "French", "CONCEPTO": "Subtotal_gastos", "TOTAL": 5270843.2}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes", "CONCEPTO": "Subtotal_gastos", "TOTAL": 1948871.57}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes 2", "CONCEPTO": "Subtotal_gastos", "TOTAL": 2408459.72}, {"AÑO": 2026, "MES": 2, "TIENDA": "Recoleta", "CONCEPTO": "Subtotal_gastos", "TOTAL": 9123654.37}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo", "CONCEPTO": "Subtotal_gastos", "TOTAL": 9342834.88}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo 2", "CONCEPTO": "Subtotal_gastos", "TOTAL": 4900163.34}, {"AÑO": 2026, "MES": 3, "TIENDA": "AS San Telmo", "CONCEPTO": "Subtotal_gastos", "TOTAL": 5632039.22}, {"AÑO": 2026, "MES": 3, "TIENDA": "El Solar", "CONCEPTO": "Subtotal_gastos", "TOTAL": 4051529.47}, {"AÑO": 2026, "MES": 3, "TIENDA": "Florida", "CONCEPTO": "Subtotal_gastos", "TOTAL": 21897736.62}, {"AÑO": 2026, "MES": 3, "TIENDA": "French", "CONCEPTO": "Subtotal_gastos", "TOTAL": 6164419.49}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes", "CONCEPTO": "Subtotal_gastos", "TOTAL": 2171543.32}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes 2", "CONCEPTO": "Subtotal_gastos", "TOTAL": 2338763.19}, {"AÑO": 2026, "MES": 3, "TIENDA": "Recoleta", "CONCEPTO": "Subtotal_gastos", "TOTAL": 10605577.38}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo", "CONCEPTO": "Subtotal_gastos", "TOTAL": 9400989.02}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo 2", "CONCEPTO": "Subtotal_gastos", "TOTAL": 4915026.21}, {"AÑO": 2026, "MES": 1, "TIENDA": "AS San Telmo", "CONCEPTO": "Tarjeta crédito 1 cuota", "TOTAL": 258335.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "AS San Telmo", "CONCEPTO": "Tarjeta débito", "TOTAL": 26688.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "AS San Telmo", "CONCEPTO": "Tarjeta crédito 3 cuotas", "TOTAL": 72530.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "El Solar", "CONCEPTO": "Tarjeta crédito 1 cuota", "TOTAL": 45757.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "El Solar", "CONCEPTO": "Tarjeta débito", "TOTAL": 7491.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "El Solar", "CONCEPTO": "Tarjeta crédito 3 cuotas", "TOTAL": 292153.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "El Solar", "CONCEPTO": "Tarjeta crédito 6 cuotas", "TOTAL": 210635.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Florida", "CONCEPTO": "Tarjeta crédito 1 cuota", "TOTAL": 2542408.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Florida", "CONCEPTO": "Tarjeta débito", "TOTAL": 64982.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Florida", "CONCEPTO": "Tarjeta crédito 3 cuotas", "TOTAL": 134262.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "French", "CONCEPTO": "Tarjeta crédito 1 cuota", "TOTAL": 1215442.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "French", "CONCEPTO": "Tarjeta débito", "TOTAL": 29048.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "French", "CONCEPTO": "Tarjeta crédito 3 cuotas", "TOTAL": 13847.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes", "CONCEPTO": "Tarjeta crédito 1 cuota", "TOTAL": 71494.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes", "CONCEPTO": "Tarjeta débito", "TOTAL": 9368.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes", "CONCEPTO": "Tarjeta crédito 3 cuotas", "TOTAL": 86345.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes", "CONCEPTO": "Tarjeta crédito 6 cuotas", "TOTAL": 95196.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes 2", "CONCEPTO": "Tarjeta crédito 1 cuota", "TOTAL": 39411.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes 2", "CONCEPTO": "Tarjeta débito", "TOTAL": 3795.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes 2", "CONCEPTO": "Tarjeta crédito 3 cuotas", "TOTAL": 163798.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes 2", "CONCEPTO": "Tarjeta crédito 6 cuotas", "TOTAL": 447159.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Recoleta", "CONCEPTO": "Tarjeta crédito 1 cuota", "TOTAL": 1107265.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Recoleta", "CONCEPTO": "Tarjeta débito", "TOTAL": 45733.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Recoleta", "CONCEPTO": "Tarjeta crédito 3 cuotas", "TOTAL": 192242.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Recoleta", "CONCEPTO": "Tarjeta crédito 6 cuotas", "TOTAL": 146801.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo", "CONCEPTO": "Tarjeta crédito 1 cuota", "TOTAL": 1991056.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo", "CONCEPTO": "Tarjeta débito", "TOTAL": 73010.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo", "CONCEPTO": "Tarjeta crédito 3 cuotas", "TOTAL": 81387.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo", "CONCEPTO": "Tarjeta crédito 6 cuotas", "TOTAL": 76466.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo 2", "CONCEPTO": "Tarjeta crédito 1 cuota", "TOTAL": 744224.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo 2", "CONCEPTO": "Tarjeta débito", "TOTAL": 45030.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo 2", "CONCEPTO": "Tarjeta crédito 3 cuotas", "TOTAL": 30964.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "AS San Telmo", "CONCEPTO": "Tarjeta crédito 1 cuota", "TOTAL": 143845.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "AS San Telmo", "CONCEPTO": "Tarjeta débito", "TOTAL": 23293.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "AS San Telmo", "CONCEPTO": "Tarjeta crédito 3 cuotas", "TOTAL": 82217.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "El Solar", "CONCEPTO": "Tarjeta crédito 1 cuota", "TOTAL": 83579.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "El Solar", "CONCEPTO": "Tarjeta débito", "TOTAL": 8139.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "El Solar", "CONCEPTO": "Tarjeta crédito 3 cuotas", "TOTAL": 371092.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "El Solar", "CONCEPTO": "Tarjeta crédito 6 cuotas", "TOTAL": 332409.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "Florida", "CONCEPTO": "Tarjeta crédito 1 cuota", "TOTAL": 2844806.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "Florida", "CONCEPTO": "Tarjeta débito", "TOTAL": 85836.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "Florida", "CONCEPTO": "Tarjeta crédito 3 cuotas", "TOTAL": 266576.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "French", "CONCEPTO": "Tarjeta crédito 1 cuota", "TOTAL": 879388.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "French", "CONCEPTO": "Tarjeta débito", "TOTAL": 32336.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "French", "CONCEPTO": "Tarjeta crédito 3 cuotas", "TOTAL": 103273.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes", "CONCEPTO": "Tarjeta crédito 1 cuota", "TOTAL": 56156.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes", "CONCEPTO": "Tarjeta débito", "TOTAL": 5059.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes", "CONCEPTO": "Tarjeta crédito 3 cuotas", "TOTAL": 182149.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes 2", "CONCEPTO": "Tarjeta crédito 1 cuota", "TOTAL": 43398.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes 2", "CONCEPTO": "Tarjeta débito", "TOTAL": 6666.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes 2", "CONCEPTO": "Tarjeta crédito 2 cuotas", "TOTAL": 14683.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes 2", "CONCEPTO": "Tarjeta crédito 3 cuotas", "TOTAL": 769060.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes 2", "CONCEPTO": "Tarjeta crédito 6 cuotas", "TOTAL": 296633.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "Recoleta", "CONCEPTO": "Tarjeta crédito 1 cuota", "TOTAL": 1030850.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "Recoleta", "CONCEPTO": "Tarjeta débito", "TOTAL": 33733.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "Recoleta", "CONCEPTO": "Tarjeta crédito 3 cuotas", "TOTAL": 365954.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo", "CONCEPTO": "Tarjeta crédito 1 cuota", "TOTAL": 1803869.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo", "CONCEPTO": "Tarjeta débito", "TOTAL": 70559.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo", "CONCEPTO": "Tarjeta crédito 3 cuotas", "TOTAL": 111739.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo 2", "CONCEPTO": "Tarjeta crédito 1 cuota", "TOTAL": 783773.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo 2", "CONCEPTO": "Tarjeta débito", "TOTAL": 26826.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo 2", "CONCEPTO": "Tarjeta crédito 3 cuotas", "TOTAL": 26923.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "AS San Telmo", "CONCEPTO": "Tarjeta crédito 1 cuota", "TOTAL": 152342.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "AS San Telmo", "CONCEPTO": "Tarjeta débito", "TOTAL": 24973.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "AS San Telmo", "CONCEPTO": "Tarjeta crédito 3 cuotas", "TOTAL": 51019.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "El Solar", "CONCEPTO": "Tarjeta crédito 1 cuota", "TOTAL": 79744.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "El Solar", "CONCEPTO": "Tarjeta débito", "TOTAL": 15255.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "El Solar", "CONCEPTO": "Tarjeta crédito 3 cuotas", "TOTAL": 498436.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "El Solar", "CONCEPTO": "Tarjeta crédito 6 cuotas", "TOTAL": 250373.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Florida", "CONCEPTO": "Tarjeta crédito 1 cuota", "TOTAL": 2452881.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Florida", "CONCEPTO": "Tarjeta débito", "TOTAL": 113874.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Florida", "CONCEPTO": "Tarjeta crédito 3 cuotas", "TOTAL": 267131.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Florida", "CONCEPTO": "Tarjeta crédito 6 cuotas", "TOTAL": 99388.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "French", "CONCEPTO": "Tarjeta crédito 1 cuota", "TOTAL": 1093954.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "French", "CONCEPTO": "Tarjeta débito", "TOTAL": 28502.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "French", "CONCEPTO": "Tarjeta crédito 3 cuotas", "TOTAL": 177817.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes", "CONCEPTO": "Tarjeta crédito 1 cuota", "TOTAL": 54822.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes", "CONCEPTO": "Tarjeta débito", "TOTAL": 11288.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes", "CONCEPTO": "Tarjeta crédito 3 cuotas", "TOTAL": 133297.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes", "CONCEPTO": "Tarjeta crédito 6 cuotas", "TOTAL": 48932.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes 2", "CONCEPTO": "Tarjeta crédito 1 cuota", "TOTAL": 47780.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes 2", "CONCEPTO": "Tarjeta débito", "TOTAL": 10963.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes 2", "CONCEPTO": "Tarjeta crédito 3 cuotas", "TOTAL": 194399.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes 2", "CONCEPTO": "Tarjeta crédito 6 cuotas", "TOTAL": 760845.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Recoleta", "CONCEPTO": "Tarjeta crédito 1 cuota", "TOTAL": 1062198.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Recoleta", "CONCEPTO": "Tarjeta débito", "TOTAL": 56088.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Recoleta", "CONCEPTO": "Tarjeta crédito 3 cuotas", "TOTAL": 622003.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Recoleta", "CONCEPTO": "Tarjeta crédito 6 cuotas", "TOTAL": 111417.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo", "CONCEPTO": "Tarjeta crédito 1 cuota", "TOTAL": 1635164.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo", "CONCEPTO": "Tarjeta débito", "TOTAL": 45032.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo", "CONCEPTO": "Tarjeta crédito 3 cuotas", "TOTAL": 136152.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo", "CONCEPTO": "Tarjeta crédito 6 cuotas", "TOTAL": 65542.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo 2", "CONCEPTO": "Tarjeta crédito 1 cuota", "TOTAL": 690696.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo 2", "CONCEPTO": "Tarjeta débito", "TOTAL": 34156.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo 2", "CONCEPTO": "Tarjeta crédito 3 cuotas", "TOTAL": 13400.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Recoleta", "CONCEPTO": "Mercado Pago", "TOTAL": 0.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Florida", "CONCEPTO": "Mercado Pago", "TOTAL": 0.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "French", "CONCEPTO": "Mercado Pago", "TOTAL": 1800.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "AS San Telmo", "CONCEPTO": "Mercado Pago", "TOTAL": 25107.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo", "CONCEPTO": "Mercado Pago", "TOTAL": 1320.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo 2", "CONCEPTO": "Mercado Pago", "TOTAL": 510.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes", "CONCEPTO": "Mercado Pago", "TOTAL": 0.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "El Solar", "CONCEPTO": "Mercado Pago", "TOTAL": 0.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes 2", "CONCEPTO": "Mercado Pago", "TOTAL": 0.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "Recoleta", "CONCEPTO": "Mercado Pago", "TOTAL": 0.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "Florida", "CONCEPTO": "Mercado Pago", "TOTAL": 0.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "French", "CONCEPTO": "Mercado Pago", "TOTAL": 1979.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "AS San Telmo", "CONCEPTO": "Mercado Pago", "TOTAL": 27023.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo", "CONCEPTO": "Mercado Pago", "TOTAL": 538.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo 2", "CONCEPTO": "Mercado Pago", "TOTAL": 443.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes", "CONCEPTO": "Mercado Pago", "TOTAL": 0.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "El Solar", "CONCEPTO": "Mercado Pago", "TOTAL": 0.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes 2", "CONCEPTO": "Mercado Pago", "TOTAL": 284.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Recoleta", "CONCEPTO": "Mercado Pago", "TOTAL": 0.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Florida", "CONCEPTO": "Mercado Pago", "TOTAL": 0.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "French", "CONCEPTO": "Mercado Pago", "TOTAL": 209.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "AS San Telmo", "CONCEPTO": "Mercado Pago", "TOTAL": 30146.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo", "CONCEPTO": "Mercado Pago", "TOTAL": 413.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo 2", "CONCEPTO": "Mercado Pago", "TOTAL": 432.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes", "CONCEPTO": "Mercado Pago", "TOTAL": 0.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "El Solar", "CONCEPTO": "Mercado Pago", "TOTAL": 0.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes 2", "CONCEPTO": "Mercado Pago", "TOTAL": 0.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "AS San Telmo", "CONCEPTO": "Subtotal_gastos_financieros", "TOTAL": 382660.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "El Solar", "CONCEPTO": "Subtotal_gastos_financieros", "TOTAL": 556036.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Florida", "CONCEPTO": "Subtotal_gastos_financieros", "TOTAL": 2741652.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "French", "CONCEPTO": "Subtotal_gastos_financieros", "TOTAL": 1260137.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes", "CONCEPTO": "Subtotal_gastos_financieros", "TOTAL": 262403.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes 2", "CONCEPTO": "Subtotal_gastos_financieros", "TOTAL": 654163.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Recoleta", "CONCEPTO": "Subtotal_gastos_financieros", "TOTAL": 1492041.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo", "CONCEPTO": "Subtotal_gastos_financieros", "TOTAL": 2223239.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo 2", "CONCEPTO": "Subtotal_gastos_financieros", "TOTAL": 820728.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "AS San Telmo", "CONCEPTO": "Subtotal_gastos_financieros", "TOTAL": 276378.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "El Solar", "CONCEPTO": "Subtotal_gastos_financieros", "TOTAL": 795219.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "Florida", "CONCEPTO": "Subtotal_gastos_financieros", "TOTAL": 3197218.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "French", "CONCEPTO": "Subtotal_gastos_financieros", "TOTAL": 1016976.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes", "CONCEPTO": "Subtotal_gastos_financieros", "TOTAL": 243364.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes 2", "CONCEPTO": "Subtotal_gastos_financieros", "TOTAL": 1130724.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "Recoleta", "CONCEPTO": "Subtotal_gastos_financieros", "TOTAL": 1430537.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo", "CONCEPTO": "Subtotal_gastos_financieros", "TOTAL": 1986705.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo 2", "CONCEPTO": "Subtotal_gastos_financieros", "TOTAL": 837965.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "AS San Telmo", "CONCEPTO": "Subtotal_gastos_financieros", "TOTAL": 258480.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "El Solar", "CONCEPTO": "Subtotal_gastos_financieros", "TOTAL": 843808.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Florida", "CONCEPTO": "Subtotal_gastos_financieros", "TOTAL": 2933274.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "French", "CONCEPTO": "Subtotal_gastos_financieros", "TOTAL": 1300482.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes", "CONCEPTO": "Subtotal_gastos_financieros", "TOTAL": 248339.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes 2", "CONCEPTO": "Subtotal_gastos_financieros", "TOTAL": 1013987.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Recoleta", "CONCEPTO": "Subtotal_gastos_financieros", "TOTAL": 1851706.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo", "CONCEPTO": "Subtotal_gastos_financieros", "TOTAL": 1882303.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo 2", "CONCEPTO": "Subtotal_gastos_financieros", "TOTAL": 738684.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "AS San Telmo", "CONCEPTO": "Sueldo", "TOTAL": 2854386.83}, {"AÑO": 2026, "MES": 2, "TIENDA": "AS San Telmo", "CONCEPTO": "Sueldo", "TOTAL": 2442252.61}, {"AÑO": 2026, "MES": 3, "TIENDA": "AS San Telmo", "CONCEPTO": "Sueldo", "TOTAL": 2375287.72}, {"AÑO": 2026, "MES": 1, "TIENDA": "El Solar", "CONCEPTO": "Sueldo", "TOTAL": 2748786.17}, {"AÑO": 2026, "MES": 2, "TIENDA": "El Solar", "CONCEPTO": "Sueldo", "TOTAL": 2608912.5}, {"AÑO": 2026, "MES": 3, "TIENDA": "El Solar", "CONCEPTO": "Sueldo", "TOTAL": 2850677.18}, {"AÑO": 2026, "MES": 1, "TIENDA": "Florida", "CONCEPTO": "Sueldo", "TOTAL": 3618442.06}, {"AÑO": 2026, "MES": 2, "TIENDA": "Florida", "CONCEPTO": "Sueldo", "TOTAL": 3244195.58}, {"AÑO": 2026, "MES": 3, "TIENDA": "Florida", "CONCEPTO": "Sueldo", "TOTAL": 3733117.25}, {"AÑO": 2026, "MES": 1, "TIENDA": "French", "CONCEPTO": "Sueldo", "TOTAL": 2165949.85}, {"AÑO": 2026, "MES": 2, "TIENDA": "French", "CONCEPTO": "Sueldo", "TOTAL": 2207248.64}, {"AÑO": 2026, "MES": 3, "TIENDA": "French", "CONCEPTO": "Sueldo", "TOTAL": 2308737.91}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes", "CONCEPTO": "Sueldo", "TOTAL": 1492687.45}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes", "CONCEPTO": "Sueldo", "TOTAL": 1274839.5}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes", "CONCEPTO": "Sueldo", "TOTAL": 1338980.58}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes 2", "CONCEPTO": "Sueldo", "TOTAL": 2021954.99}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes 2", "CONCEPTO": "Sueldo", "TOTAL": 1498523.61}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes 2", "CONCEPTO": "Sueldo", "TOTAL": 1377060.76}, {"AÑO": 2026, "MES": 1, "TIENDA": "Recoleta", "CONCEPTO": "Sueldo", "TOTAL": 2580017.48}, {"AÑO": 2026, "MES": 2, "TIENDA": "Recoleta", "CONCEPTO": "Sueldo", "TOTAL": 2497534.85}, {"AÑO": 2026, "MES": 3, "TIENDA": "Recoleta", "CONCEPTO": "Sueldo", "TOTAL": 2460162.77}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo", "CONCEPTO": "Sueldo", "TOTAL": 2900374.88}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo", "CONCEPTO": "Sueldo", "TOTAL": 2556960.64}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo", "CONCEPTO": "Sueldo", "TOTAL": 2476636.13}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo 2", "CONCEPTO": "Sueldo", "TOTAL": 2082981.57}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo 2", "CONCEPTO": "Sueldo", "TOTAL": 2046887.51}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo 2", "CONCEPTO": "Sueldo", "TOTAL": 2120045.83}, {"AÑO": 2026, "MES": 1, "TIENDA": "AS San Telmo", "CONCEPTO": "Contribuciones", "TOTAL": 868183.74}, {"AÑO": 2026, "MES": 2, "TIENDA": "AS San Telmo", "CONCEPTO": "Contribuciones", "TOTAL": 743386.49}, {"AÑO": 2026, "MES": 3, "TIENDA": "AS San Telmo", "CONCEPTO": "Contribuciones", "TOTAL": 724214.13}, {"AÑO": 2026, "MES": 1, "TIENDA": "El Solar", "CONCEPTO": "Contribuciones", "TOTAL": 838201.81}, {"AÑO": 2026, "MES": 2, "TIENDA": "El Solar", "CONCEPTO": "Contribuciones", "TOTAL": 785929.06}, {"AÑO": 2026, "MES": 3, "TIENDA": "El Solar", "CONCEPTO": "Contribuciones", "TOTAL": 872969.8}, {"AÑO": 2026, "MES": 1, "TIENDA": "Florida", "CONCEPTO": "Contribuciones", "TOTAL": 1106086.46}, {"AÑO": 2026, "MES": 2, "TIENDA": "Florida", "CONCEPTO": "Contribuciones", "TOTAL": 991414.9}, {"AÑO": 2026, "MES": 3, "TIENDA": "Florida", "CONCEPTO": "Contribuciones", "TOTAL": 1145262.8}, {"AÑO": 2026, "MES": 1, "TIENDA": "French", "CONCEPTO": "Contribuciones", "TOTAL": 655171.13}, {"AÑO": 2026, "MES": 2, "TIENDA": "French", "CONCEPTO": "Contribuciones", "TOTAL": 671740.18}, {"AÑO": 2026, "MES": 3, "TIENDA": "French", "CONCEPTO": "Contribuciones", "TOTAL": 707962.47}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes", "CONCEPTO": "Contribuciones", "TOTAL": 443975.15}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes", "CONCEPTO": "Contribuciones", "TOTAL": 390541.57}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes", "CONCEPTO": "Contribuciones", "TOTAL": 409576.67}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes 2", "CONCEPTO": "Contribuciones", "TOTAL": 616642.2}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes 2", "CONCEPTO": "Contribuciones", "TOTAL": 448478.3}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes 2", "CONCEPTO": "Contribuciones", "TOTAL": 420545.6}, {"AÑO": 2026, "MES": 1, "TIENDA": "Recoleta", "CONCEPTO": "Contribuciones", "TOTAL": 787038.23}, {"AÑO": 2026, "MES": 2, "TIENDA": "Recoleta", "CONCEPTO": "Contribuciones", "TOTAL": 759328.65}, {"AÑO": 2026, "MES": 3, "TIENDA": "Recoleta", "CONCEPTO": "Contribuciones", "TOTAL": 746636.99}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo", "CONCEPTO": "Contribuciones", "TOTAL": 888752.93}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo", "CONCEPTO": "Contribuciones", "TOTAL": 780373.81}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo", "CONCEPTO": "Contribuciones", "TOTAL": 752155.91}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo 2", "CONCEPTO": "Contribuciones", "TOTAL": 635701.85}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo 2", "CONCEPTO": "Contribuciones", "TOTAL": 627251.07}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo 2", "CONCEPTO": "Contribuciones", "TOTAL": 649636.35}, {"AÑO": 2026, "MES": 1, "TIENDA": "AS San Telmo", "CONCEPTO": "Incentivo", "TOTAL": 161259.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "El Solar", "CONCEPTO": "Incentivo", "TOTAL": 49597.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Florida", "CONCEPTO": "Incentivo", "TOTAL": 497697.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "French", "CONCEPTO": "Incentivo", "TOTAL": 217699.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes", "CONCEPTO": "Incentivo", "TOTAL": 36233.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes 2", "CONCEPTO": "Incentivo", "TOTAL": 49830.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "Recoleta", "CONCEPTO": "Incentivo", "TOTAL": 254756.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo", "CONCEPTO": "Incentivo", "TOTAL": 396630.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo 2", "CONCEPTO": "Incentivo", "TOTAL": 178240.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "AS San Telmo", "CONCEPTO": "Incentivo", "TOTAL": 137993.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "El Solar", "CONCEPTO": "Incentivo", "TOTAL": 79616.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "Florida", "CONCEPTO": "Incentivo", "TOTAL": 561056.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "French", "CONCEPTO": "Incentivo", "TOTAL": 162787.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes", "CONCEPTO": "Incentivo", "TOTAL": 29674.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes 2", "CONCEPTO": "Incentivo", "TOTAL": 94478.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "Recoleta", "CONCEPTO": "Incentivo", "TOTAL": 209434.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo", "CONCEPTO": "Incentivo", "TOTAL": 304386.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo 2", "CONCEPTO": "Incentivo", "TOTAL": 129514.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "AS San Telmo", "CONCEPTO": "Incentivo", "TOTAL": 146527.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "El Solar", "CONCEPTO": "Incentivo", "TOTAL": 103280.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Florida", "CONCEPTO": "Incentivo", "TOTAL": 637882.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "French", "CONCEPTO": "Incentivo", "TOTAL": 220597.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes", "CONCEPTO": "Incentivo", "TOTAL": 38050.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes 2", "CONCEPTO": "Incentivo", "TOTAL": 86959.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "Recoleta", "CONCEPTO": "Incentivo", "TOTAL": 296083.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo", "CONCEPTO": "Incentivo", "TOTAL": 338746.0}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo 2", "CONCEPTO": "Incentivo", "TOTAL": 151369.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "AS San Telmo", "CONCEPTO": "Liq Final", "TOTAL": 18379.87}, {"AÑO": 2026, "MES": 1, "TIENDA": "AS San Telmo", "CONCEPTO": "Vacaciones", "TOTAL": 482739.72}, {"AÑO": 2026, "MES": 1, "TIENDA": "El Solar", "CONCEPTO": "Vacaciones", "TOTAL": 134104.81}, {"AÑO": 2026, "MES": 1, "TIENDA": "French", "CONCEPTO": "Vacaciones", "TOTAL": 615318.06}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes", "CONCEPTO": "Vacaciones", "TOTAL": 731719.76}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes 2", "CONCEPTO": "Vacaciones", "TOTAL": 140829.87}, {"AÑO": 2026, "MES": 1, "TIENDA": "Recoleta", "CONCEPTO": "Vacaciones", "TOTAL": 739868.75}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo", "CONCEPTO": "Liq Final", "TOTAL": 58351.65}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo 2", "CONCEPTO": "Vacaciones", "TOTAL": 143735.97}, {"AÑO": 2026, "MES": 2, "TIENDA": "AS San Telmo", "CONCEPTO": "Liq Final", "TOTAL": 302877.01}, {"AÑO": 2026, "MES": 2, "TIENDA": "AS San Telmo", "CONCEPTO": "Vacaciones", "TOTAL": 622629.82}, {"AÑO": 2026, "MES": 2, "TIENDA": "El Solar", "CONCEPTO": "Vacaciones", "TOTAL": 891148.28}, {"AÑO": 2026, "MES": 2, "TIENDA": "Florida", "CONCEPTO": "Vacaciones", "TOTAL": 786219.23}, {"AÑO": 2026, "MES": 2, "TIENDA": "French", "CONCEPTO": "Vacaciones", "TOTAL": 663238.19}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes 2", "CONCEPTO": "Vacaciones", "TOTAL": 649491.11}, {"AÑO": 2026, "MES": 2, "TIENDA": "Recoleta", "CONCEPTO": "Vacaciones", "TOTAL": 795473.08}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo", "CONCEPTO": "Liq Final", "TOTAL": 94013.54}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo", "CONCEPTO": "Vacaciones", "TOTAL": 492672.77}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo 2", "CONCEPTO": "Vacaciones", "TOTAL": 145728.39}, {"AÑO": 2026, "MES": 3, "TIENDA": "AS San Telmo", "CONCEPTO": "Vacaciones", "TOTAL": 331946.1}, {"AÑO": 2026, "MES": 3, "TIENDA": "Florida", "CONCEPTO": "Vacaciones", "TOTAL": 147727.16}, {"AÑO": 2026, "MES": 3, "TIENDA": "Recoleta", "CONCEPTO": "Vacaciones", "TOTAL": 807682.52}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo", "CONCEPTO": "Vacaciones", "TOTAL": 785281.71}, {"AÑO": 2026, "MES": 1, "TIENDA": "AS San Telmo", "CONCEPTO": "Subtotal_sueldos", "TOTAL": 4384949.16}, {"AÑO": 2026, "MES": 1, "TIENDA": "El Solar", "CONCEPTO": "Subtotal_sueldos", "TOTAL": 3770689.79}, {"AÑO": 2026, "MES": 1, "TIENDA": "Florida", "CONCEPTO": "Subtotal_sueldos", "TOTAL": 5222225.53}, {"AÑO": 2026, "MES": 1, "TIENDA": "French", "CONCEPTO": "Subtotal_sueldos", "TOTAL": 3654138.04}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes", "CONCEPTO": "Subtotal_sueldos", "TOTAL": 2704615.35}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes 2", "CONCEPTO": "Subtotal_sueldos", "TOTAL": 2829257.06}, {"AÑO": 2026, "MES": 1, "TIENDA": "Recoleta", "CONCEPTO": "Subtotal_sueldos", "TOTAL": 4361680.46}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo", "CONCEPTO": "Subtotal_sueldos", "TOTAL": 4244109.46}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo 2", "CONCEPTO": "Subtotal_sueldos", "TOTAL": 3040659.4}, {"AÑO": 2026, "MES": 2, "TIENDA": "AS San Telmo", "CONCEPTO": "Subtotal_sueldos", "TOTAL": 4249138.94}, {"AÑO": 2026, "MES": 2, "TIENDA": "El Solar", "CONCEPTO": "Subtotal_sueldos", "TOTAL": 4365605.84}, {"AÑO": 2026, "MES": 2, "TIENDA": "Florida", "CONCEPTO": "Subtotal_sueldos", "TOTAL": 5582885.71}, {"AÑO": 2026, "MES": 2, "TIENDA": "French", "CONCEPTO": "Subtotal_sueldos", "TOTAL": 3705014.0}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes", "CONCEPTO": "Subtotal_sueldos", "TOTAL": 1695055.07}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes 2", "CONCEPTO": "Subtotal_sueldos", "TOTAL": 2690971.03}, {"AÑO": 2026, "MES": 2, "TIENDA": "Recoleta", "CONCEPTO": "Subtotal_sueldos", "TOTAL": 4261770.58}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo", "CONCEPTO": "Subtotal_sueldos", "TOTAL": 4228406.77}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo 2", "CONCEPTO": "Subtotal_sueldos", "TOTAL": 2949380.97}, {"AÑO": 2026, "MES": 3, "TIENDA": "AS San Telmo", "CONCEPTO": "Subtotal_sueldos", "TOTAL": 3577974.95}, {"AÑO": 2026, "MES": 3, "TIENDA": "El Solar", "CONCEPTO": "Subtotal_sueldos", "TOTAL": 3826926.98}, {"AÑO": 2026, "MES": 3, "TIENDA": "Florida", "CONCEPTO": "Subtotal_sueldos", "TOTAL": 5663989.2}, {"AÑO": 2026, "MES": 3, "TIENDA": "French", "CONCEPTO": "Subtotal_sueldos", "TOTAL": 3237297.38}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes", "CONCEPTO": "Subtotal_sueldos", "TOTAL": 1786607.26}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes 2", "CONCEPTO": "Subtotal_sueldos", "TOTAL": 1884565.36}, {"AÑO": 2026, "MES": 3, "TIENDA": "Recoleta", "CONCEPTO": "Subtotal_sueldos", "TOTAL": 4310565.28}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo", "CONCEPTO": "Subtotal_sueldos", "TOTAL": 4352819.75}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo 2", "CONCEPTO": "Subtotal_sueldos", "TOTAL": 2921051.18}, {"AÑO": 2026, "MES": 1, "TIENDA": "AS San Telmo", "CONCEPTO": "Resultado operativo", "TOTAL": -553859.29}, {"AÑO": 2026, "MES": 1, "TIENDA": "El Solar", "CONCEPTO": "Resultado operativo", "TOTAL": -4348997.72}, {"AÑO": 2026, "MES": 1, "TIENDA": "Florida", "CONCEPTO": "Resultado operativo", "TOTAL": 4181983.99}, {"AÑO": 2026, "MES": 1, "TIENDA": "French", "CONCEPTO": "Resultado operativo", "TOTAL": 2630094.68}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes", "CONCEPTO": "Resultado operativo", "TOTAL": -2587719.41}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes 2", "CONCEPTO": "Resultado operativo", "TOTAL": -2209798.68}, {"AÑO": 2026, "MES": 1, "TIENDA": "Recoleta", "CONCEPTO": "Resultado operativo", "TOTAL": 392645.63}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo", "CONCEPTO": "Resultado operativo", "TOTAL": 5611174.61}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo 2", "CONCEPTO": "Resultado operativo", "TOTAL": 1782678.67}, {"AÑO": 2026, "MES": 2, "TIENDA": "AS San Telmo", "CONCEPTO": "Resultado operativo", "TOTAL": -1319427.83}, {"AÑO": 2026, "MES": 2, "TIENDA": "El Solar", "CONCEPTO": "Resultado operativo", "TOTAL": -4178592.49}, {"AÑO": 2026, "MES": 2, "TIENDA": "Florida", "CONCEPTO": "Resultado operativo", "TOTAL": 7065738.06}, {"AÑO": 2026, "MES": 2, "TIENDA": "French", "CONCEPTO": "Resultado operativo", "TOTAL": 589576.43}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes", "CONCEPTO": "Resultado operativo", "TOTAL": -2033603.11}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes 2", "CONCEPTO": "Resultado operativo", "TOTAL": -1122852.73}, {"AÑO": 2026, "MES": 2, "TIENDA": "Recoleta", "CONCEPTO": "Resultado operativo", "TOTAL": -1404682.52}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo", "CONCEPTO": "Resultado operativo", "TOTAL": 4563078.74}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo 2", "CONCEPTO": "Resultado operativo", "TOTAL": 9967.74}, {"AÑO": 2026, "MES": 3, "TIENDA": "AS San Telmo", "CONCEPTO": "Resultado operativo", "TOTAL": -47189.17}, {"AÑO": 2026, "MES": 3, "TIENDA": "El Solar", "CONCEPTO": "Resultado operativo", "TOTAL": -3217939.67}, {"AÑO": 2026, "MES": 3, "TIENDA": "Florida", "CONCEPTO": "Resultado operativo", "TOTAL": 10126457.44}, {"AÑO": 2026, "MES": 3, "TIENDA": "French", "CONCEPTO": "Resultado operativo", "TOTAL": 3593355.51}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes", "CONCEPTO": "Resultado operativo", "TOTAL": -1719291.7}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes 2", "CONCEPTO": "Resultado operativo", "TOTAL": -717228.99}, {"AÑO": 2026, "MES": 3, "TIENDA": "Recoleta", "CONCEPTO": "Resultado operativo", "TOTAL": 1911654.63}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo", "CONCEPTO": "Resultado operativo", "TOTAL": 6605098.69}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo 2", "CONCEPTO": "Resultado operativo", "TOTAL": 64761.56}, {"AÑO": 2026, "MES": 1, "TIENDA": "AS San Telmo", "CONCEPTO": "IIBB", "TOTAL": 599724.18}, {"AÑO": 2026, "MES": 1, "TIENDA": "El Solar", "CONCEPTO": "IIBB", "TOTAL": 152899.7}, {"AÑO": 2026, "MES": 1, "TIENDA": "Florida", "CONCEPTO": "IIBB", "TOTAL": 1875225.86}, {"AÑO": 2026, "MES": 1, "TIENDA": "French", "CONCEPTO": "IIBB", "TOTAL": 809790.24}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes", "CONCEPTO": "IIBB", "TOTAL": 142561.11}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes 2", "CONCEPTO": "IIBB", "TOTAL": 153585.61}, {"AÑO": 2026, "MES": 1, "TIENDA": "Recoleta", "CONCEPTO": "IIBB", "TOTAL": 965729.01}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo", "CONCEPTO": "IIBB", "TOTAL": 1476037.18}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo 2", "CONCEPTO": "IIBB", "TOTAL": 668083.02}, {"AÑO": 2026, "MES": 2, "TIENDA": "AS San Telmo", "CONCEPTO": "IIBB", "TOTAL": 513196.98}, {"AÑO": 2026, "MES": 2, "TIENDA": "El Solar", "CONCEPTO": "IIBB", "TOTAL": 246218.74}, {"AÑO": 2026, "MES": 2, "TIENDA": "Florida", "CONCEPTO": "IIBB", "TOTAL": 2131040.81}, {"AÑO": 2026, "MES": 2, "TIENDA": "French", "CONCEPTO": "IIBB", "TOTAL": 605572.06}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes", "CONCEPTO": "IIBB", "TOTAL": 111471.69}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes 2", "CONCEPTO": "IIBB", "TOTAL": 291676.92}, {"AÑO": 2026, "MES": 2, "TIENDA": "Recoleta", "CONCEPTO": "IIBB", "TOTAL": 812362.69}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo", "CONCEPTO": "IIBB", "TOTAL": 1132015.53}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo 2", "CONCEPTO": "IIBB", "TOTAL": 492410.09}, {"AÑO": 2026, "MES": 3, "TIENDA": "AS San Telmo", "CONCEPTO": "IIBB", "TOTAL": 544934.97}, {"AÑO": 2026, "MES": 3, "TIENDA": "El Solar", "CONCEPTO": "IIBB", "TOTAL": 318901.89}, {"AÑO": 2026, "MES": 3, "TIENDA": "Florida", "CONCEPTO": "IIBB", "TOTAL": 2411892.89}, {"AÑO": 2026, "MES": 3, "TIENDA": "French", "CONCEPTO": "IIBB", "TOTAL": 820734.54}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes", "CONCEPTO": "IIBB", "TOTAL": 147225.12}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes 2", "CONCEPTO": "IIBB", "TOTAL": 268406.4}, {"AÑO": 2026, "MES": 3, "TIENDA": "Recoleta", "CONCEPTO": "IIBB", "TOTAL": 1135052.85}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo", "CONCEPTO": "IIBB", "TOTAL": 1259798.04}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo 2", "CONCEPTO": "IIBB", "TOTAL": 568833.47}, {"AÑO": 2026, "MES": 3, "TIENDA": "Florida", "CONCEPTO": "Multa", "TOTAL": 95000.0}, {"AÑO": 2026, "MES": 1, "TIENDA": "AS San Telmo", "CONCEPTO": "Subtotal_impuestos", "TOTAL": 599724.18}, {"AÑO": 2026, "MES": 1, "TIENDA": "El Solar", "CONCEPTO": "Subtotal_impuestos", "TOTAL": 152899.7}, {"AÑO": 2026, "MES": 1, "TIENDA": "Florida", "CONCEPTO": "Subtotal_impuestos", "TOTAL": 1875225.86}, {"AÑO": 2026, "MES": 1, "TIENDA": "French", "CONCEPTO": "Subtotal_impuestos", "TOTAL": 809790.24}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes", "CONCEPTO": "Subtotal_impuestos", "TOTAL": 142561.11}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes 2", "CONCEPTO": "Subtotal_impuestos", "TOTAL": 153585.61}, {"AÑO": 2026, "MES": 1, "TIENDA": "Recoleta", "CONCEPTO": "Subtotal_impuestos", "TOTAL": 965729.01}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo", "CONCEPTO": "Subtotal_impuestos", "TOTAL": 1476037.18}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo 2", "CONCEPTO": "Subtotal_impuestos", "TOTAL": 668083.02}, {"AÑO": 2026, "MES": 2, "TIENDA": "AS San Telmo", "CONCEPTO": "Subtotal_impuestos", "TOTAL": 513196.98}, {"AÑO": 2026, "MES": 2, "TIENDA": "El Solar", "CONCEPTO": "Subtotal_impuestos", "TOTAL": 246218.74}, {"AÑO": 2026, "MES": 2, "TIENDA": "Florida", "CONCEPTO": "Subtotal_impuestos", "TOTAL": 2131040.81}, {"AÑO": 2026, "MES": 2, "TIENDA": "French", "CONCEPTO": "Subtotal_impuestos", "TOTAL": 605572.06}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes", "CONCEPTO": "Subtotal_impuestos", "TOTAL": 111471.69}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes 2", "CONCEPTO": "Subtotal_impuestos", "TOTAL": 291676.92}, {"AÑO": 2026, "MES": 2, "TIENDA": "Recoleta", "CONCEPTO": "Subtotal_impuestos", "TOTAL": 812362.69}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo", "CONCEPTO": "Subtotal_impuestos", "TOTAL": 1132015.53}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo 2", "CONCEPTO": "Subtotal_impuestos", "TOTAL": 492410.09}, {"AÑO": 2026, "MES": 3, "TIENDA": "AS San Telmo", "CONCEPTO": "Subtotal_impuestos", "TOTAL": 544934.97}, {"AÑO": 2026, "MES": 3, "TIENDA": "El Solar", "CONCEPTO": "Subtotal_impuestos", "TOTAL": 318901.89}, {"AÑO": 2026, "MES": 3, "TIENDA": "Florida", "CONCEPTO": "Subtotal_impuestos", "TOTAL": 2506892.89}, {"AÑO": 2026, "MES": 3, "TIENDA": "French", "CONCEPTO": "Subtotal_impuestos", "TOTAL": 820734.54}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes", "CONCEPTO": "Subtotal_impuestos", "TOTAL": 147225.12}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes 2", "CONCEPTO": "Subtotal_impuestos", "TOTAL": 268406.4}, {"AÑO": 2026, "MES": 3, "TIENDA": "Recoleta", "CONCEPTO": "Subtotal_impuestos", "TOTAL": 1135052.85}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo", "CONCEPTO": "Subtotal_impuestos", "TOTAL": 1259798.04}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo 2", "CONCEPTO": "Subtotal_impuestos", "TOTAL": 568833.47}, {"AÑO": 2026, "MES": 1, "TIENDA": "AS San Telmo", "CONCEPTO": "Resultado final", "TOTAL": -1153583.47}, {"AÑO": 2026, "MES": 1, "TIENDA": "El Solar", "CONCEPTO": "Resultado final", "TOTAL": -4501897.42}, {"AÑO": 2026, "MES": 1, "TIENDA": "Florida", "CONCEPTO": "Resultado final", "TOTAL": 2306758.13}, {"AÑO": 2026, "MES": 1, "TIENDA": "French", "CONCEPTO": "Resultado final", "TOTAL": 1820304.44}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes", "CONCEPTO": "Resultado final", "TOTAL": -2730280.53}, {"AÑO": 2026, "MES": 1, "TIENDA": "Güemes 2", "CONCEPTO": "Resultado final", "TOTAL": -2363384.29}, {"AÑO": 2026, "MES": 1, "TIENDA": "Recoleta", "CONCEPTO": "Resultado final", "TOTAL": -573083.38}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo", "CONCEPTO": "Resultado final", "TOTAL": 4135137.43}, {"AÑO": 2026, "MES": 1, "TIENDA": "San Telmo 2", "CONCEPTO": "Resultado final", "TOTAL": 1114595.65}, {"AÑO": 2026, "MES": 2, "TIENDA": "AS San Telmo", "CONCEPTO": "Resultado final", "TOTAL": -1832624.8}, {"AÑO": 2026, "MES": 2, "TIENDA": "El Solar", "CONCEPTO": "Resultado final", "TOTAL": -4424811.23}, {"AÑO": 2026, "MES": 2, "TIENDA": "Florida", "CONCEPTO": "Resultado final", "TOTAL": 4934697.25}, {"AÑO": 2026, "MES": 2, "TIENDA": "French", "CONCEPTO": "Resultado final", "TOTAL": -15995.63}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes", "CONCEPTO": "Resultado final", "TOTAL": -2145074.81}, {"AÑO": 2026, "MES": 2, "TIENDA": "Güemes 2", "CONCEPTO": "Resultado final", "TOTAL": -1414529.65}, {"AÑO": 2026, "MES": 2, "TIENDA": "Recoleta", "CONCEPTO": "Resultado final", "TOTAL": -2217045.21}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo", "CONCEPTO": "Resultado final", "TOTAL": 3431063.21}, {"AÑO": 2026, "MES": 2, "TIENDA": "San Telmo 2", "CONCEPTO": "Resultado final", "TOTAL": -482442.35}, {"AÑO": 2026, "MES": 3, "TIENDA": "AS San Telmo", "CONCEPTO": "Resultado final", "TOTAL": -592124.14}, {"AÑO": 2026, "MES": 3, "TIENDA": "El Solar", "CONCEPTO": "Resultado final", "TOTAL": -3536841.56}, {"AÑO": 2026, "MES": 3, "TIENDA": "Florida", "CONCEPTO": "Resultado final", "TOTAL": 7619564.55}, {"AÑO": 2026, "MES": 3, "TIENDA": "French", "CONCEPTO": "Resultado final", "TOTAL": 2772620.98}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes", "CONCEPTO": "Resultado final", "TOTAL": -1866516.82}, {"AÑO": 2026, "MES": 3, "TIENDA": "Güemes 2", "CONCEPTO": "Resultado final", "TOTAL": -985635.39}, {"AÑO": 2026, "MES": 3, "TIENDA": "Recoleta", "CONCEPTO": "Resultado final", "TOTAL": 776601.78}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo", "CONCEPTO": "Resultado final", "TOTAL": 5345300.65}, {"AÑO": 2026, "MES": 3, "TIENDA": "San Telmo 2", "CONCEPTO": "Resultado final", "TOTAL": -504071.92}, {"AÑO": 2026, "MES": 4, "TIENDA": "AS San Telmo", "CONCEPTO": "Venta_con_imp", "TOTAL": 14072096.39}, {"AÑO": 2026, "MES": 4, "TIENDA": "AS San Telmo", "CONCEPTO": "Venta_sin_imp", "TOTAL": 11629832.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "AS San Telmo", "CONCEPTO": "Costo", "TOTAL": 2455497.11}, {"AÑO": 2026, "MES": 4, "TIENDA": "AS San Telmo", "CONCEPTO": "Margen_bruto_valor", "TOTAL": 9174334.89}, {"AÑO": 2026, "MES": 4, "TIENDA": "AS San Telmo", "CONCEPTO": "Margen_bruto_porc", "TOTAL": 0.79}, {"AÑO": 2026, "MES": 4, "TIENDA": "El Solar", "CONCEPTO": "Venta_con_imp", "TOTAL": 10038251.16}, {"AÑO": 2026, "MES": 4, "TIENDA": "El Solar", "CONCEPTO": "Venta_sin_imp", "TOTAL": 8301594.47}, {"AÑO": 2026, "MES": 4, "TIENDA": "El Solar", "CONCEPTO": "Costo", "TOTAL": 1565569.61}, {"AÑO": 2026, "MES": 4, "TIENDA": "El Solar", "CONCEPTO": "Margen_bruto_valor", "TOTAL": 6736024.86}, {"AÑO": 2026, "MES": 4, "TIENDA": "El Solar", "CONCEPTO": "Margen_bruto_porc", "TOTAL": 0.81}, {"AÑO": 2026, "MES": 4, "TIENDA": "Florida", "CONCEPTO": "Venta_con_imp", "TOTAL": 50187137.29}, {"AÑO": 2026, "MES": 4, "TIENDA": "Florida", "CONCEPTO": "Venta_sin_imp", "TOTAL": 42526842.81}, {"AÑO": 2026, "MES": 4, "TIENDA": "Florida", "CONCEPTO": "Costo", "TOTAL": 9096409.2}, {"AÑO": 2026, "MES": 4, "TIENDA": "Florida", "CONCEPTO": "Margen_bruto_valor", "TOTAL": 33430433.61}, {"AÑO": 2026, "MES": 4, "TIENDA": "Florida", "CONCEPTO": "Margen_bruto_porc", "TOTAL": 0.79}, {"AÑO": 2026, "MES": 4, "TIENDA": "French", "CONCEPTO": "Venta_con_imp", "TOTAL": 15741035.33}, {"AÑO": 2026, "MES": 4, "TIENDA": "French", "CONCEPTO": "Venta_sin_imp", "TOTAL": 13038727.27}, {"AÑO": 2026, "MES": 4, "TIENDA": "French", "CONCEPTO": "Costo", "TOTAL": 2749656.83}, {"AÑO": 2026, "MES": 4, "TIENDA": "French", "CONCEPTO": "Margen_bruto_valor", "TOTAL": 10289070.44}, {"AÑO": 2026, "MES": 4, "TIENDA": "French", "CONCEPTO": "Margen_bruto_porc", "TOTAL": 0.79}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes", "CONCEPTO": "Venta_con_imp", "TOTAL": 3226471.89}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes", "CONCEPTO": "Venta_sin_imp", "TOTAL": 2670206.59}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes", "CONCEPTO": "Costo", "TOTAL": 728717.76}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes", "CONCEPTO": "Margen_bruto_valor", "TOTAL": 1941488.83}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes", "CONCEPTO": "Margen_bruto_porc", "TOTAL": 0.73}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes 2", "CONCEPTO": "Venta_con_imp", "TOTAL": 7638188.18}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes 2", "CONCEPTO": "Venta_sin_imp", "TOTAL": 6282282.24}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes 2", "CONCEPTO": "Costo", "TOTAL": 1124460.27}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes 2", "CONCEPTO": "Margen_bruto_valor", "TOTAL": 5157821.97}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes 2", "CONCEPTO": "Margen_bruto_porc", "TOTAL": 0.82}, {"AÑO": 2026, "MES": 4, "TIENDA": "Recoleta", "CONCEPTO": "Venta_con_imp", "TOTAL": 20708446.32}, {"AÑO": 2026, "MES": 4, "TIENDA": "Recoleta", "CONCEPTO": "Venta_sin_imp", "TOTAL": 18031900.91}, {"AÑO": 2026, "MES": 4, "TIENDA": "Recoleta", "CONCEPTO": "Costo", "TOTAL": 3804378.53}, {"AÑO": 2026, "MES": 4, "TIENDA": "Recoleta", "CONCEPTO": "Margen_bruto_valor", "TOTAL": 14227522.38}, {"AÑO": 2026, "MES": 4, "TIENDA": "Recoleta", "CONCEPTO": "Margen_bruto_porc", "TOTAL": 0.79}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo", "CONCEPTO": "Venta_con_imp", "TOTAL": 31099293.12}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo", "CONCEPTO": "Venta_sin_imp", "TOTAL": 25741561.87}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo", "CONCEPTO": "Costo", "TOTAL": 5384481.04}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo", "CONCEPTO": "Margen_bruto_valor", "TOTAL": 20357080.83}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo", "CONCEPTO": "Margen_bruto_porc", "TOTAL": 0.79}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo 2", "CONCEPTO": "Venta_con_imp", "TOTAL": 10134262.01}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo 2", "CONCEPTO": "Venta_sin_imp", "TOTAL": 8436967.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo 2", "CONCEPTO": "Costo", "TOTAL": 1703060.71}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo 2", "CONCEPTO": "Margen_bruto_valor", "TOTAL": 6733906.29}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo 2", "CONCEPTO": "Margen_bruto_porc", "TOTAL": 0.8}, {"AÑO": 2026, "MES": 4, "TIENDA": "AS San Telmo", "CONCEPTO": "Alquiler", "TOTAL": 1089870.39}, {"AÑO": 2026, "MES": 4, "TIENDA": "AS San Telmo", "CONCEPTO": "Expensas", "TOTAL": 1343529.34}, {"AÑO": 2026, "MES": 4, "TIENDA": "AS San Telmo", "CONCEPTO": "Alarma", "TOTAL": 20000.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "AS San Telmo", "CONCEPTO": "Administración", "TOTAL": 1407210.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "AS San Telmo", "CONCEPTO": "Edesur", "TOTAL": 83023.8}, {"AÑO": 2026, "MES": 4, "TIENDA": "AS San Telmo", "CONCEPTO": "Fumigación", "TOTAL": 38780.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "AS San Telmo", "CONCEPTO": "Internet", "TOTAL": 116520.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "AS San Telmo", "CONCEPTO": "Logística", "TOTAL": 703605.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "AS San Telmo", "CONCEPTO": "Mantenimiento", "TOTAL": 136000.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "AS San Telmo", "CONCEPTO": "Otros gastos", "TOTAL": 562884.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "AS San Telmo", "CONCEPTO": "Packaging", "TOTAL": 127174.89}, {"AÑO": 2026, "MES": 4, "TIENDA": "AS San Telmo", "CONCEPTO": "Servicios", "TOTAL": 2600800.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "El Solar", "CONCEPTO": "Alquiler", "TOTAL": 1872828.43}, {"AÑO": 2026, "MES": 4, "TIENDA": "El Solar", "CONCEPTO": "Expensas", "TOTAL": 173089.62}, {"AÑO": 2026, "MES": 4, "TIENDA": "El Solar", "CONCEPTO": "Administración", "TOTAL": 1003825.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "El Solar", "CONCEPTO": "Fumigación", "TOTAL": 20900.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "El Solar", "CONCEPTO": "Internet", "TOTAL": 23170.92}, {"AÑO": 2026, "MES": 4, "TIENDA": "El Solar", "CONCEPTO": "Logística", "TOTAL": 501913.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "El Solar", "CONCEPTO": "Otros gastos", "TOTAL": 401530.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "Florida", "CONCEPTO": "Alquiler", "TOTAL": 6900000.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "Florida", "CONCEPTO": "Expensas", "TOTAL": 482850.5}, {"AÑO": 2026, "MES": 4, "TIENDA": "Florida", "CONCEPTO": "ABL", "TOTAL": 659144.55}, {"AÑO": 2026, "MES": 4, "TIENDA": "Florida", "CONCEPTO": "Alarma", "TOTAL": 40000.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "Florida", "CONCEPTO": "AYSA", "TOTAL": 470829.46}, {"AÑO": 2026, "MES": 4, "TIENDA": "Florida", "CONCEPTO": "Administración", "TOTAL": 5018714.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "Florida", "CONCEPTO": "Edesur", "TOTAL": 721444.48}, {"AÑO": 2026, "MES": 4, "TIENDA": "Florida", "CONCEPTO": "Fumigación", "TOTAL": 48290.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "Florida", "CONCEPTO": "Internet", "TOTAL": 60901.5}, {"AÑO": 2026, "MES": 4, "TIENDA": "Florida", "CONCEPTO": "Logística", "TOTAL": 2509357.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "Florida", "CONCEPTO": "Mantenimiento", "TOTAL": 136000.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "Florida", "CONCEPTO": "Otros gastos", "TOTAL": 2007485.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "French", "CONCEPTO": "Alquiler", "TOTAL": 923100.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "French", "CONCEPTO": "Expensas", "TOTAL": 298257.44}, {"AÑO": 2026, "MES": 4, "TIENDA": "French", "CONCEPTO": "Alarma", "TOTAL": 40000.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "French", "CONCEPTO": "Administración", "TOTAL": 1574104.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "French", "CONCEPTO": "Edesur", "TOTAL": 149313.31}, {"AÑO": 2026, "MES": 4, "TIENDA": "French", "CONCEPTO": "Fumigación", "TOTAL": 38780.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "French", "CONCEPTO": "Internet", "TOTAL": 126000.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "French", "CONCEPTO": "Logística", "TOTAL": 787052.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "French", "CONCEPTO": "Mantenimiento", "TOTAL": 136000.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "French", "CONCEPTO": "Otros gastos", "TOTAL": 629641.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes", "CONCEPTO": "Alquiler", "TOTAL": 715965.54}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes", "CONCEPTO": "Expensas", "TOTAL": 327251.57}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes", "CONCEPTO": "Alarma", "TOTAL": 40000.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes", "CONCEPTO": "Administración", "TOTAL": 322647.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes", "CONCEPTO": "Fumigación", "TOTAL": 38780.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes", "CONCEPTO": "Internet", "TOTAL": 86950.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes", "CONCEPTO": "Logística", "TOTAL": 161324.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes", "CONCEPTO": "Mantenimiento", "TOTAL": 146719.9}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes", "CONCEPTO": "Otros gastos", "TOTAL": 129059.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes 2", "CONCEPTO": "Alquiler", "TOTAL": 536812.83}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes 2", "CONCEPTO": "Expensas", "TOTAL": 50067.31}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes 2", "CONCEPTO": "Alarma", "TOTAL": 857200.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes 2", "CONCEPTO": "Administración", "TOTAL": 763819.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes 2", "CONCEPTO": "Edesur", "TOTAL": 22811.88}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes 2", "CONCEPTO": "Fumigación", "TOTAL": 20900.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes 2", "CONCEPTO": "Logística", "TOTAL": 381909.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes 2", "CONCEPTO": "Otros gastos", "TOTAL": 305528.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes 2", "CONCEPTO": "Servicios", "TOTAL": 750000.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "Recoleta", "CONCEPTO": "Alquiler", "TOTAL": 2504086.52}, {"AÑO": 2026, "MES": 4, "TIENDA": "Recoleta", "CONCEPTO": "Expensas", "TOTAL": 2350582.72}, {"AÑO": 2026, "MES": 4, "TIENDA": "Recoleta", "CONCEPTO": "Alarma", "TOTAL": 40000.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "Recoleta", "CONCEPTO": "Administración", "TOTAL": 2070845.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "Recoleta", "CONCEPTO": "Edesur", "TOTAL": 121726.66}, {"AÑO": 2026, "MES": 4, "TIENDA": "Recoleta", "CONCEPTO": "Fumigación", "TOTAL": 38780.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "Recoleta", "CONCEPTO": "Internet", "TOTAL": 20076.7}, {"AÑO": 2026, "MES": 4, "TIENDA": "Recoleta", "CONCEPTO": "Logística", "TOTAL": 1035422.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "Recoleta", "CONCEPTO": "Mantenimiento", "TOTAL": 136000.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "Recoleta", "CONCEPTO": "Otros gastos", "TOTAL": 828338.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo", "CONCEPTO": "Alquiler", "TOTAL": 2239640.96}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo", "CONCEPTO": "Expensas", "TOTAL": 671764.67}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo", "CONCEPTO": "Alarma", "TOTAL": 40000.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo", "CONCEPTO": "Administración", "TOTAL": 3109929.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo", "CONCEPTO": "Edesur", "TOTAL": 89189.75}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo", "CONCEPTO": "Fumigación", "TOTAL": 38780.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo", "CONCEPTO": "Logística", "TOTAL": 1554965.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo", "CONCEPTO": "Mantenimiento", "TOTAL": 136000.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo", "CONCEPTO": "Matafuegos", "TOTAL": 125098.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo", "CONCEPTO": "Otros gastos", "TOTAL": 1243972.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo 2", "CONCEPTO": "Alquiler", "TOTAL": 1230248.2}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo 2", "CONCEPTO": "Expensas", "TOTAL": 671764.67}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo 2", "CONCEPTO": "Alarma", "TOTAL": 20000.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo 2", "CONCEPTO": "Administración", "TOTAL": 1013426.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo 2", "CONCEPTO": "Edesur", "TOTAL": 84351.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo 2", "CONCEPTO": "Fumigación", "TOTAL": 38780.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo 2", "CONCEPTO": "Logística", "TOTAL": 506713.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo 2", "CONCEPTO": "Mantenimiento", "TOTAL": 136000.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo 2", "CONCEPTO": "Otros gastos", "TOTAL": 405370.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "AS San Telmo", "CONCEPTO": "Subtotal_gastos", "TOTAL": 8229397.42}, {"AÑO": 2026, "MES": 4, "TIENDA": "El Solar", "CONCEPTO": "Subtotal_gastos", "TOTAL": 3997256.97}, {"AÑO": 2026, "MES": 4, "TIENDA": "Florida", "CONCEPTO": "Subtotal_gastos", "TOTAL": 19055016.49}, {"AÑO": 2026, "MES": 4, "TIENDA": "French", "CONCEPTO": "Subtotal_gastos", "TOTAL": 4702247.75}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes", "CONCEPTO": "Subtotal_gastos", "TOTAL": 1968697.01}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes 2", "CONCEPTO": "Subtotal_gastos", "TOTAL": 3689048.02}, {"AÑO": 2026, "MES": 4, "TIENDA": "Recoleta", "CONCEPTO": "Subtotal_gastos", "TOTAL": 9145857.6}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo", "CONCEPTO": "Subtotal_gastos", "TOTAL": 9249339.38}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo 2", "CONCEPTO": "Subtotal_gastos", "TOTAL": 4106652.87}, {"AÑO": 2026, "MES": 4, "TIENDA": "AS San Telmo", "CONCEPTO": "Tarjeta crédito 1 cuota", "TOTAL": 91866.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "AS San Telmo", "CONCEPTO": "Tarjeta débito", "TOTAL": 24277.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "AS San Telmo", "CONCEPTO": "Tarjeta crédito 3 cuotas", "TOTAL": 28552.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "El Solar", "CONCEPTO": "Tarjeta crédito 1 cuota", "TOTAL": 53125.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "El Solar", "CONCEPTO": "Tarjeta débito", "TOTAL": 14990.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "El Solar", "CONCEPTO": "Tarjeta crédito 3 cuotas", "TOTAL": 420075.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "El Solar", "CONCEPTO": "Tarjeta crédito 6 cuotas", "TOTAL": 307913.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "Florida", "CONCEPTO": "Tarjeta crédito 1 cuota", "TOTAL": 1442440.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "Florida", "CONCEPTO": "Tarjeta débito", "TOTAL": 95284.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "Florida", "CONCEPTO": "Tarjeta crédito 3 cuotas", "TOTAL": 261514.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "Florida", "CONCEPTO": "Tarjeta crédito 6 cuotas", "TOTAL": 91749.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "French", "CONCEPTO": "Tarjeta crédito 1 cuota", "TOTAL": 427777.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "French", "CONCEPTO": "Tarjeta débito", "TOTAL": 20847.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "French", "CONCEPTO": "Tarjeta crédito 3 cuotas", "TOTAL": 181908.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes", "CONCEPTO": "Tarjeta crédito 1 cuota", "TOTAL": 43420.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes", "CONCEPTO": "Tarjeta débito", "TOTAL": 5269.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes", "CONCEPTO": "Tarjeta crédito 3 cuotas", "TOTAL": 84980.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes 2", "CONCEPTO": "Tarjeta crédito 1 cuota", "TOTAL": 26797.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes 2", "CONCEPTO": "Tarjeta débito", "TOTAL": 9754.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes 2", "CONCEPTO": "Tarjeta crédito 3 cuotas", "TOTAL": 391210.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes 2", "CONCEPTO": "Tarjeta crédito 6 cuotas", "TOTAL": 156285.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "Recoleta", "CONCEPTO": "Tarjeta crédito 1 cuota", "TOTAL": 530659.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "Recoleta", "CONCEPTO": "Tarjeta débito", "TOTAL": 34464.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "Recoleta", "CONCEPTO": "Tarjeta crédito 3 cuotas", "TOTAL": 190284.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "Recoleta", "CONCEPTO": "Tarjeta crédito 6 cuotas", "TOTAL": 157504.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo", "CONCEPTO": "Tarjeta crédito 1 cuota", "TOTAL": 1084561.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo", "CONCEPTO": "Tarjeta débito", "TOTAL": 53280.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo", "CONCEPTO": "Tarjeta crédito 3 cuotas", "TOTAL": 94316.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo 2", "CONCEPTO": "Tarjeta crédito 1 cuota", "TOTAL": 362330.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo 2", "CONCEPTO": "Tarjeta débito", "TOTAL": 12798.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo 2", "CONCEPTO": "Tarjeta crédito 3 cuotas", "TOTAL": 51877.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "Recoleta", "CONCEPTO": "Mercado Pago", "TOTAL": 0.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "Florida", "CONCEPTO": "Mercado Pago", "TOTAL": 0.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "French", "CONCEPTO": "Mercado Pago", "TOTAL": 3175.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "AS San Telmo", "CONCEPTO": "Mercado Pago", "TOTAL": 75915.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo", "CONCEPTO": "Mercado Pago", "TOTAL": 5442.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo 2", "CONCEPTO": "Mercado Pago", "TOTAL": 3090.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes", "CONCEPTO": "Mercado Pago", "TOTAL": 0.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "El Solar", "CONCEPTO": "Mercado Pago", "TOTAL": 2902.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes 2", "CONCEPTO": "Mercado Pago", "TOTAL": 11447.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "AS San Telmo", "CONCEPTO": "Subtotal_gastos_financieros", "TOTAL": 220610.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "El Solar", "CONCEPTO": "Subtotal_gastos_financieros", "TOTAL": 799005.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "Florida", "CONCEPTO": "Subtotal_gastos_financieros", "TOTAL": 1890987.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "French", "CONCEPTO": "Subtotal_gastos_financieros", "TOTAL": 633707.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes", "CONCEPTO": "Subtotal_gastos_financieros", "TOTAL": 133669.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes 2", "CONCEPTO": "Subtotal_gastos_financieros", "TOTAL": 595493.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "Recoleta", "CONCEPTO": "Subtotal_gastos_financieros", "TOTAL": 912911.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo", "CONCEPTO": "Subtotal_gastos_financieros", "TOTAL": 1237599.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo 2", "CONCEPTO": "Subtotal_gastos_financieros", "TOTAL": 430095.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "AS San Telmo", "CONCEPTO": "Sueldo", "TOTAL": 2735493.1}, {"AÑO": 2026, "MES": 4, "TIENDA": "El Solar", "CONCEPTO": "Sueldo", "TOTAL": 3333083.82}, {"AÑO": 2026, "MES": 4, "TIENDA": "Florida", "CONCEPTO": "Sueldo", "TOTAL": 3993952.32}, {"AÑO": 2026, "MES": 4, "TIENDA": "French", "CONCEPTO": "Sueldo", "TOTAL": 2448200.68}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes", "CONCEPTO": "Sueldo", "TOTAL": 1288022.22}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes 2", "CONCEPTO": "Sueldo", "TOTAL": 1936113.84}, {"AÑO": 2026, "MES": 4, "TIENDA": "Recoleta", "CONCEPTO": "Sueldo", "TOTAL": 3001058.39}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo", "CONCEPTO": "Sueldo", "TOTAL": 3071299.53}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo 2", "CONCEPTO": "Sueldo", "TOTAL": 2307657.43}, {"AÑO": 2026, "MES": 4, "TIENDA": "AS San Telmo", "CONCEPTO": "Contribuciones", "TOTAL": 802771.33}, {"AÑO": 2026, "MES": 4, "TIENDA": "El Solar", "CONCEPTO": "Contribuciones", "TOTAL": 972332.64}, {"AÑO": 2026, "MES": 4, "TIENDA": "Florida", "CONCEPTO": "Contribuciones", "TOTAL": 1167655.12}, {"AÑO": 2026, "MES": 4, "TIENDA": "French", "CONCEPTO": "Contribuciones", "TOTAL": 718487.48}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes", "CONCEPTO": "Contribuciones", "TOTAL": 377134.31}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes 2", "CONCEPTO": "Contribuciones", "TOTAL": 549433.97}, {"AÑO": 2026, "MES": 4, "TIENDA": "Recoleta", "CONCEPTO": "Contribuciones", "TOTAL": 888293.7}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo", "CONCEPTO": "Contribuciones", "TOTAL": 906540.47}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo 2", "CONCEPTO": "Contribuciones", "TOTAL": 679425.85}, {"AÑO": 2026, "MES": 4, "TIENDA": "AS San Telmo", "CONCEPTO": "Incentivo", "TOTAL": 140721.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "El Solar", "CONCEPTO": "Incentivo", "TOTAL": 100383.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "Florida", "CONCEPTO": "Incentivo", "TOTAL": 501871.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "French", "CONCEPTO": "Incentivo", "TOTAL": 157410.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes", "CONCEPTO": "Incentivo", "TOTAL": 32265.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes 2", "CONCEPTO": "Incentivo", "TOTAL": 76382.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "Recoleta", "CONCEPTO": "Incentivo", "TOTAL": 207084.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo", "CONCEPTO": "Incentivo", "TOTAL": 310993.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo 2", "CONCEPTO": "Incentivo", "TOTAL": 101343.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "El Solar", "CONCEPTO": "Liq Final", "TOTAL": 973457.51}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes", "CONCEPTO": "Liq Final", "TOTAL": 1748.08}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes 2", "CONCEPTO": "Liq Final", "TOTAL": 867468.44}, {"AÑO": 2026, "MES": 4, "TIENDA": "AS San Telmo", "CONCEPTO": "Subtotal_sueldos", "TOTAL": 3678985.43}, {"AÑO": 2026, "MES": 4, "TIENDA": "El Solar", "CONCEPTO": "Subtotal_sueldos", "TOTAL": 5379256.97}, {"AÑO": 2026, "MES": 4, "TIENDA": "Florida", "CONCEPTO": "Subtotal_sueldos", "TOTAL": 5663478.44}, {"AÑO": 2026, "MES": 4, "TIENDA": "French", "CONCEPTO": "Subtotal_sueldos", "TOTAL": 3324098.17}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes", "CONCEPTO": "Subtotal_sueldos", "TOTAL": 1699169.61}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes 2", "CONCEPTO": "Subtotal_sueldos", "TOTAL": 3429398.26}, {"AÑO": 2026, "MES": 4, "TIENDA": "Recoleta", "CONCEPTO": "Subtotal_sueldos", "TOTAL": 4096436.1}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo", "CONCEPTO": "Subtotal_sueldos", "TOTAL": 4288833.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo 2", "CONCEPTO": "Subtotal_sueldos", "TOTAL": 3088426.27}, {"AÑO": 2026, "MES": 4, "TIENDA": "AS San Telmo", "CONCEPTO": "Resultado operativo", "TOTAL": -2954657.96}, {"AÑO": 2026, "MES": 4, "TIENDA": "El Solar", "CONCEPTO": "Resultado operativo", "TOTAL": -3439494.08}, {"AÑO": 2026, "MES": 4, "TIENDA": "Florida", "CONCEPTO": "Resultado operativo", "TOTAL": 6820951.68}, {"AÑO": 2026, "MES": 4, "TIENDA": "French", "CONCEPTO": "Resultado operativo", "TOTAL": 1629017.52}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes", "CONCEPTO": "Resultado operativo", "TOTAL": -1860046.79}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes 2", "CONCEPTO": "Resultado operativo", "TOTAL": -2556117.31}, {"AÑO": 2026, "MES": 4, "TIENDA": "Recoleta", "CONCEPTO": "Resultado operativo", "TOTAL": 72317.68}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo", "CONCEPTO": "Resultado operativo", "TOTAL": 5581309.45}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo 2", "CONCEPTO": "Resultado operativo", "TOTAL": -891267.85}, {"AÑO": 2026, "MES": 4, "TIENDA": "AS San Telmo", "CONCEPTO": "IIBB", "TOTAL": 523342.44}, {"AÑO": 2026, "MES": 4, "TIENDA": "El Solar", "CONCEPTO": "IIBB", "TOTAL": 373571.75}, {"AÑO": 2026, "MES": 4, "TIENDA": "Florida", "CONCEPTO": "IIBB", "TOTAL": 1913707.93}, {"AÑO": 2026, "MES": 4, "TIENDA": "French", "CONCEPTO": "IIBB", "TOTAL": 586742.73}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes", "CONCEPTO": "IIBB", "TOTAL": 120159.3}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes 2", "CONCEPTO": "IIBB", "TOTAL": 282702.7}, {"AÑO": 2026, "MES": 4, "TIENDA": "Recoleta", "CONCEPTO": "IIBB", "TOTAL": 811435.54}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo", "CONCEPTO": "IIBB", "TOTAL": 1158370.28}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo 2", "CONCEPTO": "IIBB", "TOTAL": 379663.52}, {"AÑO": 2026, "MES": 4, "TIENDA": "Florida", "CONCEPTO": "Multa", "TOTAL": 95000.0}, {"AÑO": 2026, "MES": 4, "TIENDA": "AS San Telmo", "CONCEPTO": "Subtotal_impuestos", "TOTAL": 523342.44}, {"AÑO": 2026, "MES": 4, "TIENDA": "El Solar", "CONCEPTO": "Subtotal_impuestos", "TOTAL": 373571.75}, {"AÑO": 2026, "MES": 4, "TIENDA": "Florida", "CONCEPTO": "Subtotal_impuestos", "TOTAL": 2008707.93}, {"AÑO": 2026, "MES": 4, "TIENDA": "French", "CONCEPTO": "Subtotal_impuestos", "TOTAL": 586742.73}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes", "CONCEPTO": "Subtotal_impuestos", "TOTAL": 120159.3}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes 2", "CONCEPTO": "Subtotal_impuestos", "TOTAL": 282702.7}, {"AÑO": 2026, "MES": 4, "TIENDA": "Recoleta", "CONCEPTO": "Subtotal_impuestos", "TOTAL": 811435.54}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo", "CONCEPTO": "Subtotal_impuestos", "TOTAL": 1158370.28}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo 2", "CONCEPTO": "Subtotal_impuestos", "TOTAL": 379663.52}, {"AÑO": 2026, "MES": 4, "TIENDA": "AS San Telmo", "CONCEPTO": "Resultado final", "TOTAL": -3478000.4}, {"AÑO": 2026, "MES": 4, "TIENDA": "El Solar", "CONCEPTO": "Resultado final", "TOTAL": -3813065.84}, {"AÑO": 2026, "MES": 4, "TIENDA": "Florida", "CONCEPTO": "Resultado final", "TOTAL": 4812243.75}, {"AÑO": 2026, "MES": 4, "TIENDA": "French", "CONCEPTO": "Resultado final", "TOTAL": 1042274.8}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes", "CONCEPTO": "Resultado final", "TOTAL": -1980206.08}, {"AÑO": 2026, "MES": 4, "TIENDA": "Güemes 2", "CONCEPTO": "Resultado final", "TOTAL": -2838820.01}, {"AÑO": 2026, "MES": 4, "TIENDA": "Recoleta", "CONCEPTO": "Resultado final", "TOTAL": -739117.86}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo", "CONCEPTO": "Resultado final", "TOTAL": 4422939.17}, {"AÑO": 2026, "MES": 4, "TIENDA": "San Telmo 2", "CONCEPTO": "Resultado final", "TOTAL": -1270931.37}];
+
+let TIENDAS = [];
+let MESES = [];
+const MESES_LABELS = {1:'Enero', 2:'Febrero', 3:'Marzo', 4:'Abril', 5:'Mayo', 6:'Junio', 7:'Julio', 8:'Agosto', 9:'Septiembre', 10:'Octubre', 11:'Noviembre', 12:'Diciembre'};
+
+function computeLists() {
+  TIENDAS = [...new Set(RAW.map(d => d.TIENDA))].sort();
+  MESES   = [...new Set(RAW.map(d => d.MES))].sort((a,b)=>a-b);
+}
+computeLists();
+
+// Multiselect state
+let selectedTiendas = new Set(TIENDAS);
+let selectedMeses   = new Set(MESES);
+
+function buildTiendaFilter() {
+  selectedTiendas = new Set(TIENDAS);
+  const list = document.getElementById('ms-list');
+  list.innerHTML = '';
+  TIENDAS.forEach(t => {
+    const item = document.createElement('label');
+    item.className = 'ms-item';
+    item.innerHTML = `<input type="checkbox" value="${t}" checked onchange="onCheck()"> ${t}`;
+    list.appendChild(item);
+  });
+  updateLabel();
+}
+
+function buildMesFilter() {
+  selectedMeses = new Set(MESES);
+  const listMes = document.getElementById('ms-list-mes');
+  listMes.innerHTML = '';
+  MESES.forEach(m => {
+    const item = document.createElement('label');
+    item.className = 'ms-item';
+    item.innerHTML = `<input type="checkbox" value="${m}" checked onchange="onCheckMes()"> ${MESES_LABELS[m]}`;
+    listMes.appendChild(item);
+  });
+  updateLabelMes();
+}
+
+buildTiendaFilter();
+buildMesFilter();
+
+function updateLabel() {
+  const n = selectedTiendas.size;
+  document.getElementById('ms-label').textContent =
+    n === 0 ? 'Ninguna seleccionada' :
+    n === TIENDAS.length ? 'Todas las tiendas' :
+    n === 1 ? [...selectedTiendas][0] :
+    `${n} tiendas`;
+}
+
+function onCheck() {
+  selectedTiendas = new Set(
+    [...document.querySelectorAll('#ms-list input:checked')].map(c => c.value)
+  );
+  updateLabel();
+  render();
+}
+
+function selectAll(e) { if(e) e.stopPropagation(); document.querySelectorAll('#ms-list input').forEach(c => c.checked = true); onCheck(); }
+function selectNone(e) { if(e) e.stopPropagation(); document.querySelectorAll('#ms-list input').forEach(c => c.checked = false); onCheck(); }
+
+function toggleDropdown() {
+  document.getElementById('ms-trigger').classList.toggle('open');
+  document.getElementById('ms-dropdown').classList.toggle('open');
+}
+
+function updateLabelMes() {
+  const n = selectedMeses.size;
+  document.getElementById('ms-label-mes').textContent =
+    n === 0 ? 'Ninguno' :
+    n === MESES.length ? 'Todos los meses' :
+    n === 1 ? MESES_LABELS[[...selectedMeses][0]] :
+    `${n} meses`;
+}
+
+function onCheckMes() {
+  selectedMeses = new Set(
+    [...document.querySelectorAll('#ms-list-mes input:checked')].map(c => Number(c.value))
+  );
+  updateLabelMes();
+  render();
+}
+
+function selectAllMes(e) { if(e) e.stopPropagation(); document.querySelectorAll('#ms-list-mes input').forEach(c => c.checked = true); onCheckMes(); }
+function selectNoneMes(e) { if(e) e.stopPropagation(); document.querySelectorAll('#ms-list-mes input').forEach(c => c.checked = false); onCheckMes(); }
+
+function toggleDropdownMes() {
+  document.getElementById('ms-trigger-mes').classList.toggle('open');
+  document.getElementById('ms-dropdown-mes').classList.toggle('open');
+}
+
+// ── CARGA DE ARCHIVO ─────────────────────────────────────────────────
+function handleFileUpload(file) {
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const wb = XLSX.read(new Uint8Array(e.target.result), { type: 'array' });
+      const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]);
+      if (!rows.length || !('TIENDA' in rows[0]) || !('CONCEPTO' in rows[0]) || !('TOTAL' in rows[0])) {
+        showUploadStatus('⚠ El archivo no tiene el formato correcto (columnas: AÑO, MES, TIENDA, CONCEPTO, TOTAL)', true);
+        return;
+      }
+      RAW = rows
+        .filter(r => r.TIENDA && r.CONCEPTO)
+        .map(r => ({
+          AÑO:      parseInt(r.AÑO)      || 2026,
+          MES:      parseInt(r.MES),
+          TIENDA:   String(r.TIENDA).trim(),
+          CONCEPTO: String(r.CONCEPTO).trim(),
+          TOTAL:    parseFloat(r.TOTAL)  || 0
+        }));
+      computeLists();
+      buildTiendaFilter();
+      buildMesFilter();
+      destroyCharts();
+      render();
+      showUploadStatus(`✓ ${rows.length} filas cargadas — ${TIENDAS.length} tiendas, meses ${MESES.map(m=>MESES_LABELS[m]).join(', ')}`);
+    } catch(err) {
+      showUploadStatus('⚠ Error al leer el archivo: ' + err.message, true);
+    }
+    // Reset input so the same file can be re-cargado si es necesario
+    document.getElementById('file-input').value = '';
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function showUploadStatus(msg, isError = false) {
+  const el = document.getElementById('upload-status');
+  el.textContent = msg;
+  el.style.color = isError ? '#f87171' : 'rgba(255,255,255,.85)';
+  if (!isError) setTimeout(() => { el.textContent = ''; }, 5000);
+}
+
+// ── GUARDAR DASHBOARD (descarga HTML completo con los datos actuales) ──
+function saveDashboard() {
+  try {
+    const newRawJson = JSON.stringify(RAW);
+    let html = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+    html = html.replace(/let RAW = \[.*?\];/s, 'let RAW = ' + newRawJson + ';');
+    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'dashboard_el_lucero.html';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    showUploadStatus('✓ Dashboard guardado');
+  } catch (err) {
+    showUploadStatus('⚠ Error al guardar: ' + err.message, true);
+  }
+}
+
+document.addEventListener('click', e => {
+  if (!document.getElementById('ms-trigger').contains(e.target) && !document.getElementById('ms-dropdown').contains(e.target)) {
+    document.getElementById('ms-trigger').classList.remove('open');
+    document.getElementById('ms-dropdown').classList.remove('open');
+  }
+  if (!document.getElementById('ms-trigger-mes').contains(e.target) && !document.getElementById('ms-dropdown-mes').contains(e.target)) {
+    document.getElementById('ms-trigger-mes').classList.remove('open');
+    document.getElementById('ms-dropdown-mes').classList.remove('open');
+  }
+});
+
+// Helper: get value
+function getVal(tiendas, mes, concepto) {
+  return RAW.filter(d => tiendas.includes(d.TIENDA) && d.MES === mes && d.CONCEPTO === concepto)
+    .reduce((s, d) => s + d.TOTAL, 0);
+}
+
+function fmt(v) {
+  if (v === null || v === undefined) return '<span class="zero-num">—</span>';
+  const abs = Math.abs(v);
+  let s;
+  if (abs >= 1e6) s = (v/1e6).toFixed(1).replace('.',',') + 'M';
+  else if (abs >= 1e3) s = (v/1e3).toFixed(0) + 'K';
+  else s = v.toFixed(0);
+  const cls = v > 0 ? 'pos-num' : v < 0 ? 'neg-num' : 'zero-num';
+  return `<span class="${cls}">$${s}</span>`;
+}
+function fmtFull(v) {
+  if (v === null || v === undefined) return '—';
+  return '$ ' + Math.round(v).toLocaleString('es-AR');
+}
+function fmtPct(v) { return `<span class="perc-cell">${(v*100).toFixed(1).replace('.',',')}%</span>`; }
+
+// P&L structure
+const SECTIONS = [
+  { title: 'VENTAS', showPct: false, rows: [
+    { key: 'Venta_con_imp', label: 'Venta c/imp', type: 'detail' },
+    { key: 'Venta_sin_imp', label: 'Venta s/imp', type: 'detail' },
+    { key: 'Costo', label: 'Costo', type: 'detail' },
+    { key: 'Margen_bruto_valor', label: 'Margen bruto', type: 'subtotal' },
+    { key: 'Margen_bruto_porc', label: 'Margen bruto %', type: 'perc' },
+  ]},
+  { title: 'GASTOS OPERATIVOS', showPct: true, rows: [
+    { key: 'Alquiler', label: 'Alquiler', type: 'detail' },
+    { key: 'Expensas', label: 'Expensas', type: 'detail' },
+    { key: 'ABL', label: 'ABL', type: 'detail' },
+    { key: 'AYSA', label: 'AYSA', type: 'detail' },
+    { key: 'Administración', label: 'Administración', type: 'detail' },
+    { key: 'Edesur', label: 'Edesur', type: 'detail' },
+    { key: 'Fumigación', label: 'Fumigación', type: 'detail' },
+    { key: 'Internet', label: 'Internet', type: 'detail' },
+    { key: 'Logística', label: 'Logística', type: 'detail' },
+    { key: 'Mantenimiento', label: 'Mantenimiento', type: 'detail' },
+    { key: 'Matafuegos', label: 'Matafuegos', type: 'detail' },
+    { key: 'Packaging', label: 'Packaging', type: 'detail' },
+    { key: 'Alarma', label: 'Alarma', type: 'detail' },
+    { key: 'Servicios', label: 'Servicios', type: 'detail' },
+    { key: 'Multa', label: 'Multa', type: 'detail' },
+    { key: 'Otros gastos', label: 'Otros gastos', type: 'detail' },
+    { key: 'Subtotal_gastos', label: 'Subtotal gastos', type: 'subtotal' },
+  ]},
+  { title: 'GASTOS FINANCIEROS', showPct: true, rows: [
+    { key: 'Tarjeta crédito 1 cuota', label: 'Tarjeta 1 cuota', type: 'detail' },
+    { key: 'Tarjeta crédito 2 cuotas', label: 'Tarjeta 2 cuotas', type: 'detail' },
+    { key: 'Tarjeta crédito 3 cuotas', label: 'Tarjeta 3 cuotas', type: 'detail' },
+    { key: 'Tarjeta crédito 6 cuotas', label: 'Tarjeta 6 cuotas', type: 'detail' },
+    { key: 'Tarjeta débito', label: 'Tarjeta débito', type: 'detail' },
+    { key: 'Mercado Pago', label: 'Mercado Pago', type: 'detail' },
+    { key: 'Subtotal_gastos_financieros', label: 'Subtotal fin.', type: 'subtotal' },
+  ]},
+  { title: 'SUELDOS', showPct: true, rows: [
+    { key: 'Sueldo', label: 'Sueldo', type: 'detail' },
+    { key: 'Contribuciones', label: 'Contribuciones', type: 'detail' },
+    { key: 'Incentivo', label: 'Incentivo', type: 'detail' },
+    { key: 'Vacaciones', label: 'Vacaciones', type: 'detail' },
+    { key: 'Liq Final', label: 'Liq. Final', type: 'detail' },
+    { key: 'Subtotal_sueldos', label: 'Subtotal sueldos', type: 'subtotal' },
+  ]},
+  { title: 'RESULTADO', showPct: true, rows: [
+    { key: 'Resultado operativo', label: 'Resultado operativo', type: 'result-op' },
+    { key: 'IIBB', label: 'IIBB', type: 'detail' },
+    { key: 'Subtotal_impuestos', label: 'Subtotal impuestos', type: 'subtotal' },
+    { key: 'Resultado final', label: 'RESULTADO FINAL', type: 'result-final' },
+  ]},
+];
+
+let charts = {};
+function destroyCharts() { Object.values(charts).forEach(c => c.destroy()); charts = {}; }
+
+function render() {
+  const tiendas = selectedTiendas.size > 0 ? [...selectedTiendas] : [];
+  const activeMeses = [...selectedMeses].sort((a,b)=>a-b);
+  const isTodas = tiendas.length === TIENDAS.length;
+
+  // KPIs
+  const totalVenta = activeMeses.reduce((s,m) => s + getVal(tiendas, m, 'Venta_sin_imp'), 0);
+  const totalResult = activeMeses.reduce((s,m) => s + getVal(tiendas, m, 'Resultado final'), 0);
+  const totalMB = activeMeses.reduce((s,m) => s + getVal(tiendas, m, 'Margen_bruto_valor'), 0);
+  const totalVentaCI = activeMeses.reduce((s,m) => s + getVal(tiendas, m, 'Venta_con_imp'), 0);
+  const totalCostoKPI = activeMeses.reduce((s,m) => s + getVal(tiendas, m, 'Costo'), 0);
+  const mbPct = totalVenta > 0 ? 1 - (totalCostoKPI / totalVenta) : 0;
+
+  document.getElementById('kpis').innerHTML = `
+    <div class="kpi"><div class="kpi-label">Venta s/imp (acum)</div><div class="kpi-val neutral">${fmtFull(totalVenta)}</div><div class="kpi-sub">c/imp: ${fmtFull(totalVentaCI)}</div></div>
+    <div class="kpi"><div class="kpi-label">Margen bruto</div><div class="kpi-val pos">${fmtFull(totalMB)}</div><div class="kpi-sub">${(mbPct*100).toFixed(1).replace('.',',')}% s/venta</div></div>
+    <div class="kpi"><div class="kpi-label">Resultado final</div><div class="kpi-val ${totalResult>=0?'pos':'neg'}">${fmtFull(totalResult)}</div><div class="kpi-sub">${activeMeses.length} mes${activeMeses.length>1?'es':''} acumulado</div></div>
+    <div class="kpi"><div class="kpi-label">Tiendas analizadas</div><div class="kpi-val neutral">${tiendas.length}</div><div class="kpi-sub">${isTodas ? 'todas' : tiendas.join(', ').substring(0, 40)}</div></div>
+  `;
+
+  // TABLE
+  const cols = activeMeses;
+  const hasTotal = cols.length > 1;
+  const dataCols = cols.length + (hasTotal ? 1 : 0);
+  const totalTdCols = 1 + dataCols * 2; // concepto + (meses+total) * 2 columnas
+
+  // Venta c/imp por mes y total para calcular %
+  const vciByMonth = {};
+  cols.forEach(m => { vciByMonth[m] = getVal(tiendas, m, 'Venta_con_imp'); });
+  const vciTotal = cols.reduce((s,m) => s + getVal(tiendas, m, 'Venta_con_imp'), 0);
+
+  // Helper: celda con % sobre venta c/imp
+  function cellPct(value, vci, rowType, extraCls = '') {
+    if (!vci || vci === 0) return `<td class="perc-cell muted-pct${extraCls}">—</td>`;
+    const pct = value / vci * 100;
+    if (rowType === 'result-final' || rowType === 'result-op') {
+      return `<td class="perc-cell ${pct>=0?'pos-num':'neg-num'}${extraCls}">${String(pct.toFixed(1)).replace('.',',')}%</td>`;
+    }
+    return `<td class="perc-cell muted-pct${extraCls}">${String(pct.toFixed(1)).replace('.',',')}%</td>`;
+  }
+
+  // Header: una fila con colspan=2 por mes (sin subheader en thead)
+  const mCls = (i) => (i % 2 === 1 ? ' m-even' : '');
+  let thead = '<thead><tr><th>Concepto</th>';
+  cols.forEach((m, i) => thead += `<th colspan="2" class="m-start${mCls(i)}">${MESES_LABELS[m]}</th>`);
+  if (hasTotal) thead += '<th colspan="2" class="m-start m-total">Total</th>';
+  thead += '</tr></thead>';
+
+  let tbody = '<tbody>';
+  SECTIONS.forEach(sec => {
+    if (sec.showPct) {
+      // Encabezado de sección integrado con $ / % vta c/imp
+      let ghRow = `<tr class="group-header exp-header"><td>${sec.title}</td>`;
+      cols.forEach(() => { ghRow += '<td class="sub-th">$</td><td class="sub-th">% vta c/imp</td>'; });
+      if (hasTotal) ghRow += '<td class="sub-th">$</td><td class="sub-th">% vta c/imp</td>';
+      ghRow += '</tr>';
+      tbody += ghRow;
+    } else {
+      tbody += `<tr class="group-header"><td colspan="${totalTdCols}">${sec.title}</td></tr>`;
+    }
+    sec.rows.forEach(row => {
+      const vals = cols.map(m => {
+        if (row.key === 'Margen_bruto_porc') {
+          const costo = getVal(tiendas, m, 'Costo');
+          const vta = getVal(tiendas, m, 'Venta_sin_imp');
+          return vta !== 0 ? 1 - (costo / vta) : 0;
+        }
+        return getVal(tiendas, m, row.key);
+      });
+      const anyNonZero = vals.some(v => v !== 0);
+      if (!anyNonZero && row.type === 'detail') return;
+
+      tbody += `<tr class="${row.type}"><td>${row.label}</td>`;
+      vals.forEach((v, i) => {
+        const m = cols[i];
+        const mc = mCls(i);
+        const ms = ` m-start${mc}`;
+        if (row.type === 'perc') {
+          tbody += `<td class="${'m-start'+mc}">${fmtPct(v)}</td><td class="${mc.trim()}"></td>`;
+        } else if (sec.showPct) {
+          if (row.type === 'result-final') {
+            tbody += `<td class="${v>=0?'pos':'neg'}${ms}">${fmtFull(v)}</td><td class="${mc.trim()}"></td>`;
+          } else if (row.type === 'result-op') {
+            tbody += `<td class="${ms.trim()}">${fmt(v)}</td><td class="${mc.trim()}"></td>`;
+          } else {
+            tbody += `<td class="${ms.trim()}">${fmt(v)}</td>`;
+            tbody += cellPct(v, vciByMonth[m], row.type, mc);
+          }
+        } else {
+          if (row.type === 'result-final') {
+            tbody += `<td class="${v>=0?'pos':'neg'}${ms}">${fmtFull(v)}</td><td class="${mc.trim()}"></td>`;
+          } else {
+            tbody += `<td class="${ms.trim()}">${fmt(v)}</td><td class="${mc.trim()}"></td>`;
+          }
+        }
+      });
+      if (hasTotal) {
+        let total;
+        if (row.key === 'Margen_bruto_porc') {
+          const totalCosto = cols.reduce((s,m) => s + getVal(tiendas, m, 'Costo'), 0);
+          const totalVta = cols.reduce((s,m) => s + getVal(tiendas, m, 'Venta_sin_imp'), 0);
+          total = totalVta !== 0 ? 1 - (totalCosto / totalVta) : 0;
+        } else {
+          total = vals.reduce((s,v) => s + v, 0);
+        }
+        if (row.type === 'perc') {
+          tbody += `<td class="m-start m-total">${fmtPct(total)}</td><td class="m-total"></td>`;
+        } else if (sec.showPct) {
+          if (row.type === 'result-final') {
+            tbody += `<td class="${total>=0?'pos':'neg'} m-start m-total">${fmtFull(total)}</td><td class="m-total"></td>`;
+          } else if (row.type === 'result-op') {
+            tbody += `<td class="m-start m-total">${fmt(total)}</td><td class="m-total"></td>`;
+          } else {
+            tbody += `<td class="m-start m-total">${fmt(total)}</td>`;
+            tbody += cellPct(total, vciTotal, row.type, ' m-total');
+          }
+        } else {
+          if (row.type === 'result-final') {
+            tbody += `<td class="${total>=0?'pos':'neg'} m-start m-total">${fmtFull(total)}</td><td class="m-total"></td>`;
+          } else {
+            tbody += `<td class="m-start m-total">${fmt(total)}</td><td class="m-total"></td>`;
+          }
+        }
+      }
+      tbody += '</tr>';
+    });
+  });
+  tbody += '</tbody>';
+
+  document.getElementById('pnl-table').innerHTML = thead + tbody;
+  const titleLabel = isTodas ? 'Todas las tiendas' : tiendas.length === 1 ? tiendas[0] : `${tiendas.length} tiendas seleccionadas`;
+  document.getElementById('table-title').textContent = `Estado de Resultados — ${titleLabel}`;
+
+  // CHARTS
+  destroyCharts();
+  renderCharts(tiendas, activeMeses, isTodas);
+}
+
+function renderCharts(tiendas, meses, isTodas) {
+  const gridColor = 'rgba(0,0,0,0.07)';
+  const tickColor = '#374151';
+
+  // Layout: charts 3+4 side by side only when NOT todas
+  document.getElementById('breakdown-row-inner').classList.toggle('side-by-side', !isTodas);
+
+  if (isTodas) {
+    document.getElementById('chart-title').textContent = 'Resultados por tienda';
+    // Chart 1: Resultado final por tienda
+    const resultData = TIENDAS.map(t => meses.reduce((s,m) => s + getVal([t],m,'Resultado final'),0));
+    charts.result = new Chart(document.getElementById('chart-result'), {
+      type: 'bar',
+      data: { labels: TIENDAS, datasets: [{ label:'Resultado final', data: resultData, backgroundColor: resultData.map(v => v >= 0 ? 'rgba(52,211,153,.7)' : 'rgba(248,113,113,.7)'), borderRadius: 4 }] },
+      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, title:{display:true, text:'Resultado Final por Tienda', color:'#111827', font:{size:12}}}, scales:{x:{ticks:{color:tickColor,font:{size:10}},grid:{color:gridColor}},y:{ticks:{color:tickColor,callback:v=>'$'+(v/1e6).toFixed(1).replace('.',',')+'M'},grid:{color:gridColor}}} }
+    });
+    // Chart 2: Margen bruto % por tienda
+    const mbData = TIENDAS.map(t => {
+      const mb = meses.reduce((s,m)=>s+getVal([t],m,'Margen_bruto_valor'),0);
+      const vta = meses.reduce((s,m)=>s+getVal([t],m,'Venta_sin_imp'),0);
+      return vta > 0 ? (mb/vta)*100 : 0;
+    });
+    charts.margen = new Chart(document.getElementById('chart-margen'), {
+      type: 'bar',
+      data: { labels: TIENDAS, datasets:[{ label:'Margen bruto %', data:mbData, backgroundColor:'rgba(0,83,99,.75)', borderRadius:4 }] },
+      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, title:{display:true, text:'Margen Bruto % por Tienda', color:'#111827', font:{size:12}}}, scales:{x:{ticks:{color:tickColor,font:{size:10}},grid:{color:gridColor}},y:{ticks:{color:tickColor,callback:v=>v.toFixed(0)+'%'},grid:{color:gridColor},max:100}} }
+    });
+    // Chart 3: Cascada de resultados
+    const labels = ['Venta s/imp','– Costos','Margen bruto','– Gs. Operativos','– Gs. Financieros','– Sueldos','Res. Operativo','– IIBB','Resultado final'];
+    const vta = tiendas.reduce((s,t)=>s+meses.reduce((ss,m)=>ss+getVal([t],m,'Venta_sin_imp'),0),0);
+    const costo = tiendas.reduce((s,t)=>s+meses.reduce((ss,m)=>ss+getVal([t],m,'Costo'),0),0);
+    const mb = tiendas.reduce((s,t)=>s+meses.reduce((ss,m)=>ss+getVal([t],m,'Margen_bruto_valor'),0),0);
+    const gsOp = tiendas.reduce((s,t)=>s+meses.reduce((ss,m)=>ss+getVal([t],m,'Subtotal_gastos'),0),0);
+    const gsFin = tiendas.reduce((s,t)=>s+meses.reduce((ss,m)=>ss+getVal([t],m,'Subtotal_gastos_financieros'),0),0);
+    const suel = tiendas.reduce((s,t)=>s+meses.reduce((ss,m)=>ss+getVal([t],m,'Subtotal_sueldos'),0),0);
+    const resOp = tiendas.reduce((s,t)=>s+meses.reduce((ss,m)=>ss+getVal([t],m,'Resultado operativo'),0),0);
+    const iibb = tiendas.reduce((s,t)=>s+meses.reduce((ss,m)=>ss+getVal([t],m,'IIBB'),0),0);
+    const resFin = tiendas.reduce((s,t)=>s+meses.reduce((ss,m)=>ss+getVal([t],m,'Resultado final'),0),0);
+    const waterfallData = [vta, costo, mb, gsOp, gsFin, suel, resOp, iibb, resFin];
+    const waterfallColors = ['rgba(0,122,143,.8)','rgba(248,113,113,.8)','rgba(52,211,153,.8)','rgba(248,113,113,.8)','rgba(248,113,113,.8)','rgba(248,113,113,.8)','rgba(251,191,36,.8)','rgba(248,113,113,.8)', resFin>=0?'rgba(52,211,153,.9)':'rgba(248,113,113,.9)'];
+    charts.breakdown = new Chart(document.getElementById('chart-breakdown'), {
+      type: 'bar',
+      data: { labels, datasets:[{ label:'$ Total', data:waterfallData, backgroundColor:waterfallColors, borderRadius:4 }] },
+      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, title:{display:true, text:'Cascada de resultados — acumulado', color:'#111827', font:{size:12}}}, scales:{x:{ticks:{color:tickColor,font:{size:11}},grid:{color:gridColor}},y:{ticks:{color:tickColor,callback:v=>'$'+(v/1e6).toFixed(1).replace('.',',')+'M'},grid:{color:gridColor}}} }
+    });
+  } else {
+    // Chart 1: Ventas vs egresos por mes
+    document.getElementById('chart-title').textContent = tiendas.length === 1 ? `Comparativa mensual — ${tiendas[0]}` : `Comparativa mensual — ${tiendas.length} tiendas`;
+    const mesLabels = meses.map(m => MESES_LABELS[m]);
+    const vtas = meses.map(m => getVal(tiendas, m, 'Venta_sin_imp'));
+    const costos = meses.map(m => getVal(tiendas,m,'Subtotal_gastos') + getVal(tiendas,m,'Subtotal_gastos_financieros') + getVal(tiendas,m,'Subtotal_sueldos'));
+    charts.result = new Chart(document.getElementById('chart-result'), {
+      type: 'bar',
+      data: { labels: mesLabels, datasets:[
+        { label:'Venta s/imp', data:vtas, backgroundColor:'rgba(0,122,143,.7)', borderRadius:4 },
+        { label:'Total egresos', data:costos, backgroundColor:'rgba(248,113,113,.7)', borderRadius:4 },
+      ]},
+      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{labels:{color:'#111827',font:{size:11}}}, title:{display:true, text:'Ventas vs Egresos', color:'#111827', font:{size:12}}}, scales:{x:{ticks:{color:tickColor},grid:{color:gridColor}},y:{ticks:{color:tickColor,callback:v=>'$'+(v/1e6).toFixed(1).replace('.',',')+'M'},grid:{color:gridColor}}} }
+    });
+    // Chart 2: Resultado final por mes
+    const results = meses.map(m => getVal(tiendas, m, 'Resultado final'));
+    charts.margen = new Chart(document.getElementById('chart-margen'), {
+      type: 'bar',
+      data: { labels: mesLabels, datasets:[{ label:'Resultado final', data:results, backgroundColor:results.map(v=>v>=0?'rgba(52,211,153,.8)':'rgba(248,113,113,.8)'), borderRadius:4 }]},
+      options: { responsive:true, maintainAspectRatio:false, plugins:{legend:{display:false}, title:{display:true, text:'Resultado Final por Mes', color:'#111827', font:{size:12}}}, scales:{x:{ticks:{color:tickColor},grid:{color:gridColor}},y:{ticks:{color:tickColor,callback:v=>'$'+(v/1e6).toFixed(1).replace('.',',')+'M'},grid:{color:gridColor}}} }
+    });
+    // Chart 3: Doughnut composición egresos
+    const gsOp2 = meses.reduce((s,m)=>s+getVal(tiendas,m,'Subtotal_gastos'),0);
+    const gsFin2 = meses.reduce((s,m)=>s+getVal(tiendas,m,'Subtotal_gastos_financieros'),0);
+    const suel2 = meses.reduce((s,m)=>s+getVal(tiendas,m,'Subtotal_sueldos'),0);
+    const csto2 = meses.reduce((s,m)=>s+getVal(tiendas,m,'Costo'),0);
+    const imp2 = meses.reduce((s,m)=>s+getVal(tiendas,m,'Subtotal_impuestos'),0);
+    const alqExp2 = meses.reduce((s,m)=>s+getVal(tiendas,m,'Alquiler')+getVal(tiendas,m,'Expensas'),0);
+    const gsOpResto2 = Math.max(0, gsOp2 - alqExp2);
+
+    const dnutLabels = ['Costo mercadería','Alquiler+Expensas','Gs. Operativos','Gs. Financieros','Sueldos','Impuestos'];
+    const dnutData   = [csto2, alqExp2, gsOpResto2, gsFin2, suel2, imp2];
+    const dnutColors = ['rgba(0,122,143,.8)','rgba(251,146,60,.8)','rgba(251,191,36,.8)','rgba(167,139,250,.8)','rgba(52,211,153,.8)','rgba(248,113,113,.8)'];
+
+    charts.breakdown = new Chart(document.getElementById('chart-breakdown'), {
+      type: 'doughnut',
+      plugins: [ChartDataLabels],
+      data: { labels: dnutLabels, datasets: [{ data: dnutData, backgroundColor: dnutColors, borderWidth: 0 }] },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        layout: { padding: { top: 50, bottom: 55, left: 85, right: 85 } },
+        plugins: {
+          legend: { display: false },
+          title: { display: false },
+          tooltip: {
+            callbacks: {
+              label: ctx => {
+                const total = ctx.dataset.data.reduce((a,b)=>a+b,0);
+                const pct = (ctx.raw/total*100).toFixed(1).replace('.',',');
+                return ` ${ctx.label}: ${pct}% ($${Math.round(ctx.raw).toLocaleString('es-AR')})`;
+              }
+            }
+          },
+          datalabels: {
+            anchor: 'end',
+            align: 'end',
+            offset: 10,
+            display: true,
+            color: '#111827',
+            textAlign: 'center',
+            font: { size: 10, weight: 'bold' },
+            backgroundColor: ctx => ctx.dataset.backgroundColor[ctx.dataIndex],
+            borderRadius: 3,
+            padding: { top: 3, bottom: 3, left: 5, right: 5 },
+            formatter: (value, ctx) => {
+              const total = ctx.dataset.data.reduce((a,b)=>a+b,0);
+              const pct = (value/total*100).toFixed(1).replace('.',',');
+              return ctx.chart.data.labels[ctx.dataIndex] + '\n' + pct + '%';
+            }
+          }
+        }
+      }
+    });
+  }
+
+  // Chart 4: 100% barras apiladas — distribución de gastos (siempre visible)
+  const GS_ITEMS = [
+    { key: 'Alquiler',          label: 'Alquiler',        color: 'rgba(0,122,143,.85)'   },
+    { key: 'Expensas',          label: 'Expensas',        color: 'rgba(167,139,250,.85)' },
+    { key: 'Administración',    label: 'Administración',  color: 'rgba(251,191,36,.85)'  },
+    { key: 'Logística',         label: 'Logística',       color: 'rgba(52,211,153,.85)'  },
+    { key: 'Edesur',            label: 'Edesur',          color: 'rgba(248,113,113,.85)' },
+    { key: 'ABL',               label: 'ABL',             color: 'rgba(45,212,191,.85)'  },
+    { key: 'AYSA',              label: 'AYSA',            color: 'rgba(251,146,60,.85)'  },
+    { key: 'Internet',          label: 'Internet',        color: 'rgba(99,202,255,.85)'  },
+    { key: 'Mantenimiento',     label: 'Mantenimiento',   color: 'rgba(232,121,249,.85)' },
+    { key: 'Packaging',         label: 'Packaging',       color: 'rgba(163,230,53,.85)'  },
+    { key: 'Fumigación',        label: 'Fumigación',      color: 'rgba(253,224,71,.8)'   },
+    { key: 'Alarma',            label: 'Alarma',          color: 'rgba(134,239,172,.8)'  },
+    { key: 'Matafuegos',        label: 'Matafuegos',      color: 'rgba(253,186,116,.8)'  },
+    { key: 'Servicios',         label: 'Servicios',       color: 'rgba(129,140,248,.85)' },
+    { key: 'Multa',             label: 'Multa',           color: 'rgba(244,114,182,.85)' },
+    { key: 'Otros gastos',      label: 'Otros gastos',    color: 'rgba(148,163,184,.8)'  },
+    { key: 'Subtotal_sueldos',  label: 'Sueldos',         color: 'rgba(239,68,68,.85)'   },
+  ];
+
+  // Calcular valores brutos por tienda
+  const rawItems = GS_ITEMS
+    .map(item => ({
+      key: item.key,
+      label: item.label,
+      color: item.color,
+      data: tiendas.map(t => meses.reduce((s,m) => s + getVal([t], m, item.key), 0)),
+    }))
+    .filter(item => item.data.some(v => v > 0));
+
+  // Ordenar de mayor a menor (el más grande va al fondo de la barra)
+  rawItems.sort((a, b) => b.data.reduce((s,v)=>s+v,0) - a.data.reduce((s,v)=>s+v,0));
+
+  // Totales por tienda para normalizar a 100%
+  const tiendaTotals = tiendas.map((_, i) => rawItems.reduce((s, item) => s + item.data[i], 0));
+
+  const stackDatasets = rawItems.map(item => ({
+    label: item.label,
+    rawData: item.data,
+    data: item.data.map((v, i) => tiendaTotals[i] > 0 ? parseFloat((v / tiendaTotals[i] * 100).toFixed(2)) : 0),
+    backgroundColor: item.color,
+    borderWidth: 0,
+  }));
+
+  charts.gastosStack = new Chart(document.getElementById('chart-gastos-stack'), {
+    type: 'bar',
+    data: { labels: tiendas, datasets: stackDatasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          position: 'right',
+          reverse: true, // leyenda de abajo a arriba igual que el gráfico
+          labels: { color: '#111827', font: { size: 11 }, boxWidth: 12 }
+        },
+        title: { display: true, text: 'Distribución de gastos', color: '#111827', font: { size: 12 } },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const raw = ctx.dataset.rawData[ctx.dataIndex];
+              const pct = ctx.parsed.y.toFixed(1).replace('.', ',');
+              return ` ${ctx.dataset.label}: ${pct}% ($${Math.round(raw).toLocaleString('es-AR')})`;
+            }
+          }
+        }
+      },
+      scales: {
+        x: { stacked: true, ticks: { color: tickColor, font: { size: 11 } }, grid: { color: gridColor } },
+        y: { stacked: true, max: 100, ticks: { color: tickColor, callback: v => v + '%' }, grid: { color: gridColor } }
+      }
+    }
+  });
+}
+
+function setView(v) {
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', (i===0&&v==='tabla')||(i===1&&v==='graficos')));
+  document.getElementById('view-tabla').style.display = v === 'tabla' ? 'block' : 'none';
+  document.getElementById('view-graficos').style.display = v === 'graficos' ? 'block' : 'none';
+  if (v === 'graficos') { destroyCharts(); const t=[...selectedTiendas]; const m=[...selectedMeses].sort((a,b)=>a-b); renderCharts(t, m, t.length===TIENDAS.length); }
+}
+
+function downloadExcel() {
+  const tiendas = [...selectedTiendas];
+  const activeMeses = [...selectedMeses].sort((a,b)=>a-b);
+  const isTodas = tiendas.length === TIENDAS.length;
+
+  const wb = XLSX.utils.book_new();
+
+  const header = ['Concepto', ...activeMeses.map(m => MESES_LABELS[m])];
+  if (activeMeses.length > 1) header.push('Total');
+
+  const rows = [header];
+
+  SECTIONS.forEach(sec => {
+    rows.push([sec.title]);
+    sec.rows.forEach(row => {
+      const vals = activeMeses.map(m => {
+        if (row.key === 'Margen_bruto_porc') {
+          const costo = getVal(tiendas, m, 'Costo');
+          const vta = getVal(tiendas, m, 'Venta_sin_imp');
+          return vta !== 0 ? 1 - (costo / vta) : 0;
+        }
+        return getVal(tiendas, m, row.key);
+      });
+      const anyNonZero = vals.some(v => v !== 0);
+      if (!anyNonZero && row.type === 'detail') return;
+
+      const rowData = [row.label];
+      vals.forEach(v => {
+        if (row.type === 'perc') rowData.push(parseFloat((v * 100).toFixed(2)) / 100);
+        else rowData.push(parseFloat(v.toFixed(2)));
+      });
+      if (activeMeses.length > 1) {
+        let total;
+        if (row.key === 'Margen_bruto_porc') {
+          const totalCosto = activeMeses.reduce((s,m) => s + getVal(tiendas, m, 'Costo'), 0);
+          const totalVta = activeMeses.reduce((s,m) => s + getVal(tiendas, m, 'Venta_sin_imp'), 0);
+          total = totalVta !== 0 ? 1 - (totalCosto / totalVta) : 0;
+          rowData.push(parseFloat(total.toFixed(4)));
+        } else {
+          total = vals.reduce((s, v) => s + v, 0);
+          rowData.push(parseFloat(total.toFixed(2)));
+        }
+      }
+      rows.push(rowData);
+    });
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = [{ wch: 28 }, ...activeMeses.map(() => ({ wch: 16 })), { wch: 16 }];
+
+  const sheetName = isTodas ? 'Todas las tiendas' : tiendas[0].substring(0, 31);
+  XLSX.utils.book_append_sheet(wb, ws, sheetName);
+
+  const fileName = `El_Lucero_${isTodas ? 'Todas' : tiendas.length === 1 ? tiendas[0].replace(/ /g,'_') : `${tiendas.length}_tiendas`}.xlsx`;
+  XLSX.writeFile(wb, fileName);
+}
+
+render();
+</script>
+</body>
+</html>

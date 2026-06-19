@@ -880,7 +880,7 @@ TABLA_PRESUPUESTO <- Tablas_unidas %>%
                     "Subtotal_gastos_financieros")                       ~ "Gastos Financieros",
     
     CONCEPTO %in% c("Sueldo", "Contribuciones", "Incentivo",
-                    "Vacaciones", "Liq Final", "Subtotal_sueldos")       ~ "Sueldos",
+                    "Vacaciones", "Liq Final", "SAC", "Subtotal_sueldos")       ~ "Sueldos",
     
     CONCEPTO %in% c("Resultado operativo", "IIBB",
                     "Subtotal_impuestos", "Resultado final")             ~ "Resultado",

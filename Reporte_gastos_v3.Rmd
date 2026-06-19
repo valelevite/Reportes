@@ -29,8 +29,6 @@ AÑO_GASTOS <- 2026
 #Tomo los valores de los dataframes creados en el R de Presupuestos
 ```{r}
 
-DA ERROR EL ACROSS
-
 tomo_valores <- TABLA_REPORTE_GASTOS %>% 
   filter(MES == MES_GASTOS,
          AÑO == AÑO_GASTOS) %>% 
@@ -45,11 +43,11 @@ tomo_valores <- TABLA_REPORTE_GASTOS %>%
   ) |>
   mutate(
     Otros_gastos = rowSums(across(-c(AÑO, MES, TIENDA, 
-                                       Venta_con_imp, Sueldos, Contribuciones, 
+                                       Venta_con_imp, Sueldo, Contribuciones, 
                                        Alquiler, Expensas)), na.rm = TRUE)) |>
   mutate(
     Venta                    = Venta_con_imp,
-    Sueldos                  = Sueldos + Contribuciones,
+    Sueldos                  = Sueldo + Contribuciones,
     `Total_alquileres+expensas` = Alquiler + Expensas
   ) |>
   select(TIENDA,
