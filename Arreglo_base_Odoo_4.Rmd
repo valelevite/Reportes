@@ -16,6 +16,7 @@ library(openxlsx)
 library(stringi)
 library(tibble)
 library(purrr)
+library(janitor)
 
 ```
 
@@ -27,7 +28,7 @@ library(purrr)
 #Pongo las fechas y leo los archivos
 ```{r pongo la fecha de corte}
 
-fecha_hasta <- strftime("2026/06/16","%Y%m%d")
+fecha_hasta <- strftime("2026/06/23","%Y%m%d")
 
 fecha_desde <- strftime("2025/12/09", "%Y%m%d")
 
@@ -273,7 +274,7 @@ Odoo_Facturas_arreglada <- Odoo_Facturas_descuento2 |>
       str_remove_all("\\bNACIONALIDAD\\b") |>
       str_squish()) |>
   mutate(Nota_general = case_when(
-    Nota_general %in% c("TAXFREEESTADOS UNIDOS", "ESTDOS UNIDOS TAX FREE", "USA TF", "ESTADOS UNDOS TAX FREE", "ESTADOS UNIDOIS TAX FREE", "TAXFREE ESTADOS UNIDOS", "ESTADOS UNDIOS TAX FREE")  ~ "USA TAX FREE",
+    Nota_general %in% c("TAXFREEESTADOS UNIDOS", "ESTDOS UNIDOS TAX FREE", "USA TF", "ESTADOS UNDOS TAX FREE", "ESTADOS UNIDOIS TAX FREE", "TAXFREE ESTADOS UNIDOS", "ESTADOS UNDIOS TAX FREE", "ESTADOS UNIDOS TAX FREE")  ~ "USA TAX FREE",
     Nota_general== "PERU TAX FREEE" ~ "PERU TAX FREE",
     Nota_general== "KOREA TAX FREEE" ~ "COREA TAX FREE",
     Nota_general %in% c("MEXICCO TAX FREEE", "MEXICO TAXFREE", "MEXICCO TAX FREE") ~ "MEXICO TAX FREE",
@@ -284,10 +285,11 @@ Odoo_Facturas_arreglada <- Odoo_Facturas_descuento2 |>
     Nota_general== "GRAN BRETAÑA TAX FREE" ~ "REINO UNIDO TAX FREE",
     Nota_general == "SLOVAKIA TAX FREE" ~ "ESLOVAQUIA TAX FREE",
     Nota_general == "TAX FREE MALASYA" ~ "TAX FREE MALASIA",
+    Nota_general == "TURKEY TAX FREE" ~ "TURQUIA TAX FREE",
     Nota_general== "VCHINA" ~ "CHINA",
     Nota_general %in% c("VENEAUELA", "VENEZOLANO") ~ "VENEZUELA",
     Nota_general %in% c("UAS", "U7SA", "EWSTADOS UNIDOS", "ETADOS NIDOS", "ESTADS UNIDOS", "ESTADOS UNIUDOS", "ESTADOS UNIDSO", "ESTADOS UNIDIOS", "ESTADOS UNHIDOS", "ESTADO UNIDOS", "ESTADOS UNIDOS", "ESTADOS UNDOS", "ESTADOS UNIDOIS", "ETADOS UNIDOS", "ESATDOS UNIDOS", "ESTADOUNIDENSE", "HAWAI", "ESTADOS UNNIDOS", "ESTADOS UIDOS") ~ "USA",
-    Nota_general %in% c("RGENTINA", "ARRGENTINA", "ARGGENTINA", "ARGETINO", "ARGENTUNA", "ARGENTIUNA", "ARGENTINO", "ARGENTINBA", "ARGENTINA 6 CUOTAS", "ARGENTIN", "ARG", "AGENTINA", "AREGENTINA", "ARGENRINA", "ARGENTTINO", "ARGENTINA 3CUOTAS", "ARGENTNA", "ARGWENTINA", "ARGENTINA DESCUENTO A EMPLEADO ROCIO MARTINEZ") ~ "ARGENTINA",
+    Nota_general %in% c("RGENTINA", "ARRGENTINA", "ARGGENTINA", "ARGNTINA", "ARGETINO", "ARGETINA", "ARGENTUNA", "ARGENTIUNA", "ARGENTINO", "ARGENTINBA", "ARGENTINA 6 CUOTAS", "ARGENTIN", "ARG", "AGENTINA", "AREGENTINA", "ARGENRINA", "ARGENTTINO", "ARGENTINA 3CUOTAS", "ARGENTNA", "ARGWENTINA", "ARGENTI8NA", "ARGENTINA DESCUENTO A EMPLEADO ROCIO MARTINEZ", "ARGENTINA DESCUENTO A EMPLEADO AUTORIZADO POR ROCIO") ~ "ARGENTINA",
     Nota_general %in% c("ALEMANIS", "ALEMANA", "GERMAN", "ALEMANNIA", "GERMANY") ~ "ALEMANIA",
     Nota_general == "SLOVENIA" ~ "ESLOVENIA",
     Nota_general == "COLMBIANO" ~ "COLOMBIA",
@@ -301,7 +303,7 @@ Odoo_Facturas_arreglada <- Odoo_Facturas_descuento2 |>
     Nota_general== "IRESAEL" ~ "ISRAEL",
     Nota_general %in% c("FRASNCIA", "FRANCIUA", "FRANCAI", "FRANCES", "FRANCESA", "FANCIA") ~ "FRANCIA",
     Nota_general %in% c("ESPAÑOLA", "ESPANIA", "ESPANA", "ESPA A", "ESP") ~ "ESPAÑA",
-    Nota_general %in% c("KOREA", "COREA DEL SUR", "KOREA DEL SUR") ~ "COREA",
+    Nota_general %in% c("KOREA", "COREA DEL SUR", "KOREA DEL SUR", "COREDA DEL SUR") ~ "COREA",
     Nota_general %in% c("CHNA", "CHN", "HONG KONG", "TAIWAN") ~ "CHINA",
     Nota_general== "CAN" ~ "CANADA",
     Nota_general %in% c("BRAZIL", "BRA", "BRASILERA", "BRASUK", "BRASIIL") ~ "BRASIL",
@@ -342,12 +344,14 @@ Odoo_Facturas_arreglada2 <- Odoo_Facturas_arreglada |>
     Nota_interna == "ISRAREL TAX FREE" ~ "ISRAEL",
     Nota_interna %in% c("MEXICA", "MEXICANA", "CHILE MEXICO") ~ "MEXICO",
     Nota_interna %in% c("USA MEXICO", "USA USA") ~ "USA",
-    Nota_interna %in% c("ARGENTINO", "ARGERTINA") ~ "ARGENTINA",
+    Nota_interna %in% c("ARGENTINO", "ARGERTINA", "AREGTINA", "ARGENTINA SIN INTERES", "ARGEMTINA") ~ "ARGENTINA",
     Nota_interna== "ALE" ~ "ALEMANIA",
     Nota_interna== "CROATIA" ~ "CROACIA",
     Nota_interna %in% c("INGLATERRA", "GRAN BRETAÑA", "UK", "ENGLAND") ~ "REINO UNIDO",
     Nota_interna == "VENEZYYELA" ~ "VENEZUELA",
     Nota_interna == "TURKEY" ~ "TURQUIA",
+    Nota_interna == "COTA RICA TAXFREE" ~ "COSTA RICA TAX FREE",
+    Nota_interna == "TAX FREE HOLANDA" ~ "TAX FREE PAISES BAJOS",
    Nota_interna %in% c("RETIRO CARLOS", "PAR", "MALISHA") ~ "",
     TRUE~ Nota_interna))
 
@@ -498,10 +502,12 @@ Precio_sin_impuestos <- Odoo_Facturas_Fecha |>
 BASE_ARTICULOS_ODOO <- read_excel(paste0("Base artículos Odoo/BASE_ARTICULOS_ODOO_", fecha_base_articulos, ".xlsx"), 
     col_types = c("text", "text", "text", 
         "text", "text", "text", "text", "text", 
-        "text", "text", "numeric", "numeric"))
+        "text", "text", "numeric", "numeric")) %>% 
+  select(-Proveedores)
 
 #Elimino artículos que no son artículos de venta
 Base_Articulos_Odoo_limpia <- BASE_ARTICULOS_ODOO |>
+  remove_empty("rows") %>% 
   filter(!Nombre %in% c("Envío estándar", "ABL", "ALQUILER LOCALES", "Anticipo (PdV)", "Artículos de librería", "CADETERIA Y FRANQUEO", "COMPRAS MERCADERIA SCRAP", "Comisiones Pagadas", "Diferencia de cambio", "EQUIPOS DE COMPUTACION", "EXPENSAS", "GASTOS DE MANTENIMIENTO Y REPARACIONES", "GASTOS MEDICOS", "HONORARIOS", "Higiene y Seguridad", "INMOBILIARIO", "INTERES POR FINANCIACIÓN", "Impuesto Inmobiliario", "LIMPIEZA", "MAQUINARIAS", "MOVILIDAD Y VIATICOS", "MUNICIPAL", "Mantenimiento y Reparaciones", "Obras y remodelaciones", "PATENTES", "PUBLICIDAD", "REFRIGERIO", "Recargar monedero electrónico", "SEGUROS", "Sellados y Certificaciones", "Servicio Eléctrico", "Servicio de Agua", "Servicio de Gas", "Servicio de Internet", "Sueldos y SAC", "Tarjeta de regalo", "Descuento", "OUT799990"))
   
 #Creo columnas de atributos
@@ -576,7 +582,7 @@ Base_Articulos_Odoo_limpio <- Base_Articulos_Odoo_atributos2 |>
   summarise(
     across(
       all_of(atributos),
-      ~ first(na.omit(.x))
+       ~ first(c(na.omit(.x), NA_character_))
     ),
     across(
       -all_of(atributos),
@@ -692,23 +698,23 @@ nuevos_nombres_Alegra <- read_excel("Reporte_ventas/nuevos_nombres_Alegra.xlsx")
 Odoo_mas_Alegra <- Odoo_mas_Alegra_casi |>
   left_join(nuevos_nombres_Alegra, by = "CODIGO_BARRAS", suffix = c("", "_nuevo")) |>
   mutate(
-    PRODUCTO_NOMBRE_COMPLETO = coalesce(PRODUCTO_NOMBRE_COMPLETO_nuevo,                                        PRODUCTO_NOMBRE_COMPLETO),
+    PRODUCTO_NOMBRE_COMPLETO = coalesce(PRODUCTO_NOMBRE_COMPLETO_nuevo, PRODUCTO_NOMBRE_COMPLETO),
     DESCRIPCION = coalesce(DESCRIPCION_nuevo, DESCRIPCION)
   ) |>
   select(-PRODUCTO_NOMBRE_COMPLETO_nuevo, -DESCRIPCION_nuevo) |> 
   group_by(CODIGO_BARRAS) |>
   mutate(
-    across(
-      c(SUBFAMILIA, COLOR, MATERIAL, TALLE, VARIANTE),
-      ~coalesce(.x, first(.x[!is.na(.x)]))
-    )
-  ) |>
+  across(
+    c(SUBFAMILIA, COLOR, MATERIAL, TALLE, VARIANTE),
+    ~coalesce(.x, first(c(.x[!is.na(.x)], NA_character_)))
+  )
+) |>
   ungroup() |> 
   group_by(DESCRIPCION) |>
   mutate(
     across(
       c(RUBRO, FAMILIA, SUBFAMILIA),
-      ~coalesce(.x, first(.x[!is.na(.x)]))
+      ~coalesce(.x, first(c(.x[!is.na(.x)], NA_character_)))
     )
   ) |>
   ungroup() |> 
@@ -730,7 +736,6 @@ Odoo_mas_Alegra <- Odoo_mas_Alegra_casi |>
     )
   )
   
-
 
 ```
 

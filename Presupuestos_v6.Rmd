@@ -895,8 +895,8 @@ TABLA_PRESUPUESTO <- Tablas_unidas %>%
 ```{r}
 
 TABLA_REPORTE_GASTOS <- Tablas_unidas %>% 
-  filter(CONCEPTO != "Sueldo_sin_premios") |> 
-  mutate(CONCEPTO = if_else(CONCEPTO == "Sueldo_con_premios", "Sueldo", CONCEPTO)) |> 
+  filter(CONCEPTO != "Sueldo_con_premios") |> 
+  mutate(CONCEPTO = if_else(CONCEPTO == "Sueldo_sin_premios", "Sueldo", CONCEPTO)) |> 
   mutate(SECCION = case_when(
     CONCEPTO %in% c("Venta_con_imp", "Venta_sin_imp", "Costo",
                     "Margen_bruto_valor", "Margen_bruto_porc")          ~ "Ventas",

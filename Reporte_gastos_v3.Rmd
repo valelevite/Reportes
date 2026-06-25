@@ -33,7 +33,7 @@ tomo_valores <- TABLA_REPORTE_GASTOS %>%
   filter(MES == MES_GASTOS,
          AÑO == AÑO_GASTOS) %>% 
   filter(SECCION == "Gastos Operativos" | 
-         CONCEPTO %in% c("Venta_con_imp", "Sueldo", "Contribuciones", "Multa")) %>% 
+         CONCEPTO %in% c("Venta_con_imp", "Sueldo", "Incentivo", "Contribuciones", "Multa")) %>% 
   filter(!CONCEPTO %in% c("Subtotal_gastos", "Packaging", "Logística", "Otros gastos", "Administración")) |> 
   select(-SECCION) |> 
   pivot_wider(
@@ -43,23 +43,21 @@ tomo_valores <- TABLA_REPORTE_GASTOS %>%
   ) |>
   mutate(
     Otros_gastos = rowSums(across(-c(AÑO, MES, TIENDA, 
-                                       Venta_con_imp, Sueldo, Contribuciones, 
-                                       Alquiler, Expensas)), na.rm = TRUE)) |>
+                                       Venta_con_imp, Sueldo, Contribuciones, Incentivo, Alquiler, Expensas)), na.rm = TRUE)) |>
   mutate(
     Venta                    = Venta_con_imp,
-    Sueldos                  = Sueldo + Contribuciones,
+    Total_sueldos                  = Sueldo + Incentivo + Contribuciones,
     `Total_alquileres+expensas` = Alquiler + Expensas
   ) |>
   select(TIENDA,
-         Venta, Sueldos, Alquileres = Alquiler, Expensas,
-         `Total_alquileres+expensas`, Otros_gastos)  
+         Venta, Sueldos =Sueldo, Incentivo, Contribuciones, Total_sueldos, Alquileres = Alquiler, Expensas, `Total_alquileres+expensas`, Otros_gastos)  
 
 
 #creo subtotales y total general. Ordeno las filas
 
 # Columnas numéricas (para reusar en summarise)
-cols_num <- c("Venta", "Sueldos", "Alquileres", "Expensas",
-              "Total_alquileres+expensas", "Otros_gastos")
+cols_num <- c("Venta", "Sueldos", "Incentivo", "Contribuciones", "Total_sueldos",
+              "Alquileres", "Expensas", "Total_alquileres+expensas", "Otros_gastos")
 
 # 1. Definir zonas (el nombre = fila subtotal, el vector = tiendas que incluye)
 zonas <- list(
