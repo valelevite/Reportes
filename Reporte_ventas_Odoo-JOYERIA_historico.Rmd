@@ -32,7 +32,7 @@ QUITO LOS ANTICIPOS POR ANILLOS DOS LETRAS PERO PONERLOS CON EL MONTO ENTERO CUA
 
 
 fecha_inicio <- as.Date("2025/12/09") 
-fecha_fin <- as.Date("2026/06/23")
+fecha_fin <- as.Date("2026/06/24")
 
 dias_periodo <- as.integer(fecha_fin - fecha_inicio) + 1
 
@@ -167,7 +167,9 @@ FACTURAS_MES2_JOYERIA_CONCA <- FACTURAS_MES2_JOYERIA %>%
 
 SKU_JOYERIA <- FACTURAS_MES2_JOYERIA_CONCA %>% 
   group_by(PROVEEDOR, SUBFAMILIA, CODIGO_BARRAS, PRODUCTO, PRODUCTO_STOCK) %>% 
-  summarise(VENTA = sum(PRODUCTO_CANTIDAD, na.rm = TRUE), TOTAL = round(sum(PRODUCTO_TOTAL, na.rm = TRUE)), PRECIO = round(TOTAL/VENTA, digits=0)) %>% 
+  summarise(VENTA = sum(PRODUCTO_CANTIDAD, na.rm = TRUE), 
+            TOTAL = round(sum(PRODUCTO_TOTAL, na.rm = TRUE)), 
+            PRECIO = round(TOTAL/VENTA, digits=0)) %>% 
   rename("CODIGO"=CODIGO_BARRAS) %>% 
   filter(VENTA != 0) |> 
   arrange(desc(TOTAL)) %>% 
@@ -281,7 +283,11 @@ Modelos_JOYERIA <- SKU_total_JOYERIA %>%
   group_by(DESCRIPCION) |> 
   mutate(CODIGO = min(CODIGO)) |> #para quedarme sólo con un ´codigo por descripción. Si lo ponía después, no funcionaba bien porque mantenía uno por tienda
   group_by(PROVEEDOR, FAMILIA, DESCRIPCION, CODIGO) %>% 
-  summarise(VENTA = sum(VENTA, na.rm = TRUE), TOTAL = sum(TOTAL, na.rm = TRUE), PRECIO = round(TOTAL/VENTA), STOCK = sum(STOCK, na.rm = TRUE), "D/S" = round(STOCK/VENTA* dias_periodo)) %>%
+  summarise(VENTA = sum(VENTA, na.rm = TRUE), 
+            TOTAL = sum(TOTAL, na.rm = TRUE), 
+            PRECIO = round(TOTAL/VENTA), 
+            STOCK = sum(STOCK, na.rm = TRUE), 
+            "D/S" = round(STOCK/VENTA* dias_periodo)) %>%
   distinct() %>% 
   arrange(desc(TOTAL)) %>% 
   ungroup() %>% 
@@ -329,12 +335,13 @@ Modelos_total_JOYERIA <- Modelos_total_JOYERIA %>%
 #QUEDA EN BLANCO LA FILA DE LOS ANTICIPOS. VER CÓMO MANEJARLOS CUANDO EL TOTAL SE MAYOR A 0
 
 #TABLA SUBFAMILIAS
-tabla_vta_subfamilia_JOYERIA <- FACTURAS_MES2_JOYERIA %>%
+tabla_vta_subfamilia_JOYERIA <- FACTURAS_MES2_JOYERIA_CONCA %>%
   group_by(SUBFAMILIA) %>%
   summarise(Unidades = sum(PRODUCTO_CANTIDAD, na.rm = TRUE), 
             "Facturación" = sum(PRODUCTO_TOTAL, na.rm = TRUE)) %>%
   complete(SUBFAMILIA = unique(FACTURAS_MES2_JOYERIA$SUBFAMILIA),  # Lista completa de rubros
            fill = list(Unidades = 0, Facturación = 0)) %>%
+  mutate(Facturación = if_else(SUBFAMILIA == "DIJES Y COLGANTES", `Facturación` - 2551, Facturación)) |>  #por diferencia a favor nuestra en devolución de "DIJE INICIAL - PLATA 925 - N"
   arrange(desc(Facturación)) %>% 
   mutate(Participación = round(Facturación/sum(Facturación), digits = 4))
 
@@ -374,6 +381,7 @@ CADENAS_TALLE <- FACTURAS_MES2_JOYERIA %>%
   summarise(Facturación = sum(PRODUCTO_TOTAL, na.rm = TRUE),
             Cantidad = sum(PRODUCTO_CANTIDAD, na.rm = TRUE),
                               .groups = 'drop') %>% 
+  filter(Cantidad>0) |> 
   mutate(Participación = round((Facturación / sum(Facturación, na.rm = TRUE)), 4)) %>% 
   arrange(TALLE)
 
@@ -386,6 +394,7 @@ PULSERAS_TALLE <- FACTURAS_MES2_JOYERIA %>%
   summarise(Facturación = sum(PRODUCTO_TOTAL, na.rm = TRUE),
             Cantidad = sum(PRODUCTO_CANTIDAD, na.rm = TRUE),
                               .groups = 'drop') %>% 
+  filter(Cantidad>0) |> 
   mutate(Participación = round((Facturación / sum(Facturación, na.rm = TRUE)), 4)) %>% 
   arrange(TALLE)
 
@@ -393,11 +402,13 @@ PULSERAS_TALLE <- FACTURAS_MES2_JOYERIA %>%
 #ANILLOS
 ANILLOS_TALLE <- FACTURAS_MES2_JOYERIA %>%
   filter(SUBFAMILIA == "ANILLOS") %>% 
+  mutate(TALLE = if_else(CODIGO_BARRAS == "106269", "16", TALLE)) |> 
   group_by(TALLE) %>% 
   summarise(Facturación = sum(PRODUCTO_TOTAL, na.rm = TRUE),
             Cantidad = sum(PRODUCTO_CANTIDAD, na.rm = TRUE),
                               .groups = 'drop') %>%
-  filter(Facturación>0) %>% 
+  filter(Facturación>0) %>%
+  filter(Cantidad>0) |> 
   mutate(Participación = round((Facturación / sum(Facturación, na.rm = TRUE)), 4)) %>% 
   arrange(TALLE) 
 
@@ -416,6 +427,7 @@ CADENAS_GROSOR <- FACTURAS_MES2_JOYERIA %>%
   summarise(Facturación = sum(PRODUCTO_TOTAL, na.rm = TRUE),
             Cantidad = sum(PRODUCTO_CANTIDAD, na.rm = TRUE),
                               .groups = 'drop') %>% 
+  filter(Cantidad>0) |> 
   mutate(Participación = round((Facturación / sum(Facturación, na.rm = TRUE)), 4)) %>% 
   arrange(GROSOR)
 
@@ -428,6 +440,7 @@ PULSERAS_GROSOR <- FACTURAS_MES2_JOYERIA %>%
   summarise(Facturación = sum(PRODUCTO_TOTAL, na.rm = TRUE),
             Cantidad = sum(PRODUCTO_CANTIDAD, na.rm = TRUE),
                               .groups = 'drop') %>% 
+  filter(Cantidad>0) |> 
   mutate(Participación = round((Facturación / sum(Facturación, na.rm = TRUE)), 4)) %>% 
   arrange(GROSOR)
 
@@ -446,11 +459,13 @@ ANILLOS_ZODIACO_VARIANTE <- FACTURAS_MES2_JOYERIA %>%
             Cantidad = sum(PRODUCTO_CANTIDAD, na.rm = TRUE),
                               .groups = 'drop') %>%
   filter(Facturación >0) %>% 
+  filter(Cantidad>0) |> 
   mutate(Participación = round((Facturación / sum(Facturación, na.rm = TRUE)), 4)) %>% 
   arrange(desc(Facturación))
 
 ANILLOS_DOS_LETRAS_VARIANTE <- FACTURAS_MES2_JOYERIA %>%
-  filter(DESCRIPCION == "ANILLO DOS LETRAS") %>% 
+  filter(DESCRIPCION == "ANILLO DOS LETRAS") %>%
+  mutate(VARIANTE = if_else(CODIGO_BARRAS == "106269", "MA", VARIANTE)) |> 
   group_by(VARIANTE) %>% 
   summarise(Facturación = sum(PRODUCTO_TOTAL, na.rm = TRUE),
             Cantidad = sum(PRODUCTO_CANTIDAD, na.rm = TRUE),
@@ -463,7 +478,8 @@ ANILLOS_INICIAL_VARIANTE <- FACTURAS_MES2_JOYERIA %>%
   group_by(VARIANTE) %>% 
   summarise(Facturación = sum(PRODUCTO_TOTAL, na.rm = TRUE),
             Cantidad = sum(PRODUCTO_CANTIDAD, na.rm = TRUE),
-                              .groups = 'drop') %>% 
+                              .groups = 'drop') %>%
+  filter(Cantidad>0) |> 
   mutate(Participación = round((Facturación / sum(Facturación, na.rm = TRUE)), 4)) %>% 
   arrange(desc(Facturación))
 
@@ -480,6 +496,7 @@ DIJE_INICIAL_VARIANTE <- FACTURAS_MES2_JOYERIA %>%
   summarise(Facturación = sum(PRODUCTO_TOTAL, na.rm = TRUE),
             Cantidad = sum(PRODUCTO_CANTIDAD, na.rm = TRUE),
                               .groups = 'drop') %>% 
+  filter(Cantidad>0) |> 
   mutate(Participación = round((Facturación / sum(Facturación, na.rm = TRUE)), 4)) %>% 
   arrange(desc(Facturación))
 
@@ -491,7 +508,7 @@ DIJE_INICIAL_VARIANTE <- FACTURAS_MES2_JOYERIA %>%
 ```{r}
 
 #Tabla general proveedor
-TABLA_PROVEEDOR <- FACTURAS_MES2_JOYERIA %>% 
+TABLA_PROVEEDOR <- FACTURAS_MES2_JOYERIA_CONCA %>% 
  # filter(!is.na(PROVEEDOR)) %>%
   group_by(PROVEEDOR) %>% 
   summarise(Unidades = sum(PRODUCTO_CANTIDAD, na.rm = TRUE),
@@ -502,7 +519,7 @@ TABLA_PROVEEDOR <- FACTURAS_MES2_JOYERIA %>%
 fila_total_proveedor_JOYERIA <- tibble(
   PROVEEDOR = "TOTAL",
   Unidades = sum(TABLA_PROVEEDOR$Unidades, na.rm = TRUE),
-  Facturación = sum(TABLA_PROVEEDOR$Facturación, na.rm = TRUE),
+  Facturación = sum(TABLA_PROVEEDOR$Facturación, na.rm = TRUE) - DESCUENTO_TOTAL_JOYERIA - 2551, #por diferencia a favor nuestra en devolución de "DIJE INICIAL - PLATA 925 - N"
   Participación = 1)
 
 PROVEEDOR_JOYERIA_TOTAL <- bind_rows(fila_total_proveedor_JOYERIA, TABLA_PROVEEDOR) 
@@ -522,7 +539,7 @@ PROVEEDOR_SUBFAMILIAS <- FACTURAS_MES2_JOYERIA %>%
 fila_total_proveedor_subfamilia_JOYERIA <- tibble(
   FAMILIA = "TOTAL",
   Unidades = sum(PROVEEDOR_SUBFAMILIAS$Unidades, na.rm = TRUE),
-  Facturación = sum(PROVEEDOR_SUBFAMILIAS$Facturación, na.rm = TRUE),
+  Facturación = sum(PROVEEDOR_SUBFAMILIAS$Facturación, na.rm = TRUE)- DESCUENTO_TOTAL_JOYERIA - 2551, #por diferencia a favor nuestra en devolución de "DIJE INICIAL - PLATA 925 - N,
   Participación = 1)
 
 # Subtotales por familia
@@ -778,7 +795,8 @@ STOCK_TIENDA_JOYERIA <-  Stock_con_precios_JOYERIA %>%
   mutate(TOTAL = PRECIO*CANTIDAD) |> 
   select(FAMILIA, TIENDA, TOTAL) %>% 
   group_by(FAMILIA, TIENDA) %>% 
-  summarise(VALOR_STOCK = sum(TOTAL, na.rm = TRUE))
+  summarise(VALOR_STOCK = sum(TOTAL, na.rm = TRUE)) |> 
+  filter(VALOR_STOCK>0)
 
 
 #calculo el valor del stock por tienda y depósito
@@ -1010,6 +1028,14 @@ insertImage(wb, ws, img_sf, startRow = 3, startCol = 6,
 
 #freezePane(wb, ws, firstRow = FALSE, firstActiveRow = 4)
 
+# Nota debajo de la tabla
+fila_nota <- 3 + nrow(tabla_venta_subfamilia_JOYERIA) + 2
+writeData(wb, ws,
+          "* La diferencia en el total de facturación se debe a descuentos aplicados.",
+          startRow = fila_nota, startCol = 1)
+addStyle(wb, ws,
+         createStyle(fontName = "Arial", fontSize = 9, fontColour = "#6C757D", textDecoration = "ITALIC"),
+         rows = fila_nota, cols = 1)
 ```
 
 
@@ -1519,32 +1545,36 @@ col_fact_g2 <- if (has_sufij) "Güemes 2.y" else "Güemes 2"
 col_fact_es <- if (has_sufij) "El Solar.y"  else "El Solar"
 col_fact_es <- if (has_sufij) "San Telmo 2.y"  else "San Telmo 2"
 
+col_fact_st2 <- if (has_sufij) "San Telmo 2.y" else "San Telmo 2"
+
 datos_nac_base <- NACIONALIDAD_ENTERA_JOYERIA %>%
   filter(NACIONALIDAD != "Total general") %>%
   select(NACIONALIDAD,
-         G2 = all_of(col_fact_g2),
-         ES = all_of(col_fact_es)) %>%
-  mutate(total_nac = G2 + ES)
+         G2  = all_of(col_fact_g2),
+         ES  = all_of(col_fact_es),
+         ST2 = all_of(col_fact_st2)) %>%
+  mutate(total_nac = G2 + ES + ST2)
 
-total_g2  <- sum(datos_nac_base$G2, na.rm = TRUE)
-total_es  <- sum(datos_nac_base$ES, na.rm = TRUE)
+total_g2  <- sum(datos_nac_base$G2,  na.rm = TRUE)
+total_es  <- sum(datos_nac_base$ES,  na.rm = TRUE)
+total_st2 <- sum(datos_nac_base$ST2, na.rm = TRUE)
 
 orden_nac <- datos_nac_base %>%
   arrange(total_nac) %>%
   pull(NACIONALIDAD)
 
-
 # Gráfico: participación de cada nacionalidad dentro de la facturación de su tienda
 datos_nac_chart <- datos_nac_base %>%
   mutate(
-    `Güemes 2` = G2 / total_g2,
-    `El Solar`  = ES / total_es,
-    NACIONALIDAD = factor(NACIONALIDAD, levels = orden_nac)
+    `Güemes 2`    = G2  / total_g2,
+    `El Solar`    = ES  / total_es,
+    `San Telmo 2` = ST2 / total_st2,
+    NACIONALIDAD  = factor(NACIONALIDAD, levels = orden_nac)
   ) %>%
-  select(NACIONALIDAD, `Güemes 2`, `El Solar`) %>%
-  pivot_longer(cols = c("Güemes 2", "El Solar"),
+  select(NACIONALIDAD, `Güemes 2`, `El Solar`, `San Telmo 2`) %>%
+  pivot_longer(cols = c("Güemes 2", "El Solar", "San Telmo 2"),
                names_to = "Tienda", values_to = "Participación") %>%
-  filter(Participación > 0)   # ← excluye nacionalidades ausentes en cada tienda
+  filter(Participación > 0)
 
 p_nac <- ggplot(datos_nac_chart,
                 aes(x = Participación, y = NACIONALIDAD, fill = Tienda)) +
@@ -1553,21 +1583,25 @@ p_nac <- ggplot(datos_nac_chart,
             hjust = -0.1, size = 2.8, colour = "grey30") +
   scale_x_continuous(labels = percent,
                      expand = expansion(mult = c(0, 0.2))) +
-  scale_fill_manual(values = c("Güemes 2" = COL_HEADER, "El Solar" = "#5B9BD5")) +
+  scale_fill_manual(values = c("Güemes 2"    = COL_HEADER,
+                                "El Solar"    = "#5B9BD5",
+                                "San Telmo 2" = "#70AD47")) +
   facet_wrap(~ Tienda, nrow = 1, scales = "free_y") +
   labs(title = "Participación de cada Nacionalidad en la facturación por Tienda") +
   tema_reporte() +
-  theme(legend.position = "none",   # la leyenda sobra porque el título del panel ya identifica
+  theme(legend.position = "none",
         strip.text = element_text(face = "bold", colour = COL_HEADER, size = 10))
 
 n_nac     <- max(
   sum(datos_nac_chart$Tienda == "Güemes 2"),
-  sum(datos_nac_chart$Tienda == "El Solar")
+  sum(datos_nac_chart$Tienda == "El Solar"),
+  sum(datos_nac_chart$Tienda == "San Telmo 2")
 )
+
 img_h_nac <- max(3.5, n_nac * 0.4)
-img_nac   <- save_plot_tmp(p_nac, width = 10, height = img_h_nac)
+img_nac   <- save_plot_tmp(p_nac, width = 14, height = img_h_nac)
 insertImage(wb, ws, img_nac, startRow = 1, startCol = 1,
-            width = 10, height = img_h_nac, units = "in")
+            width = 14, height = img_h_nac, units = "in")
 
 data_start_nac <- ceiling(img_h_nac / 0.21) + 3
 writeData(wb, ws, NACIONLIDAD_EXCEL,
@@ -1643,7 +1677,8 @@ donut_plot <- function(datos, tienda) {
 img_h_donut <- 3.8
 img_w_donut <- 5.5
 col_solar   <- ncol(Metodo_pago_Odoo_resumido) + 2
-col_guemes  <- col_solar + 7   # ← desplazado a la derecha
+col_guemes  <- col_solar + 7
+col_st2     <- col_guemes + 7
 
 writeData(wb, ws, "Distribución de los métodos de pago utilizados, por tienda",
           startRow = 1, startCol = col_solar+4)
@@ -1659,6 +1694,12 @@ insertImage(wb, ws,
             save_plot_tmp(donut_plot(Metodo_pago_Odoo_resumido, "Güemes 2"),
                           width = img_w_donut, height = img_h_donut),
             startRow = 2, startCol = col_guemes,
+            width = img_w_donut, height = img_h_donut, units = "in")
+
+insertImage(wb, ws,
+            save_plot_tmp(donut_plot(Metodo_pago_Odoo_resumido, "San Telmo 2"),
+                          width = img_w_donut, height = img_h_donut),
+            startRow = 2, startCol = col_st2,
             width = img_w_donut, height = img_h_donut, units = "in")
 
 ```
@@ -1723,6 +1764,12 @@ for (r in subt_rows_psf) {
            rows = r,
            cols = col_sf_pu:(col_sf_pu + ncol(PRECIO_UNITARIO_SUBFAMILIA_JOYERIA) - 1),
            gridExpand = TRUE, stack = FALSE)
+  addStyle(wb, ws, st_pct,
+           rows = r, cols = col_sf_pu + pct_col_psf - 1,
+           gridExpand = TRUE, stack = TRUE)
+  addStyle(wb, ws, st_number,
+           rows = r, cols = col_sf_pu + num_cols_psf - 1,
+           gridExpand = TRUE, stack = TRUE)
 }
 
 setColWidths(wb, ws,
