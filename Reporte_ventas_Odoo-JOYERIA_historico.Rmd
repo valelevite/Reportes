@@ -637,7 +637,7 @@ for (t in DESCUENTO_X_TIENDA_JOYERIA$TIENDA) {
 
 fila_total_nacionalidad_facturacion_JOYERIA <- fila_total_nacionalidad_facturacion_JOYERIA %>%
   mutate(`Total facturación` = sum(NACIONALIDAD_X_FACTURACION_JOYERIA$`Total facturación`, na.rm = TRUE) -
-           sum(DESCUENTO_X_TIENDA_JOYERIA$DTO_X_TIENDA))
+           sum(DESCUENTO_X_TIENDA_JOYERIA$DTO_X_TIENDA)-2550) #2550 crédito a favor de la tienda
 
 NACIONALIDAD_X_FACTURACION_TOTAL_JOYERIA <- bind_rows(fila_total_nacionalidad_facturacion_JOYERIA, NACIONALIDAD_X_FACTURACION_JOYERIA)
 
