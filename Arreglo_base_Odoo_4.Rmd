@@ -28,7 +28,7 @@ library(janitor)
 #Pongo las fechas y leo los archivos
 ```{r pongo la fecha de corte}
 
-fecha_hasta <- strftime("2026/06/25","%Y%m%d")
+fecha_hasta <- strftime("2026/07/01","%Y%m%d")
 
 fecha_desde <- strftime("2025/12/09", "%Y%m%d")
 

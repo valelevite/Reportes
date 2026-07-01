@@ -21,10 +21,11 @@ knitr::opts_chunk$set(echo = FALSE) # FALSE para que el código no aparezca en e
 #Fecha para archivos
 mes <- "2026-06"
 
-fecha_filtro <- as.Date("2026-06-29")
+fecha_filtro <- as.Date("2026-06-30")
 
 library(scales)
 library(ggh4x)
+library(ggpattern)
 
 ```
 
@@ -237,14 +238,15 @@ Facturacion_mes <- Facturacion_hora %>%
 
 venta_por_hora <- Facturacion_hora %>%
   mutate(Dia_grupo = case_when(
-    DIA_SEMANA == "feriado" ~ "Feriados",
-    DIA_SEMANA %in% c("sábado", "domingo") ~ "Sábados y domingos",
-    TRUE ~ "Lunes a viernes"
+    DIA_SEMANA == "feriado"                  ~ "Feriado",
+    DIA_SEMANA %in% c("sábado", "domingo")   ~ "Sáb y Dom",
+    TRUE                                      ~ "L a V"
   )) %>%
   group_by(MES, TIENDA, HORA, Dia_grupo) %>%
   summarise(Venta_hora = sum(Venta_total, na.rm = TRUE), .groups = 'drop')
 
 participacion <- venta_por_hora %>%
+  mutate(Dia_grupo = factor(Dia_grupo, levels = c("L a V", "Sáb y Dom", "Feriado"))) %>%
   left_join(Facturacion_mes, by = c("MES", "TIENDA")) %>%
   mutate(Participacion = Venta_hora / Total_mes) %>%
   select(-Venta_hora, -Total_mes) %>%
@@ -403,204 +405,188 @@ for (tienda_actual in nombres_TIENDAs) {
 ##4.3 Gráfico 3: Heatmap de Tickets por Hora para cada día para el último mes
 ```{r}
 
-mes_formateado <- format(as.Date(paste0(mes, "-01")), "%B %Y")
+Sys.setlocale("LC_TIME", "es_ES.UTF-8")
 
-# 1. Filtramos las facturas para el mes en cuestión
-facturas_heatmap_x_dia <- facturas_editado %>%
-  filter(startsWith(as.character(FECHA_EMISION), mes))
+# Meses con datos, en orden cronológico (meses_ordenados va de más reciente a más antiguo)
+meses_para_heatmap <- meses_ordenados[meses_ordenados %in% unique(Facturacion_hora$MES)]
 
-# 2. Establecemos el locale para los nombres de los días de la semana
-Sys.setlocale("LC_TIME", "es_ES.UTF-8") 
+for (mes_heatmap in meses_para_heatmap) {
 
-# 3. Calculamos los tickets por hora
-tickets_x_hora <- facturas_heatmap_x_dia %>%
-  rename(FECHA = FECHA_EMISION) %>%
-  group_by(TIENDA, FECHA, HORA) %>%
-  summarise(Nro_tickets = n(), .groups = 'drop')
+  mes_str_heatmap <- format(
+    mes_fecha_ref %>% filter(MES == mes_heatmap) %>% pull(fecha_ref),
+    "%Y-%m"
+  )
+  mes_formateado_heatmap <- format(as.Date(paste0(mes_str_heatmap, "-01")), "%B %Y")
 
-# 4. Creamos una tabla completa con todas las combinaciones posibles
-all_combinations_2 <- expand.grid(
-  TIENDA = unique(tickets_x_hora$TIENDA),
-  FECHA = seq(min(tickets_x_hora$FECHA), max(tickets_x_hora$FECHA), by = "day"),
-  HORA = min(tickets_x_hora$HORA):max(tickets_x_hora$HORA)
-)
+  facturas_heatmap_x_dia <- facturas_editado %>%
+    filter(startsWith(as.character(FECHA_EMISION), mes_str_heatmap))
 
-# 5. Unimos los datos, calculamos las variables adicionales y preparamos para el gráfico
-tickets_x_hora_completo <- left_join(all_combinations_2, tickets_x_hora, by = c("TIENDA", "FECHA", "HORA")) %>%
-  mutate(Nro_tickets = replace_na(Nro_tickets, 0)) %>%
-  mutate(
-    DIA_SEMANA_etiqueta = factor(
-      ifelse(as.Date(FECHA) %in% feriados, "feriado", tolower(weekdays(FECHA))),
-      levels = dias_ordenados),
-    FECHA_etiqueta = factor(format(FECHA, "%d/%m")),
-    HORA_FACTOR = factor(HORA, levels = rev(sort(unique(HORA)))),
-    fecha_inicio_semana = floor_date(FECHA, unit = "week", week_start = 1),
-    fecha_fin_semana = fecha_inicio_semana + days(6),
-    semana_del_anio = isoweek(fecha_inicio_semana),
-    semana_etiqueta = sprintf("Semana %d\n(%s al %s)",
-                              semana_del_anio,
-                              format(fecha_inicio_semana, "%d/%m"),
-                              format(fecha_fin_semana, "%d/%m"))
-  ) %>%
-  mutate(
-    Color_Grupo = case_when(
-      Nro_tickets == 0 ~ "0",
-      Nro_tickets > 0 & Nro_tickets <= 3 ~ "1-3",
-      Nro_tickets > 3 ~ ">3"
-    ),
-    Color_Grupo = factor(Color_Grupo, levels = c("0", "1-3", ">3"))
-  ) %>% 
-  mutate(
-  DIA_NUM_SEMANA = as.integer(factor(DIA_SEMANA_etiqueta, levels = dias_ordenados)))
+  tickets_x_hora <- facturas_heatmap_x_dia %>%
+    rename(FECHA = FECHA_EMISION) %>%
+    group_by(TIENDA, FECHA, HORA) %>%
+    summarise(Nro_tickets = n(), .groups = 'drop')
 
+  if (nrow(tickets_x_hora) == 0) next
 
-# Ordenar semana_etiqueta cronológicamente (evita orden alfabético)
-semana_levels <- tickets_x_hora_completo %>%
-  distinct(semana_del_anio, semana_etiqueta) %>%
-  arrange(semana_del_anio) %>%
-  pull(semana_etiqueta)
+  all_combinations_2 <- expand.grid(
+    TIENDA = unique(tickets_x_hora$TIENDA),
+    FECHA  = seq(min(tickets_x_hora$FECHA), max(tickets_x_hora$FECHA), by = "day"),
+    HORA   = min(tickets_x_hora$HORA):max(tickets_x_hora$HORA)
+  )
 
-tickets_x_hora_completo <- tickets_x_hora_completo %>%
-  mutate(semana_etiqueta = factor(semana_etiqueta, levels = semana_levels))
-
-# El bucle para generar los gráficos
-nombres_TIENDAs <- unique(tickets_x_hora_completo$TIENDA)
-
-for (tienda_actual in nombres_TIENDAs) {
-  df_filtrado3 <- tickets_x_hora_completo %>%
-    filter(TIENDA == tienda_actual) %>%
-    mutate(DIA_SEMANA_HORARIO = ifelse(DIA_SEMANA_etiqueta == "feriado", "sábado", as.character(DIA_SEMANA_etiqueta))) %>%
-    left_join(horarios, join_by(TIENDA == TIENDA, DIA_SEMANA_HORARIO == DIA_SEMANA,
-                                FECHA >= fecha_desde, FECHA <= fecha_hasta)) %>%
-    mutate(HORA_NUM = as.numeric(as.character(HORA_FACTOR))) %>%
-    filter(HORA_NUM >= start_hour & HORA_NUM <= end_hour) %>%
-    mutate(HORA_FACTOR = factor(HORA, levels = rev(sort(unique(HORA))))) %>%
-    select(-fecha_desde, -fecha_hasta, -DIA_SEMANA_HORARIO)
-  
-  if (nrow(df_filtrado3) == 0) next
-  
-  # ---- Aclaración de qué fecha(s) componen la columna "Feriado" este mes
-  fechas_feriados_subtitle <- df_filtrado3 %>%
-    filter(DIA_SEMANA_etiqueta == "feriado") %>%
-    distinct(FECHA) %>%
-    arrange(FECHA) %>%
-    pull(FECHA) %>%
-    format("%d/%m") %>%
-    paste(collapse = ", ")
-  
-  # ---- Si hay más de un feriado en la misma semana, sumamos en una sola celda
-  # (en vez de dibujar dos valores superpuestos en la misma posición de la grilla)
-  df_feriados_agrupados <- df_filtrado3 %>%
-    filter(DIA_SEMANA_etiqueta == "feriado") %>%
-    group_by(TIENDA, semana_etiqueta, semana_del_anio, DIA_NUM_SEMANA,
-             DIA_SEMANA_etiqueta, HORA, HORA_FACTOR) %>%
-    summarise(Nro_tickets = sum(Nro_tickets), .groups = 'drop') %>%
+  tickets_x_hora_completo <- left_join(all_combinations_2, tickets_x_hora, by = c("TIENDA", "FECHA", "HORA")) %>%
+    mutate(Nro_tickets = replace_na(Nro_tickets, 0)) %>%
     mutate(
-      FECHA = as.Date(NA),
+      DIA_SEMANA_etiqueta = factor(
+        tolower(weekdays(FECHA)),
+        levels = c("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo")),
+      FECHA_etiqueta = factor(format(FECHA, "%d/%m")),
+      HORA_FACTOR = factor(HORA, levels = rev(sort(unique(HORA)))),
+      fecha_inicio_semana = floor_date(FECHA, unit = "week", week_start = 1),
+      fecha_fin_semana    = fecha_inicio_semana + days(6),
+      semana_del_anio     = isoweek(fecha_inicio_semana),
+      semana_etiqueta     = sprintf("Semana %d\n(%s al %s)",
+                                    semana_del_anio,
+                                    format(fecha_inicio_semana, "%d/%m"),
+                                    format(fecha_fin_semana,    "%d/%m"))
+    ) %>%
+    mutate(
+      es_feriado  = as.Date(FECHA) %in% feriados,
       Color_Grupo = case_when(
-        Nro_tickets == 0 ~ "0",
-        Nro_tickets > 0 & Nro_tickets <= 3 ~ "1-3",
-        Nro_tickets > 3 ~ ">3"
+        Nro_tickets == 0                        ~ "0",
+        Nro_tickets > 0 & Nro_tickets <= 3      ~ "1-3",
+        Nro_tickets > 3                         ~ ">3"
       ),
       Color_Grupo = factor(Color_Grupo, levels = c("0", "1-3", ">3"))
+    ) %>%
+    mutate(
+      DIA_NUM_SEMANA = as.integer(factor(tolower(weekdays(FECHA)), levels = dias_ordenados[1:7]))
     )
-  
-  df_filtrado3 <- df_filtrado3 %>%
-    filter(DIA_SEMANA_etiqueta != "feriado") %>%
-    bind_rows(df_feriados_agrupados)
-  
-  
-   # ---- Totales por día (para fila "Total")
-total_dia <- df_filtrado3 %>%
-  group_by(FECHA, DIA_NUM_SEMANA, semana_etiqueta) %>%
-  summarise(Nro_tickets = sum(Nro_tickets), .groups = 'drop') %>%
-  mutate(HORA_FACTOR = "Total")
 
-# ---- Totales por hora (para columna "Total")
-total_hora <- df_filtrado3 %>%
-  group_by(semana_etiqueta, HORA_FACTOR) %>%
-  summarise(Nro_tickets = sum(Nro_tickets), .groups = 'drop') %>%
-  mutate(DIA_NUM_SEMANA = 9)  # Día ficticio "Total"
+  semana_levels <- tickets_x_hora_completo %>%
+    distinct(semana_del_anio, semana_etiqueta) %>%
+    arrange(semana_del_anio) %>%
+    pull(semana_etiqueta)
 
-# ---- Total general (opcional, puede duplicar valores)
-total_general <- df_filtrado3 %>%
-  group_by(semana_etiqueta) %>%
-  summarise(Nro_tickets = sum(Nro_tickets), .groups = 'drop') %>%
-  mutate(DIA_NUM_SEMANA = 9, HORA_FACTOR = "Total")
+  tickets_x_hora_completo <- tickets_x_hora_completo %>%
+    mutate(semana_etiqueta = factor(semana_etiqueta, levels = semana_levels))
 
-# ---- Unimos los datos
-df_filtrado3_con_totales <- bind_rows(df_filtrado3, total_dia, total_hora, total_general)
+  nombres_TIENDAs_heatmap <- unique(tickets_x_hora_completo$TIENDA)
 
-# --- Para darle distinto relleno a las celdas según sean totales o no
-df_normales <- df_filtrado3_con_totales %>%
-  filter(HORA_FACTOR != "Total" & DIA_NUM_SEMANA != 9)
+  for (tienda_actual in nombres_TIENDAs_heatmap) {
+    df_filtrado3 <- tickets_x_hora_completo %>%
+      filter(TIENDA == tienda_actual) %>%
+      mutate(DIA_SEMANA_HORARIO = ifelse(es_feriado, "sábado", as.character(DIA_SEMANA_etiqueta))) %>%
+      left_join(horarios, join_by(TIENDA == TIENDA, DIA_SEMANA_HORARIO == DIA_SEMANA,
+                                  FECHA >= fecha_desde, FECHA <= fecha_hasta)) %>%
+      mutate(HORA_NUM = as.numeric(as.character(HORA_FACTOR))) %>%
+      filter(HORA_NUM >= start_hour & HORA_NUM <= end_hour) %>%
+      mutate(HORA_FACTOR = factor(HORA, levels = rev(sort(unique(HORA))))) %>%
+      select(-fecha_desde, -fecha_hasta, -DIA_SEMANA_HORARIO)
 
-df_totales <- df_filtrado3_con_totales %>%
-  filter(HORA_FACTOR == "Total" | DIA_NUM_SEMANA == 9)
+    if (nrow(df_filtrado3) == 0) next
 
+    fechas_feriados_subtitle <- df_filtrado3 %>%
+      filter(es_feriado) %>%
+      distinct(FECHA) %>%
+      arrange(FECHA) %>%
+      pull(FECHA) %>%
+      format("%d/%m") %>%
+      paste(collapse = ", ")
 
-# Asegurar que 'Total' quede como último nivel de HORA_FACTOR
-niveles_hora <- levels(df_filtrado3$HORA_FACTOR)
-df_filtrado3_con_totales$HORA_FACTOR <- factor(as.character(df_filtrado3_con_totales$HORA_FACTOR),
-                                                levels = c("Total", niveles_hora))
+    total_dia <- df_filtrado3 %>%
+      group_by(FECHA, DIA_NUM_SEMANA, semana_etiqueta) %>%
+      summarise(Nro_tickets = sum(Nro_tickets), .groups = 'drop') %>%
+      mutate(HORA_FACTOR = "Total", es_feriado = FALSE)
 
-# Lo mismo para DIA_NUM_SEMANA (lunes=1 a domingo=7, Total=8)
-df_filtrado3_con_totales$DIA_NUM_SEMANA <- as.numeric(as.character(df_filtrado3_con_totales$DIA_NUM_SEMANA))
+    total_hora <- df_filtrado3 %>%
+      group_by(semana_etiqueta, HORA_FACTOR) %>%
+      summarise(Nro_tickets = sum(Nro_tickets), .groups = 'drop') %>%
+      mutate(DIA_NUM_SEMANA = 8, es_feriado = FALSE)
 
-  
-  
- heatmap_plot_2 <- ggplot() +
-  
-  # Celdas normales con fill por Color_Grupo
-  geom_tile(
-    data = df_normales,
-    aes(x = DIA_NUM_SEMANA, y = HORA_FACTOR, fill = Color_Grupo),
-    color = "white", linewidth = 0.5
-  ) +
-  
-  # Celdas de totales sin fill
-  geom_tile(
-    data = df_totales,
-    aes(x = DIA_NUM_SEMANA, y = HORA_FACTOR),
-    fill = NA, color = "black", linewidth = 0.5
-  ) +
-  
-  # Textos en todas las celdas
-  geom_text(
-    data = df_filtrado3_con_totales,
-    aes(x = DIA_NUM_SEMANA, y = HORA_FACTOR, label = Nro_tickets),
-    color = "black", size = 2.5
-  ) +
-  
-  scale_x_continuous(
-    breaks = 1:9,
-    labels = c("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo", "Feriado", "Total"),
-    position = "top"
-  ) +
-  
-  scale_fill_manual(
-    values = c("0" = "#F8766D", "1-3" = "#FFFF00", ">3" = "#7CAE00"),
-    name = "Tickets por Hora",
-    drop = FALSE
-  ) +
-  
-  labs(
-    title = paste0("Heatmap de Tickets por Hora y Fecha. ", tienda_actual, ", ", mes_formateado),
-    subtitle = if (nchar(fechas_feriados_subtitle) > 0) paste("Feriado(s) incluido(s) en la columna 'Feriado':", fechas_feriados_subtitle) else NULL,
-    x = NULL,
-    y = "Hora"
-  ) +
-  
-  theme_minimal() +
-  theme(
-    legend.position = "none",
-    axis.text.x.top = element_text(size = 8, face = "bold"),
-    strip.text = element_text(size = 10, face = "bold")
-  ) +
-  
-  facet_grid(semana_etiqueta ~ .)
- 
-  ggsave(paste0("Reporte Tickets por hora/imagenes/Tickets_hora_fecha_", tienda_actual, "_", mes, ".png"), plot = heatmap_plot_2, width = 8, height = 10, units = "in", dpi = 300)
+    total_general <- df_filtrado3 %>%
+      group_by(semana_etiqueta) %>%
+      summarise(Nro_tickets = sum(Nro_tickets), .groups = 'drop') %>%
+      mutate(DIA_NUM_SEMANA = 8, HORA_FACTOR = "Total", es_feriado = FALSE)
+
+    df_filtrado3_con_totales <- bind_rows(df_filtrado3, total_dia, total_hora, total_general) %>%
+      mutate(
+        Color_Grupo = case_when(
+          Nro_tickets == 0                   ~ "0",
+          Nro_tickets > 0 & Nro_tickets <= 3 ~ "1-3",
+          Nro_tickets > 3                    ~ ">3"
+        ),
+        Color_Grupo = factor(Color_Grupo, levels = c("0", "1-3", ">3"))
+      )
+
+    df_normales <- df_filtrado3_con_totales %>%
+      filter(HORA_FACTOR != "Total" & DIA_NUM_SEMANA != 8 & !es_feriado)
+    df_feriados <- df_filtrado3_con_totales %>%
+      filter(HORA_FACTOR != "Total" & DIA_NUM_SEMANA != 8 & es_feriado)
+    df_totales  <- df_filtrado3_con_totales %>%
+      filter(HORA_FACTOR == "Total" | DIA_NUM_SEMANA == 8)
+
+    niveles_hora <- levels(df_filtrado3$HORA_FACTOR)
+    df_filtrado3_con_totales$HORA_FACTOR <- factor(
+      as.character(df_filtrado3_con_totales$HORA_FACTOR),
+      levels = c("Total", niveles_hora)
+    )
+    df_filtrado3_con_totales$DIA_NUM_SEMANA <- as.numeric(
+      as.character(df_filtrado3_con_totales$DIA_NUM_SEMANA)
+    )
+
+    heatmap_plot_2 <- ggplot() +
+      geom_tile(
+        data = df_normales,
+        aes(x = DIA_NUM_SEMANA, y = HORA_FACTOR, fill = Color_Grupo),
+        color = "white", linewidth = 0.5, width = 1, height = 1
+      ) +
+      geom_tile_pattern(
+        data = df_feriados,
+        aes(x = DIA_NUM_SEMANA, y = HORA_FACTOR, fill = Color_Grupo,
+            group = interaction(DIA_NUM_SEMANA, HORA_FACTOR)),
+        color = "white", linewidth = 0.5, width = 1, height = 1,
+        pattern = "stripe", pattern_fill = "black", pattern_colour = "black",
+        pattern_density = 0.05, pattern_spacing = 0.05, pattern_angle = 45,
+        pattern_alpha = 0.3
+      ) +
+      geom_tile(
+        data = df_totales,
+        aes(x = DIA_NUM_SEMANA, y = HORA_FACTOR),
+        fill = NA, color = "black", linewidth = 0.5, width = 1, height = 1
+      ) +
+      geom_text(
+        data = df_filtrado3_con_totales,
+        aes(x = DIA_NUM_SEMANA, y = HORA_FACTOR, label = Nro_tickets),
+        color = "black", size = 2.5
+      ) +
+      scale_x_continuous(
+        breaks = c(1:7, 8),
+        labels = c("lunes", "martes", "miércoles", "jueves", "viernes", "sábado", "domingo", "Total"),
+        position = "top"
+      ) +
+      scale_fill_manual(
+        values = c("0" = "#F8766D", "1-3" = "#FFFF00", ">3" = "#7CAE00"),
+        name = "Tickets por Hora", drop = FALSE
+      ) +
+      labs(
+        title    = paste0("Heatmap de Tickets por Hora y Fecha. ", tienda_actual, ", ", mes_formateado_heatmap),
+        subtitle = if (nchar(fechas_feriados_subtitle) > 0) paste("Días con patrón rayado = feriado:", fechas_feriados_subtitle) else NULL,
+        x = NULL, y = "Hora"
+      ) +
+      theme_minimal() +
+      theme(
+        legend.position  = "none",
+        axis.text.x.top  = element_text(size = 8, face = "bold"),
+        strip.text       = element_text(size = 10, face = "bold")
+      ) +
+      facet_grid(semana_etiqueta ~ .)
+
+    ggsave(
+      paste0("Reporte Tickets por hora/imagenes/Tickets_hora_fecha_", tienda_actual, "_", mes_str_heatmap, ".png"),
+      plot = heatmap_plot_2, width = 8, height = 10, units = "in", dpi = 300
+    )
+  }
 }
 
 ```
@@ -620,6 +606,13 @@ month_title_style <- createStyle(fontSize = 14, textDecoration = "bold")
 header_style <- createStyle(
   textDecoration = "bold", halign = "center", valign = "center",
   fgFill = "#D9E1F2", border = "TopBottomLeftRight"
+)
+header_wrap_style <- createStyle(
+  halign = "center", valign = "center",
+  textDecoration = "bold",
+  border = "TopBottomLeftRight",
+  wrapText = TRUE,
+  fgFill = "#D9E1F2"
 )
 
 # Estilo para el cuerpo de las tablas (con bordes)
@@ -812,8 +805,22 @@ for (tienda_actual in nombres_TIENDAs) {
       writeData(wb, sheet1_name, "HORA", startCol = 1, startRow = header_start_row + 1)
       
       col_start <- 2
+      # Fechas de feriados por mes (para el encabezado de la columna FERIADO)
+      fechas_feriados_mes <- facturas_editado %>%
+        filter(MES == mes_actual, DIA_SEMANA == "feriado") %>%
+        distinct(FECHA_EMISION) %>%
+        arrange(FECHA_EMISION) %>%
+        pull(FECHA_EMISION) %>%
+        format("%d/%m") %>%
+        paste(collapse = ", ")
+
       for (dia in dias_presentes) {
-        writeData(wb, sheet1_name, str_to_upper(as.character(dia)), startCol = col_start, startRow = header_start_row)
+        encabezado_dia <- if (dia == "feriado" && nchar(fechas_feriados_mes) > 0) {
+          paste0("FERIADO: ", fechas_feriados_mes)
+        } else {
+          str_to_upper(as.character(dia))
+        }
+        writeData(wb, sheet1_name, encabezado_dia, startCol = col_start, startRow = header_start_row)
         mergeCells(wb, sheet1_name, cols = col_start:(col_start + 2), rows = header_start_row)
         
         metric_headers <- c("Mediana de facturación", "Facturación", "Participación")
@@ -832,7 +839,7 @@ for (tienda_actual in nombres_TIENDAs) {
       
       # Aplicar bordes a toda la tabla (encabezados y cuerpo)
       addStyle(wb, sheet1_name, header_style, rows = header_start_row, cols = 2:(max_col), gridExpand = TRUE)
-      addStyle(wb, sheet1_name, header_style, rows = header_start_row + 1, cols = 1:(max_col), gridExpand = TRUE)
+      addStyle(wb, sheet1_name, header_wrap_style, rows = header_start_row + 1, cols = 1:(max_col), gridExpand = TRUE)
       addStyle(wb, sheet1_name, table_body_style, rows = data_start_row:data_end_row, cols = 1:max_col, gridExpand = TRUE, stack = TRUE)
       
       # Aplicar formatos numéricos (moneda y porcentaje)
@@ -841,6 +848,10 @@ for (tienda_actual in nombres_TIENDAs) {
         addStyle(wb, sheet1_name, currency_style, rows = data_start_row:data_end_row, cols = col_offset + c(1, 2), gridExpand = TRUE, stack = TRUE)
         addStyle(wb, sheet1_name, percent_style, rows = data_start_row:data_end_row, cols = col_offset + 3, gridExpand = TRUE, stack = TRUE)
       }
+      
+      # Ancho de columnas de Participación (cada 3ra columna a partir de la 4ta)
+      cols_participacion <- seq(4, 1 + length(dias_presentes) * 3, by = 3)
+      setColWidths(wb, sheet1_name, cols = cols_participacion, widths = 11.22)
       
       current_row <- data_end_row + 3
     }
@@ -852,20 +863,61 @@ for (tienda_actual in nombres_TIENDAs) {
   
   tabla_participacion <- tablas_formateadas[[tienda_actual]]
   if (!is.null(tabla_participacion) && nrow(tabla_participacion) > 0) {
-      
-      # Ordenar las columnas de la tabla cronológicamente
-      data_cols <- colnames(tabla_participacion)[-1]
-      col_months <- sub("_.*", "", data_cols)
-      order_index <- order(factor(col_months, levels = meses_ordenados_todos))
-      tabla_participacion <- tabla_participacion[, c("Hora", data_cols[order_index])]
-      
-      # Escribir tabla con formato
-      writeData(wb, sheet2_name, tabla_participacion, startRow = 1, startCol = 1, headerStyle = header_style)
-      
-      # Aplicar bordes y formato
-      data_end_row_s2 <- nrow(tabla_participacion) + 1
-      addStyle(wb, sheet2_name, table_body_style, rows = 2:data_end_row_s2, cols = 1:ncol(tabla_participacion), gridExpand = TRUE, stack = TRUE)
-      addStyle(wb, sheet2_name, percent_style, rows = 2:data_end_row_s2, cols = 2:ncol(tabla_participacion), gridExpand = TRUE, stack = TRUE)
+
+    # Ordenar columnas: por mes (cronológico) y dentro de cada mes: L a V, Sáb y Dom, Feriado
+    data_cols       <- colnames(tabla_participacion)[-1]
+    col_months      <- sub("_.*", "", data_cols)
+    col_grupos      <- sub(".*?_", "", data_cols)
+    grupo_order     <- c("L a V", "Sáb y Dom", "Feriado")
+    order_index     <- order(
+      factor(col_months, levels = meses_ordenados_todos),
+      factor(col_grupos, levels = grupo_order)
+    )
+    tabla_participacion  <- tabla_participacion[, c("Hora", data_cols[order_index])]
+    data_cols_ord   <- colnames(tabla_participacion)[-1]
+    col_months_ord  <- sub("_.*", "", data_cols_ord)
+    col_grupos_ord  <- sub(".*?_", "", data_cols_ord)
+    meses_en_tabla  <- unique(col_months_ord)   # orden ya correcto
+
+    # --- Fila 1: "Hora" + nombre del mes (celda fusionada por mes) ---
+    writeData(wb, sheet2_name, "Hora", startRow = 1, startCol = 1)
+    mergeCells(wb, sheet2_name, cols = 1, rows = 1:2)
+    addStyle(wb, sheet2_name, header_style, rows = 1:2, cols = 1, gridExpand = TRUE)
+
+    col_cursor <- 2
+    for (mes_col in meses_en_tabla) {
+      idx_mes    <- which(col_months_ord == mes_col)
+      n_cols_mes <- length(idx_mes)
+      writeData(wb, sheet2_name, str_to_upper(mes_col),
+                startRow = 1, startCol = col_cursor)
+      addStyle(wb, sheet2_name, header_style,
+               rows = 1, cols = col_cursor:(col_cursor + n_cols_mes - 1),
+               gridExpand = TRUE)
+      if (n_cols_mes > 1)
+        mergeCells(wb, sheet2_name,
+                   cols = col_cursor:(col_cursor + n_cols_mes - 1), rows = 1)
+      col_cursor <- col_cursor + n_cols_mes
+    }
+
+    # --- Fila 2: sub-encabezados de grupo ---
+    for (i in seq_along(data_cols_ord)) {
+      writeData(wb, sheet2_name, col_grupos_ord[i], startRow = 2, startCol = i + 1)
+    }
+    addStyle(wb, sheet2_name, header_style,
+             rows = 2, cols = 2:ncol(tabla_participacion), gridExpand = TRUE)
+
+    # --- Datos desde fila 3 ---
+    writeData(wb, sheet2_name, tabla_participacion,
+              startRow = 3, startCol = 1, colNames = FALSE)
+
+    # Aplicar bordes y formato
+    data_end_row_s2 <- nrow(tabla_participacion) + 2
+    addStyle(wb, sheet2_name, table_body_style,
+             rows = 3:data_end_row_s2, cols = 1:ncol(tabla_participacion),
+             gridExpand = TRUE, stack = TRUE)
+    addStyle(wb, sheet2_name, percent_style,
+             rows = 3:data_end_row_s2, cols = 2:ncol(tabla_participacion),
+             gridExpand = TRUE, stack = TRUE)
   }
   
   # --- HOJA: Ticket promedio ---
@@ -915,8 +967,30 @@ for (tienda_actual in nombres_TIENDAs) {
   if (file.exists(img_path_tickets)) insertImage(wb, sheet3_name, img_path_tickets, width = 8, height = altura_grafico_heatmap, units = "in")
 
  sheet4_name <- "Gráfico tickets x hora y fecha"; addWorksheet(wb, sheet4_name)
-  img_path_tickets2 <- paste0("Reporte Tickets por hora/imagenes/Tickets_hora_fecha_", tienda_actual,  "_", mes, ".png")
-  if (file.exists(img_path_tickets2)) insertImage(wb, sheet4_name, img_path_tickets2, width = 8, height = 10, units = "in")
+
+  # Meses con datos para esta tienda, del más reciente al más antiguo
+  meses_tienda_heatmap <- meses_ordenados_todos[
+    meses_ordenados_todos %in% unique(Facturacion_hora %>% filter(TIENDA == tienda_actual) %>% pull(MES))
+  ]
+
+  col_inicio_heatmap <- 1
+  ancho_img_heatmap  <- 8   # inches
+  cols_por_imagen    <- 11  # aprox. columnas que ocupa 1 imagen de 8" con ancho de columna estándar
+
+  for (mes_excel in meses_tienda_heatmap) {
+    mes_str_excel <- format(
+      mes_fecha_ref %>% filter(MES == mes_excel) %>% pull(fecha_ref),
+      "%Y-%m"
+    )
+    img_path_tickets2 <- paste0("Reporte Tickets por hora/imagenes/Tickets_hora_fecha_",
+                                tienda_actual, "_", mes_str_excel, ".png")
+    if (file.exists(img_path_tickets2)) {
+      insertImage(wb, sheet4_name, img_path_tickets2,
+                  startRow = 1, startCol = col_inicio_heatmap,
+                  width = ancho_img_heatmap, height = 10, units = "in")
+      col_inicio_heatmap <- col_inicio_heatmap + cols_por_imagen
+    }
+  }
   
   
   sheet5_name <- "Gráfico fact por hora"; addWorksheet(wb, sheet5_name)
