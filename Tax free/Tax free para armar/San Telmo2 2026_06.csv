@@ -1,0 +1,5 @@
+﻿WeekdayName,IssuedStatus,IssuingDate,TFSStatus,DeskID,TouristCountryNumIsoCode,InvoiceNumber,DocumentIdentifier,TotalGrossAmount,TotalRefundAmount
+"jueves, 18/6/2026",Voided,16:55:00,Voided,1422658,VENEZUELA,123,11065408413117816692,"199,900.00","25,987.00"
+"viernes, 19/6/2026",Issued,15:41:41,Issued,1422658,BRAZIL,699,11065408413117817964,"799,900.00","111,986.00"
+"martes, 30/6/2026",Issued,17:29:17,Issued,1422658,MEXICO,35387,11065408413117835539,"759,900.00","106,386.00"
+

@@ -22,8 +22,8 @@ QUITO LOS ANTICIPOS POR ANILLOS DOS LETRAS PERO PONERLOS CON EL MONTO ENTERO CUA
 ```{r filtro para la quincena a analizar}
 
 
-fecha_inicio_quincena <- as.Date("2026/06/01") 
-fecha_fin_quincena <- as.Date("2026/06/15")
+fecha_inicio_quincena <- as.Date("2026/06/16") 
+fecha_fin_quincena <- as.Date("2026/06/30")
 
 #mes <- "2026-06"
 
@@ -432,78 +432,8 @@ wb <- createWorkbook()
 
 ```
 
-# 1. SKU
-```{r}
 
-addWorksheet(wb, "SKU", gridLines = FALSE)
-ws <- "SKU"
-
-# Reordenar: TOTAL queda arriba, resto ordenado por PROVEEDOR asc / TOTAL desc
-SKU_excel <- bind_rows(
-  SKU_total_JOYERIA %>% filter(PROVEEDOR == "TOTAL"),
-  SKU_total_JOYERIA %>% filter(PROVEEDOR != "TOTAL") %>% arrange(PROVEEDOR, desc(TOTAL))
-) %>%
-  mutate(IMAGEN = "") %>%
-  relocate(IMAGEN, .before = PROVEEDOR)
-
-writeData(wb, ws, SKU_excel, startRow = 1, startCol = 1, borders = "all")
-
-total_row_sku <- which(SKU_excel$PROVEEDOR == "TOTAL") + 1
-num_cols_sku  <- which(names(SKU_excel) %in%
-                         c("VENTA", "PRECIO", "TOTAL", "STOCK", "D/S"))
-
-apply_table_styles(wb, ws, SKU_excel,
-                   start_row = 1, start_col = 1,
-                   total_rows = total_row_sku,
-                   num_cols   = num_cols_sku)
-
-# Anchos: IMAGEN | PROVEEDOR | FAMILIA | CODIGO | PRODUCTO | ...
-setColWidths(wb, ws, cols = 1, widths = 11)   # IMAGEN
-setColWidths(wb, ws, cols = 2, widths = 58)   # PROVEEDOR
-setColWidths(wb, ws, cols = 3, widths = 21)   # FAMILIA
-setColWidths(wb, ws, cols = 4, widths = 14)   # CODIGO
-setColWidths(wb, ws, cols = 5, widths = 90)   # PRODUCTO
-setColWidths(wb, ws, cols = 6:ncol(SKU_excel), widths = 13)
-
-# ---- Columna de imágenes (col 1) --------------------------------
-img_folder <- file.path("imagenes")
-img_files  <- list.files(img_folder, full.names = TRUE,
-                          pattern = "\\.(jpg|jpeg|png|webp)$",
-                          ignore.case = TRUE)
-img_lookup <- tibble(
-  filepath = img_files,
-  ref      = str_extract(basename(img_files), "^\\d+")
-) %>% filter(!is.na(ref))
-
-IMG_IN <- 0.65
-IMG_PT <- 50
-
-filas_datos <- which(!SKU_excel$PROVEEDOR %in% c("TOTAL", "DESCUENTO"))
-
-for (i in filas_datos) {
-  excel_row <- i + 1
-  setRowHeights(wb, ws, rows = excel_row, heights = IMG_PT)
-
-  codigo <- as.character(SKU_excel$CODIGO[i])
-  if (is.na(codigo) || codigo == "") next
-
-  match_idx <- which(img_lookup$ref == codigo)
-  if (length(match_idx) == 0 && nchar(codigo) >= 6)
-    match_idx <- which(img_lookup$ref == substr(codigo, 1, 6))
-  if (length(match_idx) == 0) next
-
-  img_tmp <- compress_img(img_lookup$filepath[match_idx[1]])
-  insertImage(wb, ws, file = img_tmp,
-              startRow = excel_row, startCol = 1,
-              width = IMG_IN, height = IMG_IN, units = "in")
-}
-
-freezePane(wb, ws, firstActiveRow = 2)
-addFilter(wb, ws, row = 1, cols = 1:ncol(SKU_excel))
-
-```
-
-# 2. FAMILIAS
+# 1. FAMILIAS
 ```{r}
 
 addWorksheet(wb, "Familias", gridLines = FALSE)
@@ -562,7 +492,7 @@ for (i in filas_datos_fam) {
 ```
 
 
-# 3. MODELOS
+# 2. MODELOS
 ```{r}
 
 addWorksheet(wb, "Modelos", gridLines = FALSE)
@@ -572,7 +502,7 @@ ws <- "Modelos"
 Modelos_excel <- bind_rows(
   Modelos_total_JOYERIA %>% filter(PROVEEDOR == "TOTAL"),
   Modelos_total_JOYERIA %>% filter(PROVEEDOR != "TOTAL") %>%
-    arrange(PROVEEDOR, FAMILIA, desc(TOTAL))
+    arrange(desc(TOTAL))
 ) %>%
   mutate(IMAGEN = "") %>%
   relocate(IMAGEN, .before = PROVEEDOR)
@@ -619,6 +549,77 @@ for (i in filas_datos_mod) {
               startRow = excel_row, startCol = 1,
               width = IMG_IN, height = IMG_IN, units = "in")
 }
+
+```
+
+# 3. SKU
+```{r}
+
+addWorksheet(wb, "SKU", gridLines = FALSE)
+ws <- "SKU"
+
+# Reordenar: TOTAL queda arriba, resto ordenado por PROVEEDOR asc / TOTAL desc
+SKU_excel <- bind_rows(
+  SKU_total_JOYERIA %>% filter(PROVEEDOR == "TOTAL"),
+  SKU_total_JOYERIA %>% filter(PROVEEDOR != "TOTAL") %>% arrange(desc(TOTAL))
+) %>%
+  mutate(IMAGEN = "") %>%
+  relocate(IMAGEN, .before = PROVEEDOR)
+
+writeData(wb, ws, SKU_excel, startRow = 1, startCol = 1, borders = "all")
+
+total_row_sku <- which(SKU_excel$PROVEEDOR == "TOTAL") + 1
+num_cols_sku  <- which(names(SKU_excel) %in%
+                         c("VENTA", "PRECIO", "TOTAL", "STOCK", "D/S"))
+
+apply_table_styles(wb, ws, SKU_excel,
+                   start_row = 1, start_col = 1,
+                   total_rows = total_row_sku,
+                   num_cols   = num_cols_sku)
+
+# Anchos: IMAGEN | PROVEEDOR | FAMILIA | CODIGO | PRODUCTO | ...
+setColWidths(wb, ws, cols = 1, widths = 11)   # IMAGEN
+setColWidths(wb, ws, cols = 2, widths = 58)   # PROVEEDOR
+setColWidths(wb, ws, cols = 3, widths = 21)   # FAMILIA
+setColWidths(wb, ws, cols = 4, widths = 14)   # CODIGO
+setColWidths(wb, ws, cols = 5, widths = 90)   # PRODUCTO
+setColWidths(wb, ws, cols = 6:ncol(SKU_excel), widths = 13)
+
+# ---- Columna de imágenes (col 1) --------------------------------
+img_folder <- file.path("imagenes")
+img_files  <- list.files(img_folder, full.names = TRUE,
+                          pattern = "\\.(jpg|jpeg|png|webp)$",
+                          ignore.case = TRUE)
+img_lookup <- tibble(
+  filepath = img_files,
+  ref      = str_extract(basename(img_files), "^\\d+")
+) %>% filter(!is.na(ref))
+
+IMG_IN <- 0.65
+IMG_PT <- 50
+
+filas_datos <- which(!SKU_excel$PROVEEDOR %in% c("TOTAL", "DESCUENTO"))
+
+for (i in filas_datos) {
+  excel_row <- i + 1
+  setRowHeights(wb, ws, rows = excel_row, heights = IMG_PT)
+
+  codigo <- as.character(SKU_excel$CODIGO[i])
+  if (is.na(codigo) || codigo == "") next
+
+  match_idx <- which(img_lookup$ref == codigo)
+  if (length(match_idx) == 0 && nchar(codigo) >= 6)
+    match_idx <- which(img_lookup$ref == substr(codigo, 1, 6))
+  if (length(match_idx) == 0) next
+
+  img_tmp <- compress_img(img_lookup$filepath[match_idx[1]])
+  insertImage(wb, ws, file = img_tmp,
+              startRow = excel_row, startCol = 1,
+              width = IMG_IN, height = IMG_IN, units = "in")
+}
+
+freezePane(wb, ws, firstActiveRow = 2)
+addFilter(wb, ws, row = 1, cols = 1:ncol(SKU_excel))
 
 ```
 

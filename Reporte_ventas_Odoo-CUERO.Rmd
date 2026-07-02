@@ -24,16 +24,16 @@ VER SI PROVEEDORES LO CRUZO CON DESCRIPCIÓN (SE LLAMA NOMBRE EN ODOO) EN VEZ DE
 
 ```{r filtro para el mes a analizar}
 
-fecha_inicio_mes <- as.Date("2026/05/01") 
-fecha_fin_mes <- as.Date("2026/05/31")
+fecha_inicio_mes <- as.Date("2026/06/01") 
+fecha_fin_mes <- as.Date("2026/06/30")
 
-mes <- "2026-05"
+mes <- "2026-06"
 
-fecha_stock <- strftime("2026/06/03","%Y%m%d")
+fecha_stock <- strftime("2026/07/02","%Y%m%d")
 
-fecha_precios <- strftime("2026/06/01","%Y%m%d")
+fecha_precios <- strftime("2026/07/02","%Y%m%d")
 
-fecha_proveedores <- strftime("2026/06/01","%Y%m%d")
+fecha_proveedores <- strftime("2026/07/02","%Y%m%d")
 
 fecha_maestro <- strftime("2025/08/22", "%Y%m%d")
 
@@ -948,8 +948,8 @@ unidades_vendidas <- FACTURAS_MES2 %>%
     FRENCH_VTA = French, 
     GUEMES_VTA = "Güemes", 
     RECOLETA_VTA = Recoleta, 
-    "SAN TELMO_VTA" = "San Telmo", 
-    "SAN TELMO 2_VTA" = "San Telmo 2"
+    "SAN TELMO_VTA" = "San Telmo" #, 
+   # "SAN TELMO 2_VTA" = "San Telmo 2"
   ) %>% 
   mutate(VENTA_TIENDAS = rowSums(across(ends_with("_VTA")), na.rm = TRUE))
 
@@ -957,8 +957,10 @@ unidades_vendidas <- FACTURAS_MES2 %>%
 # Uno las tablas
 ventas_stock <- Stock_para_machear %>%
   left_join(unidades_vendidas, by = "CODIGO_BARRAS") %>% 
-  mutate(across(where(is.numeric), ~ replace(., is.na(.), 0))) %>%   select(CODIGO_BARRAS, PRODUCTO, MATERIAL, COLOR, TALLE, VARIANTE, Florida_STOCK, FLORIDA_VTA, French_STOCK, FRENCH_VTA, Güemes_STOCK, GUEMES_VTA, Recoleta_STOCK, RECOLETA_VTA, "San Telmo 1_STOCK", "SAN TELMO_VTA", "San Telmo 2_STOCK", "SAN TELMO 2_VTA", VENTA_TIENDAS, `STOCK TIENDAS`, `STOCK TIENDAS`, STOCK_TOTAL) %>% 
+  mutate(across(where(is.numeric), ~ replace(., is.na(.), 0))) %>%   select(CODIGO_BARRAS, PRODUCTO, MATERIAL, COLOR, TALLE, VARIANTE, Florida_STOCK, FLORIDA_VTA, French_STOCK, FRENCH_VTA, Güemes_STOCK, GUEMES_VTA, Recoleta_STOCK, RECOLETA_VTA, "San Telmo 1_STOCK", "SAN TELMO_VTA",  VENTA_TIENDAS, `STOCK TIENDAS`, `STOCK TIENDAS`, STOCK_TOTAL) %>% 
   arrange(VENTA_TIENDAS, desc(`STOCK TIENDAS`)) 
+
+#"San Telmo 2_STOCK", "SAN TELMO 2_VTA",
 
 #Divido en dos tablas
 #Ventas 0
