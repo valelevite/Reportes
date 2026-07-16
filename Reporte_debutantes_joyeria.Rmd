@@ -16,18 +16,23 @@ library(magick)
 ```
 QUITO LOS ANTICIPOS POR ANILLOS DOS LETRAS PERO PONERLOS CON EL MONTO ENTERO CUANDO PAGUEN EL SALDO!!
 
-#1.Corro Arreglo_base_Odoo
+#1.Verificar que la fecha de corte del archivo base me sirva
 #2.Corro este
+
+```{r cargo el archivo base}
+
+df_base <- readRDS("Data/df_base.rds")
+cat("df_base actualizado:", format(file.info("Data/df_base.rds")$mtime), "\n")
+
+```
+
 
 ```{r filtro para la quincena a analizar}
 
+fecha_inicio_quincena <- as.Date("2026/07/01") 
+fecha_fin_quincena <- as.Date("2026/07/15")
 
-fecha_inicio_quincena <- as.Date("2026/06/16") 
-fecha_fin_quincena <- as.Date("2026/06/30")
-
-#mes <- "2026-06"
-
-fecha_proveedores <- strftime("2026/06/01","%Y%m%d")
+fecha_proveedores <- strftime("2026/07/16","%Y%m%d")
 
 ```
 
@@ -97,7 +102,7 @@ proveedores_odoo_LUCERO <- proveedores_odoo_LUCERO_a_revisar |>
 FACTURAS_MES2_JOYERIA$PROVEEDOR <- proveedores_odoo_LUCERO$PROVEEDOR[match(FACTURAS_MES2_JOYERIA$CODIGO_BARRAS, proveedores_odoo_LUCERO$CODIGO_BARRAS)]
 
 FACTURAS_MES2_JOYERIA <- FACTURAS_MES2_JOYERIA |> 
-  mutate(PROVEEDOR = case_when(DESCRIPCION == "ANILLO DOS LETRAS" ~ "MARIEL LINI",
+  mutate(PROVEEDOR = case_when(DESCRIPCION %in% c("ANILLO DOS LETRAS", "ANILLO INICIAL (2)") ~ "MARIEL LINI",
                                TRUE ~PROVEEDOR))
 
 REVISAR_PROVEEDORES_JOYERIA <- FACTURAS_MES2_JOYERIA %>% 
@@ -342,6 +347,9 @@ compress_img <- function(filepath, max_px = 180, quality = 72) {
   magick::image_write(img, path = tmp, quality = quality)
   tmp
 }
+
+
+
 ```
 
 ```{r paleta de colores}
@@ -349,6 +357,20 @@ compress_img <- function(filepath, max_px = 180, quality = 72) {
 COL_HEADER <- "#2F4F6E"
 COL_TOTAL  <- "#D9E1EA"
 COL_DESCTO <- "#FFF3CD"
+
+
+IMG_IN <- 0.65
+IMG_PT <- 50
+
+img_folder <- file.path("imagenes")
+img_files  <- list.files(img_folder, full.names = TRUE,
+                          pattern = "\\.(jpg|jpeg|png|webp)$",
+                          ignore.case = TRUE)
+img_lookup <- tibble(
+  filepath = img_files,
+  ref      = str_extract(basename(img_files), "^\\d+")
+) %>% filter(!is.na(ref))
+
 
 ```
 
@@ -586,17 +608,6 @@ setColWidths(wb, ws, cols = 5, widths = 90)   # PRODUCTO
 setColWidths(wb, ws, cols = 6:ncol(SKU_excel), widths = 13)
 
 # ---- Columna de imágenes (col 1) --------------------------------
-img_folder <- file.path("imagenes")
-img_files  <- list.files(img_folder, full.names = TRUE,
-                          pattern = "\\.(jpg|jpeg|png|webp)$",
-                          ignore.case = TRUE)
-img_lookup <- tibble(
-  filepath = img_files,
-  ref      = str_extract(basename(img_files), "^\\d+")
-) %>% filter(!is.na(ref))
-
-IMG_IN <- 0.65
-IMG_PT <- 50
 
 filas_datos <- which(!SKU_excel$PROVEEDOR %in% c("TOTAL", "DESCUENTO"))
 

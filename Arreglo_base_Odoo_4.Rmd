@@ -28,7 +28,7 @@ library(janitor)
 #Pongo las fechas y leo los archivos
 ```{r pongo la fecha de corte}
 
-fecha_hasta <- strftime("2026/07/01","%Y%m%d")
+fecha_hasta <- strftime("2026/07/16","%Y%m%d")
 
 fecha_desde <- strftime("2025/12/09", "%Y%m%d")
 
@@ -279,7 +279,7 @@ Odoo_Facturas_arreglada <- Odoo_Facturas_descuento2 |>
     Nota_general== "KOREA TAX FREEE" ~ "COREA TAX FREE",
     Nota_general %in% c("MEXICCO TAX FREEE", "MEXICO TAXFREE", "MEXICCO TAX FREE") ~ "MEXICO TAX FREE",
     Nota_general %in% c("KOREA TAX FREE", "COREA DEL SUR TAX FREE") ~ "COREA TAX FREE",
-    Nota_general== "BRAZIL TAX FREE" ~ "BRASIL TAX FREE",
+    Nota_general %in% c("BRAZIL TAX FREE", "BRASIL TAXX FREE") ~ "BRASIL TAX FREE",
     Nota_general == "ROMANIA TAX FREE" ~ "RUMANIA TAX FREE",
     Nota_general== "SERVIA TAX FREE" ~ "SERBIA TAX FREE",
     Nota_general== "GRAN BRETAÑA TAX FREE" ~ "REINO UNIDO TAX FREE",
@@ -312,9 +312,10 @@ Odoo_Facturas_arreglada <- Odoo_Facturas_descuento2 |>
     Nota_general == "SINGAPORE" ~ "SINGAPUR",
     Nota_general == "SOUTH AFRICA" ~ "SUDAFRICA",
     Nota_general %in% c("UKRANIA") ~ "UCRANIA",
-    Nota_general == "ITALIANO" ~ "ITALIA",
+    Nota_general %in% c("ITALIANO", "ITALIANA") ~ "ITALIA",
     Nota_general == "MASEDONIA" ~ "MACEDONIA",
     Nota_general == "TURKEY" ~ "TURQUIA",
+    Nota_general == "CHILENO" ~ "CHILE",
     TRUE~ Nota_general))
 
 ```
@@ -353,6 +354,7 @@ Odoo_Facturas_arreglada2 <- Odoo_Facturas_arreglada |>
     Nota_interna == "COTA RICA TAXFREE" ~ "COSTA RICA TAX FREE",
     Nota_interna == "TAX FREE HOLANDA" ~ "TAX FREE PAISES BAJOS",
    Nota_interna %in% c("RETIRO CARLOS", "PAR", "MALISHA") ~ "",
+   Nota_interna == "TAX FREE PAISES BAJ OS" ~ "TAX FREE PAISES BAJOS",
     TRUE~ Nota_interna))
 
 ```
@@ -740,4 +742,8 @@ Odoo_mas_Alegra <- Odoo_mas_Alegra_casi |>
 
 ```
 
+```{r creo archivo base}
+
+saveRDS(Odoo_mas_Alegra, "Data/df_base.rds")
+```
 
