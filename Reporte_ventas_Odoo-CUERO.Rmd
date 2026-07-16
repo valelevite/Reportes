@@ -638,8 +638,10 @@ NACIONALIDAD_X_UNIDAD <- FACTURAS_MES2 %>%
             `Güemes` = sum(if_else(TIENDA== "Güemes", PRODUCTO_CANTIDAD, 0), na.rm = TRUE),
             Recoleta = sum(if_else(TIENDA== "Recoleta", PRODUCTO_CANTIDAD, 0), na.rm = TRUE),
             `San Telmo` = sum(if_else(TIENDA== "San Telmo", PRODUCTO_CANTIDAD, 0), na.rm = TRUE),
-            `San Telmo 2` = sum(if_else(TIENDA== "San Telmo 2", PRODUCTO_CANTIDAD, 0), na.rm = TRUE),
-            `Total cantidad` = Florida+French+`Güemes`+Recoleta+`San Telmo`+`San Telmo 2`)
+          #  `San Telmo 2` = sum(if_else(TIENDA== "San Telmo 2", PRODUCTO_CANTIDAD, 0), na.rm = TRUE),
+            `Total cantidad` = Florida+French+`Güemes`+Recoleta+`San Telmo`
+          #+`San Telmo 2`
+          )
 
 fila_total_nacionalidad_unidad <- tibble(
   NACIONALIDAD = "Total general",
@@ -648,7 +650,7 @@ fila_total_nacionalidad_unidad <- tibble(
   `Güemes`= sum(NACIONALIDAD_X_UNIDAD$Güemes, na.rm = TRUE),
   Recoleta = sum(NACIONALIDAD_X_UNIDAD$Recoleta, na.rm = TRUE),
   `San Telmo` = sum(NACIONALIDAD_X_UNIDAD$`San Telmo`, na.rm = TRUE),
-  `San Telmo 2` = sum(NACIONALIDAD_X_UNIDAD$`San Telmo 2`, na.rm = TRUE),
+  #`San Telmo 2` = sum(NACIONALIDAD_X_UNIDAD$`San Telmo 2`, na.rm = TRUE),
   `Total cantidad` = sum(NACIONALIDAD_X_UNIDAD$`Total cantidad`, na.rm = TRUE))
 
 NACIONALIDAD_X_UNIDAD_TOTAL <- bind_rows(fila_total_nacionalidad_unidad, NACIONALIDAD_X_UNIDAD)
@@ -688,7 +690,7 @@ fila_total_nacionalidad_facturacion <- tibble(
   `Güemes`= sum(NACIONALIDAD_X_FACTURACION$Güemes, na.rm = TRUE)-DESCUENTO_X_TIENDA$DTO_X_TIENDA[DESCUENTO_X_TIENDA$TIENDA == "Güemes"],
   Recoleta = sum(NACIONALIDAD_X_FACTURACION$Recoleta, na.rm = TRUE)-DESCUENTO_X_TIENDA$DTO_X_TIENDA[DESCUENTO_X_TIENDA$TIENDA == "Recoleta"],
   `San Telmo` = sum(NACIONALIDAD_X_FACTURACION$`San Telmo`, na.rm = TRUE)-DESCUENTO_X_TIENDA$DTO_X_TIENDA[DESCUENTO_X_TIENDA$TIENDA == "San Telmo"],
-  `San Telmo 2` = sum(NACIONALIDAD_X_FACTURACION$`San Telmo 2`, na.rm = TRUE)-DESCUENTO_X_TIENDA$DTO_X_TIENDA[DESCUENTO_X_TIENDA$TIENDA == "San Telmo 2"],
+ # `San Telmo 2` = sum(NACIONALIDAD_X_FACTURACION$`San Telmo 2`, na.rm = TRUE)-DESCUENTO_X_TIENDA$DTO_X_TIENDA[DESCUENTO_X_TIENDA$TIENDA == "San Telmo 2"],
   `Total facturación` = sum(NACIONALIDAD_X_FACTURACION$`Total facturación`, na.rm = TRUE)-sum(DESCUENTO_X_TIENDA$DTO_X_TIENDA))
 
 NACIONALIDAD_X_FACTURACION_TOTAL <- bind_rows(fila_total_nacionalidad_facturacion, NACIONALIDAD_X_FACTURACION)
@@ -776,7 +778,7 @@ GRABADOS_TOTAL <- bind_rows(fila_total_grabados, GRABADOS)
 Tax_free_VENTA_TIENDAS <- Tax_free %>% 
   group_by(Tienda) %>% 
   summarise("Tax Free" = sum(TotalGrossAmount, na.rm = TRUE)) |> 
-  mutate(Tienda = if_else(Tienda == "San Telmo2", "San Telmo 2", Tienda))
+  filter(Tienda != "San Telmo2")
 
 venta_x_tienda <- FACTURAS_MES2 |> 
   select(FECHA_EMISION, NRO_FACTURA, TIENDA, TOTAL_FACTURA) |> 
@@ -861,15 +863,15 @@ Stock <- read_excel(paste0("Stock/Stock_", fecha_stock,".xlsx")) %>%
                             TIENDA == "WHREC/Stock" ~ "Recoleta", 
                             TIENDA == "WHSOL/Stock" ~ "El Solar",
                             TIENDA == "WHST1/Stock" ~ "San Telmo 1",
-                            TIENDA == "WHST2/Stock" ~ "San Telmo 2",
+                           # TIENDA == "WHST2/Stock" ~ "San Telmo 2",
                             TRUE ~ TIENDA))
   
 #Quito del stock lo que es AS o joyería y cambio a 0 las cantidades en negativo. Quito la joyería de ST 2
 Stock_Lucero <- Stock |> 
-  filter(TIENDA %in% c("Florida", "French", "Güemes", "Recoleta", "San Telmo 1", "San Telmo 2", "Barracas", "Florida Depósito"),
+  filter(TIENDA %in% c("Florida", "French", "Güemes", "Recoleta", "San Telmo 1", "Barracas", "Florida Depósito"),
          !is.na(REFERENCIA_INTERNA)) |> 
   mutate(CANTIDAD = if_else(CANTIDAD<0, 0, CANTIDAD)) %>%  
-  filter(!(TIENDA == "San Telmo 2" & 
+  filter(!(TIENDA == "Florida Depósito" & 
            str_detect(PRODUCTO, "\\bANILLO\\b|\\bPULSERA\\b|\\bCOLLAR\\b|\\bARO\\b|\\bCADENA\\b|\\bCOLGANTE\\b|\\bDIJE\\b|\\bTIENTO CUERO\\b") &
            !str_detect(PRODUCTO, "ANILLO CORAZON|ANILLO PICA|PULSERA TRENZA 3 CABOS")))
   
@@ -917,8 +919,7 @@ STOCK_VALOR <- STOCK_TIENDA %>%
 #agrego totales de columnas y las ordeno
 STOCK_VALOR_TOTAL <- STOCK_VALOR %>% 
   adorn_totals(where = "row") %>% 
-  relocate("Florida Depósito", .after = Barracas) %>% 
-  relocate("San Telmo 2", .after = "San Telmo 1")
+  relocate("Florida Depósito", .after = Barracas)
   
 ```
 
@@ -934,9 +935,9 @@ Stock_para_machear <- Stock_con_precios %>%
               values_from = CANTIDAD,
               values_fill = list(CANTIDAD = 0)) %>% 
    mutate(`STOCK DEPOSITOS` = Barracas + `Florida Depósito`,
-          `STOCK TIENDAS` = Florida +`San Telmo 1` + Recoleta + French + `Güemes` + `San Telmo 2`,
+          `STOCK TIENDAS` = Florida +`San Telmo 1` + Recoleta + French + `Güemes`,
     STOCK_TOTAL = `STOCK DEPOSITOS` + `STOCK TIENDAS`) %>% 
-  rename_with(~ paste0(.x, "_STOCK"), c("Florida", "San Telmo 1", "Recoleta", "French", "Güemes", "San Telmo 2"))
+  rename_with(~ paste0(.x, "_STOCK"), c("Florida", "San Telmo 1", "Recoleta", "French", "Güemes"))
 
 unidades_vendidas <- FACTURAS_MES2 %>% 
   filter(PRODUCTO_CANTIDAD>0) %>% #para quitar los negativo (créditos)
@@ -1481,7 +1482,7 @@ addStyle(wb, "Valor stock",
 pos1 <- add_formatted_table(wb, "Valor stock", STOCK_VALOR_TOTAL, 
                           startRow = 3, startCol = 1,
                           tableName = "STOCK_VALOR_TOTAL",
-                          currencyCols = c("TIENDA", "FLORIDA", "FRENCH", "GÜEMES", "RECOLETA", "SAN TELMO", "SAN TELMO 2"),
+                          currencyCols = c("TIENDA", "FLORIDA", "FRENCH", "GÜEMES", "RECOLETA", "SAN TELMO"),
                           percentCols = NULL,
                           numberCols = NULL,
                           color = "aguamarina")

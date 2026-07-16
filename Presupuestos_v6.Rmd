@@ -21,7 +21,7 @@ VER CÓMO SEPARAR LOS COSTOS POR MES YA QUE VAN A IR CAMBIANDO. POR AHORA AGREGO
 
 ```{r}
 fecha_costo <- strftime("2026/05/12", "%Y%m%d")
-fecha_costo2 <- strftime("2026/06/16", "%Y%m%d")
+fecha_costo2 <- strftime("2026/07/08", "%Y%m%d")
 
 año_minimo <- 2026
 mes_maximo <- 5
@@ -129,13 +129,13 @@ Tabla_ventas <- Ventas |>
 #   filter(n()>1)
 
 
-Costo1 <- read_excel(paste0("Costos/Costo ", fecha_costo, ".xlsx")) |> 
-  select(CODIGO_BARRAS = "Código de barras", COSTO = Costo) |> 
-  filter(COSTO>0) %>%
-  filter(!is.na(CODIGO_BARRAS)) |> 
-  mutate(CODIGO_BARRAS = case_when(CODIGO_BARRAS== "OUT54990" ~ "103252", 
-                                   CODIGO_BARRAS== "OUT159990" ~ "103260",
-                                   TRUE ~ CODIGO_BARRAS))
+# Costo1 <- read_excel(paste0("Costos/Costo ", fecha_costo, ".xlsx")) |> 
+#   select(CODIGO_BARRAS = "Código de barras", COSTO = Costo) |> 
+#   filter(COSTO>0) %>%
+#   filter(!is.na(CODIGO_BARRAS)) |> 
+#   mutate(CODIGO_BARRAS = case_when(CODIGO_BARRAS== "OUT54990" ~ "103252", 
+#                                    CODIGO_BARRAS== "OUT159990" ~ "103260",
+#                                    TRUE ~ CODIGO_BARRAS))
 
 
 Costo2 <- read_excel(paste0("Costos/Costo ", fecha_costo2, ".xlsx")) |> 
@@ -147,12 +147,13 @@ Costo2 <- read_excel(paste0("Costos/Costo ", fecha_costo2, ".xlsx")) |>
                                    TRUE ~ CODIGO_BARRAS))
 
 
-Costo_total <- full_join(Costo1, Costo2, by = c("CODIGO_BARRAS", "COSTO"))
+# Costo_total <- full_join(Costo1, Costo2, by = c("CODIGO_BARRAS", "COSTO"))
 
 
 Costo3 <- Ventas |> 
   select(-PRODUCTO, -PRODUCTO_TOTAL) |> 
-  left_join(Costo_total, by = "CODIGO_BARRAS")
+  left_join(Costo2, by = "CODIGO_BARRAS")
+           #Costo_total (estaba así antes, cuando usaba los dos costos)
 
 REVISO_PRODUCTOS_SIN_COSTO <- Costo3 %>% 
   filter(AÑO >= año_minimo & MES <= mes_maximo) %>% 
@@ -626,7 +627,9 @@ Sueldo_bruto <- Sueldos_sin_SAC_vac_liq %>%
 ```{r calculo las contribuciones y premios (incentivos)}
 
 Sueldo_mas_contribuciones <- Sueldo_bruto %>% 
-  mutate(ART = if_else(Periodo < "2026-02-01", 1355+ 0.0215*Total_remunerativo, 1624+ 0.0215*Total_remunerativo),
+  mutate(ART = case_when(Periodo < "2026-02-01" ~ 1355+ 0.0215*Total_remunerativo,
+                         Perido >= "2026-02-01" & Periodo <= "2026-06-30" ~1624+ 0.0215*Total_remunerativo,
+                         Periodo >= "2026-07-01" ~ 0,0144*Total_remunerativo),
          Previsional = 0.1077*Total_remunerativo,
          PAMI = 0.0159*Total_remunerativo,
          Fondo_empleo = 0.0094*Total_remunerativo,
@@ -926,7 +929,7 @@ TABLA_REPORTE_GASTOS <- Tablas_unidas %>%
 
 
 ```{r}
-write.xlsx(TABLA_PRESUPUESTO, paste0("Presupuestos tiendas/Tabla presupuestos_", año_minimo, mes_maximo, ".xlsx"))
+write.xlsx(TABLA_PRESUPUESTO, paste0("Presupuestos tiendas/Tabla presupuestos_2_", año_minimo, mes_maximo, ".xlsx"))
 ```
 
 
