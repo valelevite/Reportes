@@ -32,7 +32,7 @@ fecha_hasta <- strftime("2026/07/01","%Y%m%d")
 
 fecha_desde <- strftime("2025/12/09", "%Y%m%d")
 
-fecha_base_articulos <- strftime("2026/06/01", "%Y%m%d")
+fecha_base_articulos <- strftime("2026/07/06", "%Y%m%d")
 ```
 
 #FACTURAS EN ODOO
@@ -609,7 +609,8 @@ Base_Articulos_Odoo_para_machear <- Base_Articulos_Odoo_sin_rubro_AS |>
 ```{r uno datasets y completo datos}
 
 Odoo_mas_Base_articulos <- Odoo_facturas_final %>% 
-  left_join(Base_Articulos_Odoo_para_machear, by = "CODIGO_BARRAS") %>% 
+  left_join(Base_Articulos_Odoo_para_machear, by = "CODIGO_BARRAS",
+            relationship = "many-to-many") %>% 
   mutate(PRODUCTO_NOMBRE_COMPLETO = case_when(NOMBRE_FACTURA == "FA-B 00043-00000367 (00043 - Florida/0376)" ~ "[100583] CARTERA MINI EMMA (PELO, HEREFORD)", TRUE ~ PRODUCTO_NOMBRE_COMPLETO),
          # RUBRO = case_when(is.na(RUBRO) & PRODUCTO_NOMBRE_COMPLETO == "BANDOLERA NOE (TOLEDO, CLAY)" ~ "MARRO GRANDE", TRUE ~ RUBRO),
          FAMILIA = case_when(CODIGO_BARRAS == "MG100881561" ~ "BANDOLERAS", TRUE ~ FAMILIA),

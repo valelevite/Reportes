@@ -32,13 +32,13 @@ QUITO LOS ANTICIPOS POR ANILLOS DOS LETRAS PERO PONERLOS CON EL MONTO ENTERO CUA
 
 
 fecha_inicio <- as.Date("2025/12/09") 
-fecha_fin <- as.Date("2026/06/24")
+fecha_fin <- as.Date("2026/06/30")
 
 dias_periodo <- as.integer(fecha_fin - fecha_inicio) + 1
 
-fecha_stock <- strftime("2026/06/23","%Y%m%d")
+fecha_stock <- strftime("2026/07/02","%Y%m%d")
 
-fecha_precios <- strftime("2026/06/24","%Y%m%d")
+fecha_precios <- strftime("2026/07/14","%Y%m%d")
 
 fecha_proveedores <- strftime("2026/06/23","%Y%m%d")
 
@@ -103,7 +103,8 @@ REVISO_PROVEEDORES <- proveedores_odoo_LUCERO_a_revisar |>
 
 #Elijo con qué proveedor quedarme entre los repetidos y completo faltantes
 proveedores_odoo_LUCERO_revisado <- proveedores_odoo_LUCERO_a_revisar %>% 
-  mutate(PROVEEDOR = if_else(PRODUCTO %in% c("[106037] PULSERA GRUMET PLANA 1.0 (16)", "[106040] PULSERA ROLO OVAL 0.6 (16)", "[106043] PULSERA ROLO OVAL 1.0 (16)"), "DE CUSATIS FLAVIO A Y DE CUSATIS VALERIOL C SOC DE HECHO", PROVEEDOR))
+  mutate(PROVEEDOR = if_else(PRODUCTO %in% c("[106037] PULSERA GRUMET PLANA 1.0 (16)", "[106040] PULSERA ROLO OVAL 0.6 (16)", "[106043] PULSERA ROLO OVAL 1.0 (16)"), "DE CUSATIS FLAVIO A Y DE CUSATIS VALERIOL C SOC DE HECHO", PROVEEDOR),
+         PROVEEDOR = if_else(PRODUCTO %in% c("[106037] PULSERA GRUMET PLANA 1.0 (16)", "[106040] PULSERA ROLO OVAL 0.6 (16)", "	[106043] PULSERA ROLO OVAL 1.0 (16)"), "DE CUSATIS FLAVIO A Y DE CUSATIS VALERIOL C SOC DE HECHO", PROVEEDOR))
   
 
 #Le cambio el nombre a los proveedores para que estén como los quiere Carlos
@@ -1543,8 +1544,6 @@ if (has_sufij) {
 
 col_fact_g2 <- if (has_sufij) "Güemes 2.y" else "Güemes 2"
 col_fact_es <- if (has_sufij) "El Solar.y"  else "El Solar"
-col_fact_es <- if (has_sufij) "San Telmo 2.y"  else "San Telmo 2"
-
 col_fact_st2 <- if (has_sufij) "San Telmo 2.y" else "San Telmo 2"
 
 datos_nac_base <- NACIONALIDAD_ENTERA_JOYERIA %>%
