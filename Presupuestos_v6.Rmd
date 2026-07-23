@@ -8,23 +8,39 @@ date: "2025-05-15"
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-1. Corro Arreglo base Odoo
+1. La base corregida se carga automáticamente. Saber que tiene que estar al día.
 2. Descargo el costo de los productos (en inventario). HASTA QUE NO ESTÉN TODOS LOS COSTOS AL DÍA, CARGO DOS COSTOS PARA INTENTAR SUPLIR LA MAYOR CANTIDAD DE DATOS FALTANTES ENTRE LOS DOS.
 VER CÓMO SEPARAR LOS COSTOS POR MES YA QUE VAN A IR CAMBIANDO. POR AHORA AGREGO EL NUEVO MES (CON EL COSTO ACTUAL) A LA TABLA ANTERIOR (CALCULADA CON EL COSTO ANTERIOR). ASÍ NO CAMBIO LO ANTERIOR
 3. Actualizo el archivo de gastos (gastos desde 2025-05.xlsx SOLO HASTA MAYO 2026). A partir de junio 2026 descargar de Odoo.
-4. Actualizo el archivo de cupones de tarjetas (fiserv/Ventas y pagos/detalle de cupones, filtros (FECHA DE OPERACIÓN), rango de fechas)
-5. Agrego el archivo mensual de Silvina (Ventas 2026) en la fc para que calcule el costo de MP (línea 390 aprox)
+4. Actualizo el archivo de cupones de tarjetas (fiserv/agenda de pagos/cupones (botón), filtros (FECHA DE OPERACIÓN), rango de fechas)
+5. Agrego el archivo mensual de Silvina (Ventas 2026) en la fc para que calcule el costo de MP (buscar: "leer_mp("Cupones Tarjetas/VENTAS")
 6. Actualizo el archivo de sueldos del estudio (Sueldos desde...). REVISAR QUE LAS VACACIONES Y LAS LIQUIDACIONES TENGAN BIEN EL MES Y AÑO EN COLUMNA PERÍODO. TAMBIÉN QUE NO ESTÉN ESCRITAS DE UN MODO DISTINTO Y NO SEAN COMPUTADAS POR EL R.
 7. Actualizo las fechas de licencias en el script y las bajas en Horas trabajadas, hoja 2. 
 8. Actualizo las fechas mín y máx para los filtros en el siguiente chunk
 
 
 ```{r}
+
+library(tidyverse)
+library(lubridate)
+library(readxl)
+library(openxlsx)
+library(stringi)
+library(tibble)
+library(purrr)
+library(janitor)
+
+```
+
+
+```{r}
 fecha_costo <- strftime("2026/05/12", "%Y%m%d")
-fecha_costo2 <- strftime("2026/07/08", "%Y%m%d")
+fecha_costo2 <- strftime("2026/07/23", "%Y%m%d")
 
 año_minimo <- 2026
-mes_maximo <- 5
+mes_maximo <- 6
+
+base_arreglada <- readRDS("data/df_base.rds")
 ```
 
 ```{r defino el nombre de las tiendas}
@@ -47,12 +63,12 @@ Sueldos <- read_excel("Reporte_gastos/Sueldos/Sueldos_desde_2025-09.xlsx",
     col_types = c("numeric", "text", "text", 
         "numeric", "text", "text", "text", 
         "text", "text")) |> 
-  filter(!Empleado %in% c(2, 9, 47, 56))  #supervisoras, visual y asistente Ale
+  filter(!Empleado %in% c(2, 9,56))  #supervisoras y asistente Ale
   
 #Horas trabajadas
 Horas_trabajadas <- read_excel("Reporte_gastos/Sueldos/Horas trabajadas Tiendas desde 2025-09.xlsx") |> 
   filter(Periodo > "2025-12-01") |> 
-  filter(!Empleado %in% c(2, 9, 47)) |> #supervisoras y visual
+  filter(!Empleado %in% c(2, 9)) |> #supervisoras 
   mutate(AÑO = year(Periodo),
          MES = month(Periodo)) |> 
   select(-Periodo, -"AS Güemes")
@@ -73,11 +89,10 @@ vendedora_tienda <- read_excel("Reporte_gastos/Sueldos/Horas trabajadas Tiendas 
 ```
 
 
-
 #VENTAS
 ```{r tabla de ventas}
 
-Ventas <- Odoo_mas_Alegra |> 
+Ventas <- base_arreglada |> 
   select(TIENDA, FECHA = FECHA_EMISION, NOMBRE_FACTURA, CODIGO_BARRAS, PRODUCTO = PRODUCTO_NOMBRE_COMPLETO, RUBRO, FAMILIA, SUBFAMILIA, CANTIDAD = PRODUCTO_CANTIDAD, PRECIO_UNITARIO, PRECIO_UNITARIO_SIN_IMP, PRODUCTO_TOTAL, DESCUENTO, TOTAL_FACTURA) |> 
   mutate(AÑO = year(FECHA),
          MES = month(FECHA),
@@ -423,7 +438,8 @@ venta_MP <- bind_rows(
   leer_mp("Cupones Tarjetas/VENTAS FEBRERO 2026.xlsx", 2026, 2, hojas_validas),
   leer_mp("Cupones Tarjetas/VENTAS MARZO 2026.xlsx", 2026, 3, hojas_validas),
   leer_mp("Cupones Tarjetas/VENTAS ABRIL 2026.xlsx", 2026, 4, hojas_validas),
-  leer_mp("Cupones Tarjetas/VENTAS MAYO 2026.xlsx", 2026, 5, hojas_validas)
+  leer_mp("Cupones Tarjetas/VENTAS MAYO 2026.xlsx", 2026, 5, hojas_validas),
+  leer_mp("Cupones Tarjetas/VENTAS JUNIO 2026.xlsx", 2026, 6, hojas_validas)
   ) 
 
 Costo_MP <- venta_MP |> 
@@ -628,8 +644,8 @@ Sueldo_bruto <- Sueldos_sin_SAC_vac_liq %>%
 
 Sueldo_mas_contribuciones <- Sueldo_bruto %>% 
   mutate(ART = case_when(Periodo < "2026-02-01" ~ 1355+ 0.0215*Total_remunerativo,
-                         Perido >= "2026-02-01" & Periodo <= "2026-06-30" ~1624+ 0.0215*Total_remunerativo,
-                         Periodo >= "2026-07-01" ~ 0,0144*Total_remunerativo),
+                         Periodo >= "2026-02-01" & Periodo <= "2026-06-30" ~1624+ 0.0215*Total_remunerativo,
+                         Periodo >= "2026-07-01" ~ 0.0144*Total_remunerativo),
          Previsional = 0.1077*Total_remunerativo,
          PAMI = 0.0159*Total_remunerativo,
          Fondo_empleo = 0.0094*Total_remunerativo,
