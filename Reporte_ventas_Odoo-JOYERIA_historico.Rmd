@@ -32,15 +32,15 @@ QUITO LOS ANTICIPOS POR ANILLOS DOS LETRAS PERO PONERLOS CON EL MONTO ENTERO CUA
 
 
 fecha_inicio <- as.Date("2025/12/09") 
-fecha_fin <- as.Date("2026/06/30")
+fecha_fin <- as.Date("2026/07/26")
 
 dias_periodo <- as.integer(fecha_fin - fecha_inicio) + 1
 
-fecha_stock <- strftime("2026/07/02","%Y%m%d")
+fecha_stock <- strftime("2026/07/27","%Y%m%d")
 
-fecha_precios <- strftime("2026/07/14","%Y%m%d")
+fecha_precios <- strftime("2026/07/27","%Y%m%d")
 
-fecha_proveedores <- strftime("2026/06/23","%Y%m%d")
+fecha_proveedores <- strftime("2026/07/27","%Y%m%d")
 
 ```
 
@@ -118,7 +118,7 @@ proveedores_odoo_LUCERO <- proveedores_odoo_LUCERO_revisado |>
 FACTURAS_MES2_JOYERIA$PROVEEDOR <- proveedores_odoo_LUCERO$PROVEEDOR[match(FACTURAS_MES2_JOYERIA$CODIGO_BARRAS, proveedores_odoo_LUCERO$CODIGO_BARRAS)]
 
 FACTURAS_MES2_JOYERIA <- FACTURAS_MES2_JOYERIA |> 
-  mutate(PROVEEDOR = case_when(DESCRIPCION == "ANILLO DOS LETRAS" ~ "MARIEL LINI",
+  mutate(PROVEEDOR = case_when(DESCRIPCION %in% c("ANILLO DOS LETRAS", "ANILLO INICIAL (2)") ~ "MARIEL LINI",
                                TRUE ~PROVEEDOR))
 
 REVISAR_PROVEEDORES_JOYERIA <- FACTURAS_MES2_JOYERIA %>% 

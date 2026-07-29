@@ -21,7 +21,7 @@ library(openxlsx)
 
 #Completo la info de ventas reales en el archivo correspondiente
 ```{r}
-MES_GASTOS <- 5
+MES_GASTOS <- 4
 AÑO_GASTOS <- 2026
 
 ```
@@ -90,7 +90,9 @@ total_general <- tomo_valores |>
   mutate(TIENDA = "Total general")
 
 # 5. Unir todo en orden
-df_final <- bind_rows(bloques, sin_zona, total_general)
+df_final <- bind_rows(bloques, sin_zona, total_general) |> 
+  select(-Contribuciones, -Incentivo, -Sueldos) |> 
+  rename(Sueldos = Total_sueldos)
 
 ```
 
@@ -100,7 +102,23 @@ df_final <- bind_rows(bloques, sin_zona, total_general)
 #Escribo la tabla
 ```{r}
 
-write.xlsx(df_final, paste0("Reporte_gastos/tabla_gastos_zonas_", AÑO_GASTOS, "-", MES_GASTOS, ".xlsx"))
+archivo_gastos <- paste0("Reporte_gastos/tabla_gastos_zonas_", AÑO_GASTOS, ".xlsx")
+nombre_hoja <- sprintf("%02d-%s", MES_GASTOS, AÑO_GASTOS)
+
+if (file.exists(archivo_gastos)) {
+  wb <- loadWorkbook(archivo_gastos)
+} else {
+  wb <- createWorkbook()
+}
+
+if (nombre_hoja %in% names(wb)) {
+  removeWorksheet(wb, nombre_hoja)
+}
+
+addWorksheet(wb, nombre_hoja)
+writeData(wb, nombre_hoja, df_final)
+
+saveWorkbook(wb, archivo_gastos, overwrite = TRUE)
 
 ```
 

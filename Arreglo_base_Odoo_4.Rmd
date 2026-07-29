@@ -28,11 +28,11 @@ library(janitor)
 #Pongo las fechas y leo los archivos
 ```{r pongo la fecha de corte}
 
-fecha_hasta <- strftime("2026/07/16","%Y%m%d")
+fecha_hasta <- strftime("2026/07/27","%Y%m%d")
 
 fecha_desde <- strftime("2025/12/09", "%Y%m%d")
 
-fecha_base_articulos <- strftime("2026/07/06", "%Y%m%d")
+fecha_base_articulos <- strftime("2026/07/27", "%Y%m%d")
 ```
 
 #FACTURAS EN ODOO

@@ -68,10 +68,13 @@ Sueldos <- read_excel("Reporte_gastos/Sueldos/Sueldos_desde_2025-09.xlsx",
 #Horas trabajadas
 Horas_trabajadas <- read_excel("Reporte_gastos/Sueldos/Horas trabajadas Tiendas desde 2025-09.xlsx") |> 
   filter(Periodo > "2025-12-01") |> 
-  filter(!Empleado %in% c(2, 9)) |> #supervisoras 
+  filter(!Empleado %in% c(2, 9)) |> #supervisoras
+  select(-HORAS) |> 
   mutate(AÑO = year(Periodo),
          MES = month(Periodo)) |> 
-  select(-Periodo, -"AS Güemes")
+  mutate(HORAS = rowSums(across(Florida:`El Solar`), na.rm = TRUE)) |> 
+  select(-Periodo, -"AS Güemes", -Vacaciones, -Observaciones) 
+  
 
 
 vendedora_tienda <- read_excel("Reporte_gastos/Sueldos/Horas trabajadas Tiendas desde 2025-09.xlsx", 
@@ -523,16 +526,22 @@ Tabla_gasto_financiero <- bind_rows(Costo_tarjetas_MP, fila_total_tarjetas_MP) %
 
 
 #SUELDOS
-##Doy forma al dataframe de sueldos y filtro a partir de 2026
+##Doy forma al dataframe de sueldos, quito los descuentos, quito el concepto "redondeo" porque hace lío, codifico como SAC a los ajustes SAC que están en los sueldos y filtro a partir de 2026
 ```{r}
 
 Sueldos_limpio <- Sueldos |>
   filter(`Apellido y Nombre` != "Hasse Valentina") %>% 
+  filter(Concepto != 990) |> #quito el redondeo
+  select(-Descuento) |> 
+  filter(!is.na(Remunerativo) | !is.na(`No Remunerativo`)) |> 
   mutate(
     CONCEPTO = case_when(
       str_detect(Periodo, "^[^0-9]") ~ str_extract(Periodo, "^[^0-9]+") |> str_trim(),
       TRUE ~ "Sueldo"
     ),
+    CONCEPTO = if_else(str_detect(CONCEPTO, regex("final", ignore_case = TRUE)), "Liq Final", CONCEPTO
+    ),
+    CONCEPTO = if_else(Concepto == 95, "SAC", CONCEPTO),
     Periodo_2 = as.Date(
       str_extract(Periodo, "\\d{1,2}/\\d{1,2}/\\d{2,4}"),
       format = "%d/%m/%Y"
@@ -540,7 +549,7 @@ Sueldos_limpio <- Sueldos |>
   ) |>
   mutate(
     across(
-      c(Remunerativo, `No Remunerativo`, Descuento),
+      c(Remunerativo, `No Remunerativo`),
       ~ as.numeric(gsub(",", "", .))
     )
   ) |>
@@ -548,7 +557,8 @@ Sueldos_limpio <- Sueldos |>
          Periodo = as.Date(as.numeric(Periodo), origin = "1899-12-30"),
          Periodo = if_else(is.na(Periodo), Periodo_2, Periodo)) |> 
   select(-Periodo_2) |> 
-  filter(Periodo >= as.Date("2026-01-01")) 
+  filter(Periodo >= as.Date("2026-01-01")) |> 
+  filter(!(Empleado == 21 & Concepto == 441)) #quito el descuento de vacaciones que debería haber sido en diciembre
 
 
 ```
@@ -558,18 +568,16 @@ Sueldos_limpio <- Sueldos |>
 
 #primero selecciono los conceptos que son de liquidaciones finales, convierto a fecha el período y pongo bien los decimales
 SAC_vac_liq <- Sueldos_limpio |>
-  mutate(CONCEPTO = if_else(tolower(trimws(CONCEPTO)) %in% c("liq final"), "Liq Final", CONCEPTO)) %>% 
   filter(CONCEPTO %in% c("Liq Final", "SAC", "Vacaciones"))
 
 #Tomo la parte del sueldo a las liquidaciones finales
 Sueldo_en_liq_finales <- SAC_vac_liq |> 
   group_by(Empleado, Periodo) |>
   filter(
-    any(tolower(trimws(CONCEPTO)) == tolower(trimws("Liq Final"))) &
-    any(Concepto == 9)
+    any(tolower(trimws(CONCEPTO)) == tolower(trimws("Liq Final")))
   ) |>
-  filter(!Concepto %in% c(820, 821, 860, 871, 880, 1501)) |>
-  ungroup() |> 
+  filter(!Concepto %in% c(820, 821, 860, 871, 872, 880, 1501)) |> 
+  ungroup() |>
   select(-CONCEPTO)
   
 #Le quito los sueldos a las liquidaciones finales
@@ -581,7 +589,6 @@ SAC_vac_liq_BRUTO <- SAC_vac_liq_sin_sueldos %>%
   group_by(Periodo, Empleado, CONCEPTO) %>% 
    summarise(Total_remunerativo = sum(Remunerativo, na.rm = TRUE), 
              Total_No_remunerativo = sum(`No Remunerativo`, na.rm = TRUE),
-             Total_descuentos = sum(Descuento, na.rm = TRUE),
              Total_bruto = sum(Remunerativo, na.rm = TRUE) + sum(`No Remunerativo`, na.rm = TRUE),
              .groups = "drop_last")
 
@@ -633,7 +640,6 @@ Sueldo_bruto <- Sueldos_sin_SAC_vac_liq %>%
   group_by(Periodo, Empleado) %>% 
    summarise(Total_remunerativo = sum(Remunerativo, na.rm = TRUE), 
              Total_No_remunerativo = sum(`No Remunerativo`, na.rm = TRUE),
-             Total_descuentos = sum(Descuento, na.rm = TRUE),
              SUELDOS = sum(Remunerativo, na.rm = TRUE) + sum(`No Remunerativo`, na.rm = TRUE),
              .groups = "drop"
   )
@@ -688,22 +694,23 @@ Sueldos_valor_hora <- Sueldos_horas %>%
   
 ```
 
-```{r elimino del cálculo a las vendedoras con licencias por maternidad, etc y las bajas que surgen de vendedora_tienda}
+```{r elimino del cálculo a las vendedoras con licencias por maternidad, etc y las bajas que surgen de vendedora_tienda AHORA NO ESTOY ELIMINANDO LAS FILAS DE LAS BAJAS PORQUE NO SÉ PORQUÉ LO HICE ANTES}
 
 #5 (Balmaceda Luciana) = licencia por maternidad y ahora licencia extendida
 
 Sueldos_filtrado <- Sueldos_valor_hora %>% 
-  filter(!(Empleado == 5 & Periodo >= as.Date("2025-09-01") & Periodo < as.Date("2025-12-01"))) %>% # licencias
+  #filter(!(Empleado == 5 & Periodo >= as.Date("2025-09-01") & Periodo < as.Date("2025-12-01"))) %>% # licencias
    left_join(vendedora_tienda, by = "Empleado") |>
   select(-Nombre.y) %>% 
   rename(Nombre = Nombre.x) %>% 
   mutate(
     mes_baja = lubridate::floor_date(Finalizacion, "month")
-  ) |>
-  filter(
-    is.na(mes_baja) | Periodo <= mes_baja) %>% 
-  select(-Periodo) %>% 
-  relocate(Tienda, .after=MES)
+  ) 
+# |>
+#   filter(
+#     is.na(mes_baja) | Periodo <= mes_baja) %>% 
+#   select(-Periodo) %>% 
+#   relocate(Tienda, .after=MES)
 
 
 Reviso_faltante_horas <- filter(Sueldos_filtrado, is.na(HORAS))
@@ -945,7 +952,7 @@ TABLA_REPORTE_GASTOS <- Tablas_unidas %>%
 
 
 ```{r}
-write.xlsx(TABLA_PRESUPUESTO, paste0("Presupuestos tiendas/Tabla presupuestos_2_", año_minimo, mes_maximo, ".xlsx"))
+write.xlsx(TABLA_PRESUPUESTO, paste0("Presupuestos tiendas/Tabla presupuestos_2_", año_minimo, "_", mes_maximo, ".xlsx"))
 ```
 
 

@@ -8,10 +8,17 @@ date: "2026-03-04"
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+```{r}
+library(tidyverse)
+library(readxl)
+library(openxlsx)
+```
+
+
 #BASE ARTICULOS
 ```{r cargo la base de artículos y hago los cambios necesarios para que machee bien con las ventas y otras bases}
 
-fecha_base_articulos_CAMI <- strftime("2026/03/04", "%Y%m%d")
+fecha_base_articulos_CAMI <- strftime("2026/07/29", "%Y%m%d")
 
 BASE_ARTICULOS_CAMI <- read_excel(paste0("Base artículos Odoo/BASE_ARTICULOS_CAMI_", fecha_base_articulos_CAMI, ".xlsx"), 
     col_types = c("text", "text", "text", 
