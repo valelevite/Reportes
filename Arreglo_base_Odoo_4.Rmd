@@ -28,7 +28,7 @@ library(janitor)
 #Pongo las fechas y leo los archivos
 ```{r pongo la fecha de corte}
 
-fecha_hasta <- strftime("2026/07/27","%Y%m%d")
+fecha_hasta <- strftime("2026/08/03","%Y%m%d")
 
 fecha_desde <- strftime("2025/12/09", "%Y%m%d")
 
@@ -277,7 +277,7 @@ Odoo_Facturas_arreglada <- Odoo_Facturas_descuento2 |>
     Nota_general %in% c("TAXFREEESTADOS UNIDOS", "ESTDOS UNIDOS TAX FREE", "USA TF", "ESTADOS UNDOS TAX FREE", "ESTADOS UNIDOIS TAX FREE", "TAXFREE ESTADOS UNIDOS", "ESTADOS UNDIOS TAX FREE", "ESTADOS UNIDOS TAX FREE")  ~ "USA TAX FREE",
     Nota_general== "PERU TAX FREEE" ~ "PERU TAX FREE",
     Nota_general== "KOREA TAX FREEE" ~ "COREA TAX FREE",
-    Nota_general %in% c("MEXICCO TAX FREEE", "MEXICO TAXFREE", "MEXICCO TAX FREE") ~ "MEXICO TAX FREE",
+    Nota_general %in% c("MEXICCO TAX FREEE", "MEXICO TAXFREE", "MEXICCO TAX FREE", "MEXICO TAAX FREE") ~ "MEXICO TAX FREE",
     Nota_general %in% c("KOREA TAX FREE", "COREA DEL SUR TAX FREE") ~ "COREA TAX FREE",
     Nota_general %in% c("BRAZIL TAX FREE", "BRASIL TAXX FREE") ~ "BRASIL TAX FREE",
     Nota_general == "ROMANIA TAX FREE" ~ "RUMANIA TAX FREE",
@@ -346,7 +346,7 @@ Odoo_Facturas_arreglada2 <- Odoo_Facturas_arreglada |>
     Nota_interna %in% c("MEXICA", "MEXICANA", "CHILE MEXICO") ~ "MEXICO",
     Nota_interna %in% c("USA MEXICO", "USA USA") ~ "USA",
     Nota_interna %in% c("ARGENTINO", "ARGERTINA", "AREGTINA", "ARGENTINA SIN INTERES", "ARGEMTINA") ~ "ARGENTINA",
-    Nota_interna== "ALE" ~ "ALEMANIA",
+    Nota_interna %in% c("ALE", "GERMANY") ~ "ALEMANIA",
     Nota_interna== "CROATIA" ~ "CROACIA",
     Nota_interna %in% c("INGLATERRA", "GRAN BRETAÑA", "UK", "ENGLAND") ~ "REINO UNIDO",
     Nota_interna == "VENEZYYELA" ~ "VENEZUELA",
@@ -355,6 +355,8 @@ Odoo_Facturas_arreglada2 <- Odoo_Facturas_arreglada |>
     Nota_interna == "TAX FREE HOLANDA" ~ "TAX FREE PAISES BAJOS",
    Nota_interna %in% c("RETIRO CARLOS", "PAR", "MALISHA") ~ "",
    Nota_interna == "TAX FREE PAISES BAJ OS" ~ "TAX FREE PAISES BAJOS",
+   Nota_interna == "CH CHILE" ~ "CHILE",
+   Nota_interna == "RUSO" ~ "RUSIA",
     TRUE~ Nota_interna))
 
 ```
@@ -742,8 +744,10 @@ Odoo_mas_Alegra <- Odoo_mas_Alegra_casi |>
 
 ```
 
-```{r creo archivo base}
+```{r creo archivo base y archivo artículos (para reporte de ventas)}
 
 saveRDS(Odoo_mas_Alegra, "Data/df_base.rds")
+
+saveRDS(Base_Articulos_Odoo_para_machear, "Base artículos Odoo/df_articulos.rds")
 ```
 

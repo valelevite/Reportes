@@ -29,16 +29,16 @@ cat("df_base actualizado:", format(file.info("Data/df_base.rds")$mtime), "\n")
 
 ```{r filtro para la quincena a analizar}
 
-fecha_inicio_quincena <- as.Date("2026/07/01") 
-fecha_fin_quincena <- as.Date("2026/07/15")
+fecha_inicio_quincena <- as.Date("2026/07/16") 
+fecha_fin_quincena <- as.Date("2026/07/31")
 
-fecha_proveedores <- strftime("2026/07/16","%Y%m%d")
+fecha_proveedores <- strftime("2026/07/27","%Y%m%d")
 
 ```
 
 ```{r filtro las facturas por fecha y tiendas}
 
-FACTURAS_MES_JOYERIA <- Odoo_mas_Alegra %>%
+FACTURAS_MES_JOYERIA <- df_base %>%
   select(-PRECIO_UNITARIO_SIN_IMP) %>% 
   filter(CODIGO_BARRAS != "Anticipo") |> 
   filter(as.Date(FECHA_EMISION) >= fecha_inicio_quincena,

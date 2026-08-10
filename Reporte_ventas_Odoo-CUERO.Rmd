@@ -11,8 +11,15 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r}
 
 library(ggrepel)  # Para evitar superposición de etiquetas en gráficos
-library(ggplot2)
 library(scales)
+library(janitor)
+library(tidyverse)
+library(lubridate)
+library(readxl)
+library(openxlsx)
+library(stringi)
+library(tibble)
+library(purrr)
 library(janitor)
 
 ```
@@ -24,16 +31,16 @@ VER SI PROVEEDORES LO CRUZO CON DESCRIPCIÓN (SE LLAMA NOMBRE EN ODOO) EN VEZ DE
 
 ```{r filtro para el mes a analizar}
 
-fecha_inicio_mes <- as.Date("2026/06/01") 
-fecha_fin_mes <- as.Date("2026/06/30")
+fecha_inicio_mes <- as.Date("2026/07/01") 
+fecha_fin_mes <- as.Date("2026/07/31")
 
-mes <- "2026-06"
+mes <- "2026-07"
 
-fecha_stock <- strftime("2026/07/02","%Y%m%d")
+fecha_stock <- strftime("2026/07/27","%Y%m%d")
 
-fecha_precios <- strftime("2026/07/02","%Y%m%d")
+fecha_precios <- strftime("2026/07/27","%Y%m%d")
 
-fecha_proveedores <- strftime("2026/07/02","%Y%m%d")
+fecha_proveedores <- strftime("2026/07/27","%Y%m%d")
 
 fecha_maestro <- strftime("2025/08/22", "%Y%m%d")
 
@@ -42,9 +49,16 @@ fecha_maestro <- strftime("2025/08/22", "%Y%m%d")
 
 ```
 
+```{r cargo el archivo base}
+
+df_base <- readRDS("Data/df_base.rds")
+cat("df_base actualizado:", format(file.info("Data/df_base.rds")$mtime), "\n")
+
+```
+
 ```{r filtro las facturas por fecha y tiendas}
 
-FACTURAS_MES <- Odoo_mas_Alegra %>%
+FACTURAS_MES <- df_base %>%
   select(-PRECIO_UNITARIO_SIN_IMP) %>% 
   filter(as.Date(FECHA_EMISION) >= fecha_inicio_mes,
          as.Date(FECHA_EMISION) <= fecha_fin_mes,
@@ -877,8 +891,10 @@ Stock_Lucero <- Stock |>
   
 
 #Le agrego las columnas que necesito de los productos
-##Primero preparo los datos
-Base_para_stock <- Base_Articulos_Odoo_para_machear |> 
+##Primero leo y preparo los datos
+df_articulos <- readRDS("~/Vale laburo/Castelli/Reportes/Base artículos Odoo/df_articulos.rds")
+
+Base_para_stock <- df_articulos |> 
   select(CODIGO_BARRAS, REFERENCIA_INTERNA, RUBRO, MATERIAL, COLOR, TALLE, VARIANTE)
 
 Stock_con_rubro <- Stock_Lucero |> 
@@ -1084,7 +1100,7 @@ meses_referencia <- data.frame(
 
 
 ## Datos historicos
-Datos_historicos <- Odoo_mas_Alegra %>%
+Datos_historicos <- df_base %>%
   filter(TIENDA %in% c("San Telmo", "San Telmo 2", "Florida", "French", "Güemes", "Recoleta")) %>% 
   filter(TIENDA != "San Telmo 2" | FECHA_EMISION < as.Date("2026-05-22")) %>%  #filtro, para ST2, hasta que fue cuero
   filter(FECHA_EMISION>= fecha_inicio_historica, FECHA_EMISION <= fecha_final_historico) %>% 
