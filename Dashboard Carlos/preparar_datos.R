@@ -3,6 +3,9 @@
 #  Lee Datos.xlsx y escribe datos.js (+ el dashboard autocontenido)
 # ==============================================================
 
+
+#PRIMERO ACTUALIZAR ARCHIVO Datos.xlsx CON EL CREADO PARA EL DASHBOARD GENERAL (TABLA PRESUPUESTOS)
+
 library(readxl)
 library(dplyr)
 library(tidyr)
@@ -11,10 +14,10 @@ library(jsonlite)
 # --------------------------------------------------------------
 # 1. RUTAS
 # --------------------------------------------------------------
-ruta_datos     <- "Datos.xlsx"
-ruta_plantilla <- "dashboard.html"                      # el archivo que te pasé
+ruta_datos     <- "Dashboard Carlos/Datos.xlsx"
+ruta_plantilla <- "Dashboard Carlos/plantilla_tablero_Carlos.html"
 dir.create("publicar", showWarnings = FALSE)
-ruta_salida <- "publicar/index.html"            # el archivo final, listo para abrir
+ruta_salida <- "Dashboard Carlos/publicar/Tablero_Carlos.html" 
 
 
 # --------------------------------------------------------------
@@ -51,42 +54,31 @@ negocios <- list(
 
 mapeo <- list(
   "Venta c/imp" = c("Venta_con_imp"),
-
   "Alquiler y expensas" = c("Alquiler", "Expensas"),
-
-  "Personal" = c("Sueldo", "Contribuciones", "Incentivo",
-                 "Vacaciones", "Liq Final", "SAC"),
-
-  "Administración (10%)" = c("Administración"),
-
-  "Logística (5%)" = c("Logística"),
-
-  # Todo lo que no tiene línea propia, incluidos los gastos financieros
-  # (tarjetas y Mercado Pago). Si preferís que los financieros vayan
-  # aparte, sacalos de acá y agregalos como un ítem nuevo.
-  "Gastos Varios" = c("ABL", "AYSA", "Edesur", "Internet", "Mantenimiento",
+  "Personal" = c("Sueldo", "Contribuciones", "Incentivo"),
+  "Administración" = c("Administración"),
+  "Logística" = c("Logística"),
+  "Gastos varios" = c("ABL", "AYSA", "Edesur", "Internet", "Mantenimiento",
                       "Fumigación", "Matafuegos", "Alarma", "Servicios",
-                      "Multa", "Otros gastos",
-                      "Tarjeta crédito 1 cuota", "Tarjeta crédito 2 cuotas",
-                      "Tarjeta crédito 3 cuotas", "Tarjeta crédito 6 cuotas",
-                      "Tarjeta débito", "Mercado Pago"),
-
-  "Impuestos" = c("IIBB"),   # el IVA se agrega abajo, ver punto 5
-
-  "Costo de Mercadería y Packaging" = c("Costo", "Packaging"),
-
-  "Resultado" = c("Resultado final")
+                      "Multa"),
+  "Impuestos" = c("IIBB"),
+  "Costo de Mercadería y Packaging" = c("Costo", "Packaging")
 )
+
+orden_items <- c(names(mapeo), "Resultado")
 
 # Conceptos del Excel que hay que ignorar (subtotales ya contemplados,
 # columnas de control, etc.). No entran en ningún ítem.
 ignorar <- c("Venta_sin_imp", "Margen_bruto_valor", "Margen_bruto_porc",
              "Subtotal_gastos", "Subtotal_gastos_financieros",
              "Subtotal_sueldos", "Subtotal_impuestos",
-             "Resultado operativo")
+             "Resultado operativo", "Vacaciones", "Liq Final", "SAC",
+             "Tarjeta crédito 1 cuota", "Tarjeta crédito 2 cuotas",
+             "Tarjeta crédito 3 cuotas", "Tarjeta crédito 6 cuotas",
+             "Tarjeta débito", "Mercado Pago", "Otros gastos", "Resultado final")
 
 # Orden en que se muestran las filas
-orden_items <- names(mapeo)
+orden_items <- c(names(mapeo), "Resultado")
 
 
 # --------------------------------------------------------------
@@ -121,17 +113,17 @@ crudo <- crudo %>%
 # Si en tu Excel el IVA ya viene como concepto propio, borrá este
 # bloque y agregá ese concepto a "Impuestos" en el mapeo.
 
-iva <- crudo %>%
-  filter(concepto %in% c("Venta_con_imp", "Venta_sin_imp")) %>%
-  pivot_wider(names_from = concepto, values_from = valor,
-              values_fn = sum, values_fill = 0) %>%
-  transmute(anio, mes, tienda,
-            concepto = "IVA",
-            valor    = Venta_con_imp - Venta_sin_imp)
-
-crudo <- bind_rows(crudo, iva)
-mapeo[["Impuestos"]] <- c(mapeo[["Impuestos"]], "IVA")
-
+# iva <- crudo %>%
+#   filter(concepto %in% c("Venta_con_imp", "Venta_sin_imp")) %>%
+#   pivot_wider(names_from = concepto, values_from = valor,
+#               values_fn = sum, values_fill = 0) %>%
+#   transmute(anio, mes, tienda,
+#             concepto = "IVA",
+#             valor    = Venta_con_imp - Venta_sin_imp)
+# 
+# crudo <- bind_rows(crudo, iva)
+# mapeo[["Impuestos"]] <- c(mapeo[["Impuestos"]], "IVA")
+# 
 
 # --------------------------------------------------------------
 # 6. ARMADO DE LOS ÍTEMS
@@ -145,46 +137,37 @@ datos <- crudo %>%
   inner_join(tabla_mapeo, by = "concepto") %>%
   group_by(anio, mes, tienda, item) %>%
   summarise(valor = sum(valor), .groups = "drop") %>%
-  complete(nesting(anio, mes, tienda), item = orden_items, fill = list(valor = 0)) %>%
+  complete(nesting(anio, mes, tienda), item = names(mapeo), fill = list(valor = 0))
+
+resultado <- datos %>%
+  pivot_wider(names_from = item, values_from = valor) %>%
+  mutate(item = "Resultado",
+         valor = `Venta c/imp` - `Alquiler y expensas` - Personal -
+           Administración - Logística - `Gastos varios` -
+           Impuestos - `Costo de Mercadería y Packaging`) %>%
+  select(anio, mes, tienda, item, valor)
+
+datos <- bind_rows(datos, resultado) %>%
   mutate(item = factor(item, levels = orden_items)) %>%
   arrange(anio, mes, tienda, item) %>%
-  mutate(item = as.character(item),
-         valor = round(valor, 2))
+  mutate(item = as.character(item), valor = round(valor, 2))
 
 
-# --------------------------------------------------------------
-# 7. CONTROLES
-# --------------------------------------------------------------
+# --- Controles ---
+if (any(is.na(datos$item)))
+  stop("Hay ítems sin nombre. Revisá que orden_items incluya todos los ítems.")
+
 sin_mapear <- setdiff(unique(crudo$concepto), c(tabla_mapeo$concepto, ignorar))
-if (length(sin_mapear)) {
+if (length(sin_mapear))
   warning("Conceptos del Excel que no entran en ningún ítem:\n  ",
           paste(sin_mapear, collapse = "\n  "), call. = FALSE)
-}
-
-# ¿Venta − todos los egresos coincide con el Resultado que trae el Excel?
-control <- datos %>%
-  pivot_wider(names_from = item, values_from = valor) %>%
-  mutate(
-    egresos    = rowSums(across(all_of(setdiff(orden_items,
-                     c("Venta c/imp", "Resultado"))))),
-    calculado  = `Venta c/imp` - egresos,
-    diferencia = round(Resultado - calculado, 2)
-  ) %>%
-  filter(abs(diferencia) > 1)
-
-if (nrow(control)) {
-  message("⚠ El resultado del Excel no cierra contra la suma de ítems en ",
-          nrow(control), " combinaciones tienda/mes:")
-  print(control %>% select(anio, mes, tienda, Resultado, calculado, diferencia))
-} else {
-  message("✔ Todo cierra: venta − egresos = resultado en todas las tiendas y meses.")
-}
 
 message("Tiendas con datos: ", paste(sort(unique(datos$tienda)), collapse = ", "))
+message("Ítems: ", paste(unique(datos$item), collapse = " · "))
 
 
 # --------------------------------------------------------------
-# 8. SALIDA
+# 7. SALIDA
 # --------------------------------------------------------------
 paquete <- list(
   meta   = list(generado = format(Sys.time(), "%Y-%m-%d %H:%M"),
@@ -204,6 +187,9 @@ if (file.exists(ruta_plantilla)) {
   plantilla <- sub("const DATOS_EMBEBIDOS = null;",
                    paste0("const DATOS_EMBEBIDOS = ", json, ";"),
                    plantilla, fixed = TRUE)
+  
+  dir.create(dirname(ruta_salida), recursive = TRUE, showWarnings = FALSE) 
+  
   writeLines(plantilla, ruta_salida, useBytes = TRUE)
   message("Listo: '", ruta_salida, "'")
 } else {

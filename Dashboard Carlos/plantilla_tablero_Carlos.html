@@ -292,7 +292,7 @@ const CONFIG = {
   semaforo: {
     'Alquiler y expensas': { amarillo: 10.5, rojo: 15.5 },
     'Personal':            { amarillo: 10.5, rojo: 15.5 },
-    'Gastos Varios':       { amarillo: 10.5, rojo: 15.5 },
+    'Gastos varios':       { amarillo: 10.5, rojo: 15.5 },
   },
 
   // Zonas y negocios. Se usan si el archivo de datos NO trae su propia
@@ -317,11 +317,11 @@ const ITEMS = [
   { n:'Venta c/imp',                     tipo:'venta'                                              },
   { n:'Alquiler y expensas',             tipo:'gasto', color:'#005363', corto:'Alquiler'          },
   { n:'Personal',                        tipo:'gasto', color:'#177F8E', corto:'Personal'          },
-  { n:'Administración (10%)',            tipo:'gasto', color:'#5FA8AE', corto:'Administración'    },
-  { n:'Logística (5%)',                  tipo:'gasto', color:'#9DC6C2', corto:'Logística'         },
-  { n:'Gastos Varios',                   tipo:'gasto', color:'#A8622F', corto:'Gastos varios'     },
+  { n:'Administración',                  tipo:'gasto', color:'#5FA8AE', corto:'Administración'    },
+  { n:'Logística',                       tipo:'gasto', color:'#9DC6C2', corto:'Logística'         },
+  { n:'Gastos varios',                   tipo:'gasto', color:'#A8622F', corto:'Gastos varios'     },
   { n:'Impuestos',                       tipo:'gasto', color:'#D19A4A', corto:'Impuestos'         },
-  { n:'Costo de Mercadería y Packaging', tipo:'gasto', color:'#2E4B54', corto:'Costo mercadería'  },
+  { n:'Costo de Mercadería y Packaging', tipo:'gasto', color:'#2E4B54', corto:'Costo y packaging' },
   { n:'Resultado',                       tipo:'resultado'                                          },
 ];
 
@@ -440,6 +440,27 @@ function celdaSemaforo(item, pct){
 /* ================================================================
    TABLA
    ================================================================ */
+// Arma las columnas de la tabla. Con una sola unidad seleccionada, las
+// columnas son los meses (como en el dashboard anterior); con varias,
+// las columnas son las unidades y los meses se suman dentro de cada una.
+function columnasTabla(grupos, meses){
+  const porMes = grupos.length === 1;
+
+  if (porMes){
+    const tiendas = grupos[0].tiendas;
+    const cols = meses.map(m => ({ nombre: labelMes(m), tiendas, meses:[m] }));
+    if (meses.length > 1) cols.push({ nombre:'Total', tiendas, meses:[...meses], total:true });
+    return { cols, porMes };
+  }
+
+  const conTotal = grupos.length > 1;
+  const cols = (conTotal
+    ? [...grupos, { nombre:'Total', tiendas:[...new Set(grupos.flatMap(g=>g.tiendas))], total:true }]
+    : grupos
+  ).map(g => ({ ...g, meses }));
+  return { cols, porMes };
+}
+
 function construirTabla(){
   const grupos = gruposVisibles(), meses = mesesArr();
   const tabla = document.getElementById('tabla');
@@ -450,8 +471,7 @@ function construirTabla(){
     return;
   }
 
-  const conTotal = grupos.length > 1;
-  const cols = conTotal ? [...grupos, { nombre:'Total', tiendas:[...new Set(grupos.flatMap(g=>g.tiendas))], total:true }] : grupos;
+  const { cols, porMes } = columnasTabla(grupos, meses);
 
   let h1 = `<tr><th class="c-item" rowspan="2">Ítem</th>`;
   let h2 = `<tr>`;
@@ -461,14 +481,14 @@ function construirTabla(){
   });
   h1 += `</tr>`; h2 += `</tr>`;
 
-  const ventas = cols.map(c => val(c.tiendas, meses, ITEM_VENTA));
+  const ventas = cols.map(c => val(c.tiendas, c.meses, ITEM_VENTA));
 
   let body = '';
   ITEMS.forEach(it => {
     const cls = it.tipo === 'venta' ? 'r-venta' : it.tipo === 'resultado' ? 'r-res' : '';
     let fila = `<tr class="${cls}"><td class="c-item">${it.n}</td>`;
     cols.forEach((c, i) => {
-      const v = val(c.tiendas, meses, it.n);
+      const v = val(c.tiendas, c.meses, it.n);
       const pct = ventas[i] ? v / ventas[i] * 100 : 0;
       const tc = c.total ? ' tcol' : '';
       fila += `<td class="mon${tc}${v<0?' neg':''}">${fmt(v)}</td>`;
@@ -484,9 +504,9 @@ function construirTabla(){
   const nomAgr = AGRUPACIONES.find(a => a.id === agrupacion).label;
   document.getElementById('tabla-titulo').textContent =
     grupos.length === 1 ? `Resultados — ${grupos[0].nombre}` : `Resultados por ${nomAgr.toLowerCase()}`;
-  document.getElementById('tabla-sub').textContent =
-    meses.length === D.periodos.length ? `Todos los meses (${meses.length})`
-    : meses.map(labelMes).join(' · ');
+  document.getElementById('tabla-sub').textContent = porMes
+    ? 'Un mes por columna'
+    : (meses.length === D.periodos.length ? `Todos los meses (${meses.length})` : meses.map(labelMes).join(' · '));
 }
 
 /* ================================================================
@@ -621,10 +641,11 @@ function graficosDetalle(cont, g, meses){
     type:'doughnut',
     data:{ labels:GASTOS.map(i=>i.n), datasets:[{ data:vals,
       backgroundColor:GASTOS.map(i=>i.color), borderColor:'#fff', borderWidth:2 }] },
-    options: opts({ cutout:'52%', layout:{padding:14},
+    options: opts({ cutout:'52%', layout:{padding:{top:26,bottom:26,left:64,right:64}},
       plugins:{ legend:{display:false},
-        datalabels:{ display: c => tot && c.dataset.data[c.dataIndex]/tot > .045,
-          color:'#fff', textAlign:'center', font:{size:10.5, weight:600},
+        datalabels:{ display: c => tot && c.dataset.data[c.dataIndex]/tot > .03,
+          anchor:'end', align:'end', offset:9, clamp:true,
+          color:'#0C2A31', textAlign:'center', font:{size:11, weight:600},
           formatter:(v,c)=> `${GASTOS[c.dataIndex].corto}\n${fmtP(v/tot*100)}` },
         tooltip:{callbacks:{label:c=>` ${c.label}: $ ${fmt(c.parsed)} (${fmtP(tot?c.parsed/tot*100:0)})`}} } }),
     plugins:[ChartDataLabels]
@@ -675,18 +696,17 @@ function cascada(canvasId, tiendas, meses){
 function descargarTabla(){
   const grupos = gruposVisibles(), meses = mesesArr();
   if (!grupos.length || !meses.length) return;
-  const conTotal = grupos.length > 1;
-  const cols = conTotal ? [...grupos, { nombre:'Total', tiendas:[...new Set(grupos.flatMap(g=>g.tiendas))] }] : grupos;
+  const { cols } = columnasTabla(grupos, meses);
 
   const h1 = ['Ítem'], h2 = [''];
   cols.forEach(c => { h1.push(c.nombre, ''); h2.push('$', '% vta'); });
 
   const rows = [h1, h2];
-  const ventas = cols.map(c => val(c.tiendas, meses, ITEM_VENTA));
+  const ventas = cols.map(c => val(c.tiendas, c.meses, ITEM_VENTA));
   ITEMS.forEach(it => {
     const r = [it.n];
     cols.forEach((c,i) => {
-      const v = val(c.tiendas, meses, it.n);
+      const v = val(c.tiendas, c.meses, it.n);
       r.push(Math.round(v), ventas[i] ? +(v/ventas[i]).toFixed(4) : 0);
     });
     rows.push(r);
