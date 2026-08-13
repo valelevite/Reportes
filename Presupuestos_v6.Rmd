@@ -11,7 +11,7 @@ knitr::opts_chunk$set(echo = TRUE)
 1. La base corregida se carga automáticamente. Saber que tiene que estar al día.
 2. Descargo el costo de los productos (en inventario). HASTA QUE NO ESTÉN TODOS LOS COSTOS AL DÍA, CARGO DOS COSTOS PARA INTENTAR SUPLIR LA MAYOR CANTIDAD DE DATOS FALTANTES ENTRE LOS DOS.
 VER CÓMO SEPARAR LOS COSTOS POR MES YA QUE VAN A IR CAMBIANDO. POR AHORA AGREGO EL NUEVO MES (CON EL COSTO ACTUAL) A LA TABLA ANTERIOR (CALCULADA CON EL COSTO ANTERIOR). ASÍ NO CAMBIO LO ANTERIOR
-3. Actualizo el archivo de gastos (gastos desde 2025-05.xlsx SOLO HASTA MAYO 2026). A partir de junio 2026 mirar también en Odoo.
+3. Actualizo el archivo de gastos (gastos desde 2025-05.xlsx SOLO HASTA MAYO 2026). A partir de junio 2026 mirar también en Odoo (SANES, MANOLIO, CHECK CLIMATIZACIÓN. No van a estar los que figuran sin comprobante en el drive (s/c). PREOCUPACIONALES NO VAN). 
 4. Actualizo el archivo de cupones de tarjetas (fiserv/agenda de pagos/cupones (botón), filtros (FECHA DE OPERACIÓN), rango de fechas)
 5. Agrego el archivo mensual de Silvina (Ventas 2026) en la fc para que calcule el costo de MP (buscar: "leer_mp("Cupones Tarjetas/VENTAS")
 6. Actualizo el archivo de sueldos del estudio (Sueldos desde...). REVISAR QUE LAS VACACIONES Y LAS LIQUIDACIONES TENGAN BIEN EL MES Y AÑO EN COLUMNA PERÍODO. TAMBIÉN QUE NO ESTÉN ESCRITAS DE UN MODO DISTINTO Y NO SEAN COMPUTADAS POR EL R.
