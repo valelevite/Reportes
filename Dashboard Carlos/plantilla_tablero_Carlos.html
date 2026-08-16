@@ -59,12 +59,9 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
   --linea:#DCE5E5;
   --linea-fuerte:#C2D2D2;
 
-  --verde:#1F7A5C;
-  --ambar:#C8860D;
-  --rojo:#B02A24;
-  --verde-f:#E7F2ED;
-  --ambar-f:#FBF1DE;
-  --rojo-f:#F8E8E7;
+  --verde:#128A4C;
+  --ambar:#E0A100;
+  --rojo:#D92B1F;
 
   --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
   --mono:ui-monospace,"SF Mono","Cascadia Mono","Segoe UI Mono",Menlo,Consolas,monospace;
@@ -137,6 +134,15 @@ button{font-family:inherit;font-size:inherit;color:inherit;cursor:pointer}
 .chip.modo{border-style:dashed;color:var(--marca);border-color:var(--marca-3)}
 .chip.modo[aria-pressed="true"]{background:var(--marca-2);border-color:var(--marca-2);border-style:solid;color:#fff}
 .pista{font-size:11px;color:var(--tinta-3);margin-left:2px;align-self:center}
+.drop-p .fila{display:flex;align-items:center;gap:4px;border-radius:6px}
+.drop-p .fila:hover{background:var(--papel)}
+.drop-p .fila label{flex:1;min-width:0}
+.drop-p .fila label span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.solo{border:0;background:transparent;color:var(--tinta-3);font-size:11px;padding:4px 9px;
+      border-radius:5px;opacity:0;transition:opacity .12s;flex:none}
+.drop-p .fila:hover .solo{opacity:1}
+.solo:hover{background:var(--marca);color:#fff}
+.drop-p{min-width:270px}
 
 .btn{border:1px solid var(--marca);background:var(--superficie);color:var(--marca);
      border-radius:8px;padding:8px 15px;font-weight:600;font-size:13px;transition:all .12s}
@@ -184,15 +190,15 @@ tbody tr:hover td.tcol{background:#EDF4F4}
 
 /* semáforo */
 .sem{display:flex;flex-direction:column;justify-content:center;gap:3px;height:38px;padding:0}
-.sem-v{font-weight:600;line-height:1}
-.sem-v.v{color:var(--verde)} .sem-v.a{color:var(--ambar)} .sem-v.r{color:var(--rojo)}
-.regla{position:relative;height:4px;border-radius:2px;background:var(--linea);overflow:visible}
-.regla i{position:absolute;left:0;top:0;bottom:0;border-radius:2px;display:block}
-.regla i.v{background:var(--verde)} .regla i.a{background:var(--ambar)} .regla i.r{background:var(--rojo)}
-.regla u{position:absolute;top:-2px;bottom:-2px;width:1px;background:var(--tinta-3);opacity:.55}
-td.sem-cell{padding:0 14px}
-td.sem-cell.r{background:var(--rojo-f)!important}
-td.sem-cell.a{background:var(--ambar-f)!important}
+.sem-v{font-weight:700;line-height:1;color:#fff}
+.regla{position:relative;height:4px;border-radius:2px;background:rgba(255,255,255,.32);overflow:visible}
+.regla i{position:absolute;left:0;top:0;bottom:0;border-radius:2px;display:block;background:#fff}
+.regla u{position:absolute;top:-2px;bottom:-2px;width:1px;background:#fff;opacity:.75}
+td.sem-cell{padding:0 14px;border-bottom-color:rgba(255,255,255,.35)}
+td.sem-cell.v{background:var(--verde)!important}
+td.sem-cell.a{background:var(--ambar)!important}
+td.sem-cell.r{background:var(--rojo)!important}
+tbody tr:hover td.sem-cell{filter:brightness(1.06)}
 
 /* ============================================================
    GRÁFICOS
@@ -262,7 +268,16 @@ td.sem-cell.a{background:var(--ambar-f)!important}
 
       <div class="ctrl-b" id="box-unidades">
         <span class="ctrl-l" id="lbl-unidades">Unidades</span>
-        <div class="chips" id="chips-unidades"></div>
+        <div class="drop">
+          <button class="drop-t" id="unid-t" onclick="toggleDropUnid(event)">Todas</button>
+          <div class="drop-p" id="unid-p">
+            <div class="drop-a">
+              <button onclick="todasUnidades()">Todas</button>
+              <button onclick="ningunaUnidad()">Ninguna</button>
+            </div>
+            <div id="unid-list"></div>
+          </div>
+        </div>
       </div>
 
       <button class="btn spacer" onclick="descargarTabla()">Descargar tabla</button>
@@ -298,15 +313,15 @@ const CONFIG = {
   // Zonas y negocios. Se usan si el archivo de datos NO trae su propia
   // configuración; si la trae, gana la del archivo (o sea, la del script de R).
   zonas: {
-    'Lucero Zona Centro'        : ['Florida', 'Recoleta'],
-    'Lucero Zona San Telmo'     : ['San Telmo', 'French'],
-    'Lucero Güemes+San Telmo 2' : ['Güemes', 'San Telmo 2'],
-    'Lucero Joyería'            : ['Güemes 2', 'El Solar'],
-    'AS'                        : ['AS San Telmo', 'AS Güemes'],
+    'Cuero Centro'      : ['Güemes', 'Florida', 'Recoleta'],
+    'Cuero San Telmo'   : ['San Telmo', 'French'],
+    'Joyería Centro'    : ['El Solar', 'Güemes 2'],
+    'Joyería San Telmo' : ['San Telmo 2'],
+    'AS'                : ['AS San Telmo', 'AS Güemes'],
   },
   negocios: {
-    'Cuero'   : ['Florida', 'Recoleta', 'San Telmo', 'French', 'Güemes', 'San Telmo 2'],
-    'Joyería' : ['Güemes 2', 'El Solar'],
+    'Cuero'   : ['Güemes', 'Florida', 'Recoleta', 'San Telmo', 'French'],
+    'Joyería' : ['El Solar', 'Güemes 2', 'San Telmo 2'],
     'AS'      : ['AS San Telmo', 'AS Güemes'],
   },
 };
@@ -393,14 +408,28 @@ function gruposDe(tipo){
         .filter(g => g.tiendas.length);
 
   if (tipo === 'total')  return [{ nombre:'Todas las tiendas', tiendas:[...D.tiendas] }];
-  if (tipo === 'tienda') return D.tiendas.map(t => ({ nombre:t, tiendas:[t] }));
 
-  const mapa = tipo === 'zona' ? D.zonas : D.negocios;
-  const gs = desde(mapa);
-  const asignadas = new Set(gs.flatMap(g => g.tiendas));
-  const sueltas = D.tiendas.filter(t => !asignadas.has(t));
-  if (sueltas.length) gs.push({ nombre:'Sin asignar', tiendas:sueltas });
-  return gs;
+  let gs;
+  if (tipo === 'tienda'){
+    gs = D.tiendas.map(t => ({ nombre:t, tiendas:[t] }));
+  } else {
+    const mapa = tipo === 'zona' ? D.zonas : D.negocios;
+    gs = desde(mapa);
+    const asignadas = new Set(gs.flatMap(g => g.tiendas));
+    const sueltas = D.tiendas.filter(t => !asignadas.has(t));
+    if (sueltas.length) gs.push({ nombre:'Sin asignar', tiendas:sueltas });
+  }
+  return ordenarPorVenta(gs);
+}
+
+// Ordena de mayor a menor venta c/imp, sobre los meses seleccionados.
+function ordenarPorVenta(gs){
+  const meses = mesesArr();
+  if (!meses.length) return gs;
+  return gs
+    .map(g => ({ g, v: val(g.tiendas, meses, ITEM_VENTA) }))
+    .sort((a,b) => b.v - a.v)
+    .map(x => x.g);
 }
 
 function gruposVisibles(){
@@ -431,8 +460,8 @@ function celdaSemaforo(item, pct){
   const tA = u.amarillo / max * 100, tR = u.rojo / max * 100;
   return `<td class="pct sem-cell ${b}">
     <div class="sem">
-      <span class="sem-v ${b}">${fmtP(pct)}</span>
-      <span class="regla"><i class="${b}" style="width:${w}%"></i>
+      <span class="sem-v">${fmtP(pct)}</span>
+      <span class="regla"><i style="width:${w}%"></i>
         <u style="left:${tA}%"></u><u style="left:${tR}%"></u></span>
     </div></td>`;
 }
@@ -566,9 +595,7 @@ function graficosComparativos(cont, grupos, meses){
                : AGRUPACIONES.find(a => a.id === agrupacion).label.toLowerCase().replace(/s$/, '');
 
   cont.innerHTML =
-    tarjeta('g-res',   `Resultado por ${nomAgr}`, 'En pesos, del período seleccionado.') +
-    tarjeta('g-casc',  'Cascada de resultados', 'De la venta al resultado, restando cada ítem.', true) +
-    tarjeta('g-dist',  'Distribución de gastos', 'Peso de cada ítem sobre el total de egresos.', true);
+    tarjeta('g-res', `Resultado por ${nomAgr}`, 'En pesos, del período seleccionado.');
 
   // 1. Resultado por unidad
   const res = eje.map(g => val(g.tiendas, meses, ITEM_RESULT));
@@ -582,23 +609,6 @@ function graficosComparativos(cont, grupos, meses){
         tooltip:{ callbacks:{ label:c=>' $ '+fmt(c.parsed.y) } } } })
   });
 
-  // 2. Cascada consolidada
-  cascada('g-casc', [...new Set(eje.flatMap(g=>g.tiendas))], meses);
-
-  // 3. Distribución de gastos (100% apilado por unidad)
-  const ds = GASTOS.map(it => ({
-    label: it.n, backgroundColor: it.color, borderWidth:0,
-    data: eje.map(g => { const tot = GASTOS.reduce((s,x)=>s+val(g.tiendas,meses,x.n),0);
-                         return tot ? val(g.tiendas,meses,it.n)/tot*100 : 0; })
-  }));
-  charts.dist = new Chart(document.getElementById('g-dist'), {
-    type:'bar', data:{ labels:nom, datasets:ds },
-    options: opts({ scales:{ x:{...ejeBase, stacked:true, ticks:{...ejeBase.ticks, maxRotation:55, font:{size:10}}},
-      y:{...ejeBase, stacked:true, max:100, ticks:{...ejeBase.ticks, callback:v=>v+'%'}} },
-      plugins:{ legend:{position:'bottom', labels:{color:'#4A6B72', boxWidth:11, boxHeight:11, padding:11, font:{size:11}}},
-        datalabels:{display:false},
-        tooltip:{ callbacks:{ label:c=>` ${c.dataset.label}: ${fmtP(c.parsed.y)}` } } } })
-  });
 }
 
 /* ---------- vista de una sola unidad ---------- */
@@ -607,13 +617,11 @@ function graficosDetalle(cont, g, meses){
 
   cont.innerHTML =
     tarjeta('g-ve',   'Ventas vs Egresos', 'Comparación mes a mes.') +
-    tarjeta('g-resm', 'Resultado', 'Resultado de cada mes.') +
     tarjeta('g-comp', 'Composición de egresos', 'Cómo se reparte el gasto total del período.', true) +
     tarjeta('g-distm','Distribución de gastos', 'Peso de cada ítem sobre los egresos, mes a mes.', true);
 
   const ventas  = meses.map(m => val(g.tiendas, [m], ITEM_VENTA));
   const egresos = meses.map(m => GASTOS.reduce((s,it) => s + val(g.tiendas, [m], it.n), 0));
-  const res     = meses.map(m => val(g.tiendas, [m], ITEM_RESULT));
 
   charts.ve = new Chart(document.getElementById('g-ve'), {
     type:'bar',
@@ -625,14 +633,6 @@ function graficosDetalle(cont, g, meses){
         datalabels:{display:false}, tooltip:{callbacks:{label:c=>` ${c.dataset.label}: $ ${fmt(c.parsed.y)}`}} } })
   });
 
-  charts.resm = new Chart(document.getElementById('g-resm'), {
-    type:'bar',
-    data:{ labels:lbl, datasets:[{ data:res, borderRadius:4,
-      backgroundColor: res.map(v => v<0 ? 'rgba(176,42,36,.82)' : 'rgba(31,122,92,.82)') }] },
-    options: opts({ scales:{ x:ejeBase, y:{...ejeBase, ticks:{...ejeBase.ticks, callback:v=>fmt(v)}} },
-      plugins:{ legend:{display:false}, datalabels:{display:false},
-        tooltip:{callbacks:{label:c=>' $ '+fmt(c.parsed.y)}} } })
-  });
 
   // dona con etiquetas sobre los segmentos
   const vals = GASTOS.map(it => val(g.tiendas, meses, it.n));
@@ -735,8 +735,10 @@ function toggleDrop(e){
   document.getElementById('meses-p').classList.toggle('open');
 }
 document.addEventListener('click', e => {
-  const p = document.getElementById('meses-p');
-  if (p && !p.contains(e.target)) p.classList.remove('open');
+  ['meses-p','unid-p'].forEach(id => {
+    const p = document.getElementById(id);
+    if (p && !p.contains(e.target)) p.classList.remove('open');
+  });
 });
 
 function pintarMeses(){
@@ -761,40 +763,42 @@ function cambiarAgrupacion(id){
   pintarAgrupacion(); pintarUnidades(); render();
 }
 
+function toggleDropUnid(e){
+  e.stopPropagation();
+  document.getElementById('unid-p').classList.toggle('open');
+}
+
 function pintarUnidades(){
   const box = document.getElementById('box-unidades');
   if (agrupacion === 'total'){ box.classList.add('oculto'); return; }
   box.classList.remove('oculto');
+
   const gs = gruposDe(agrupacion);
   const etiqueta = { tienda:'Tiendas', zona:'Zonas', negocio:'Negocios' }[agrupacion];
   document.getElementById('lbl-unidades').textContent =
     `${etiqueta} — ${unidadesSel.size === 1 ? 'vista de detalle' : 'comparación'}`;
-  document.getElementById('chips-unidades').innerHTML =
-    gs.map(g => `<button class="chip" aria-pressed="${unidadesSel.has(g.nombre)}"
-        onclick="clicUnidad(event, ${JSON.stringify(g.nombre).replace(/"/g,'&quot;')})">${g.nombre}</button>`).join('')
-    + `<button class="chip modo" aria-pressed="${modoComparar}" onclick="toggleModo()">Comparar</button>`
-    + `<button class="chip mini" onclick="todasUnidades()">Todas</button>`
-    + `<span class="pista">${modoComparar
-        ? 'Tocá las que quieras sumar o sacar de la comparación.'
-        : 'Tocá una para verla sola. Para elegir varias, activá Comparar.'}</span>`;
-}
-let modoComparar = false;
-function toggleModo(){ modoComparar = !modoComparar; pintarUnidades(); }
 
-function clicUnidad(e, n){
-  const todas = gruposDe(agrupacion).map(g => g.nombre);
-  if (modoComparar || (e && (e.ctrlKey || e.shiftKey))){
-    // sumar o restar de la comparación actual
-    unidadesSel.has(n) ? unidadesSel.delete(n) : unidadesSel.add(n);
-    if (!unidadesSel.size) unidadesSel.add(n);
-  } else if (unidadesSel.size === 1 && unidadesSel.has(n)){
-    unidadesSel = new Set(todas);   // segundo clic: volver a todas
-  } else {
-    unidadesSel = new Set([n]);     // clic simple: ver sólo esta
-  }
+  document.getElementById('unid-list').innerHTML = gs.map(g => {
+    const j = JSON.stringify(g.nombre).replace(/"/g,'&quot;');
+    return `<div class="fila">
+      <label><input type="checkbox" ${unidadesSel.has(g.nombre)?'checked':''}
+        onchange="cambiarUnidad(${j}, this.checked)"><span>${g.nombre}</span></label>
+      <button class="solo" onclick="soloUnidad(${j})" title="Ver sólo ${g.nombre}">sólo</button>
+    </div>`;
+  }).join('');
+
+  const n = unidadesSel.size;
+  document.getElementById('unid-t').textContent =
+    n === 0 ? 'Ninguna' : n === gs.length ? `Todas (${n})`
+    : n === 1 ? [...unidadesSel][0] : `${n} seleccionadas`;
+}
+
+function cambiarUnidad(n, marcado){
+  marcado ? unidadesSel.add(n) : unidadesSel.delete(n);
   pintarUnidades(); render();
 }
-function toggleUnidad(n){ clicUnidad({ctrlKey:true}, n); }
+function soloUnidad(n){ unidadesSel = new Set([n]); pintarUnidades(); render(); }
+function ningunaUnidad(){ unidadesSel = new Set(); pintarUnidades(); render(); }
 function todasUnidades(){ unidadesSel = new Set(gruposDe(agrupacion).map(g=>g.nombre)); pintarUnidades(); render(); }
 
 function pintarLeyenda(){

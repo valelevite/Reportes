@@ -59,12 +59,9 @@ break;case"<bookViews":;case"<bookViews>":;case"</bookViews>":break;case"<workbo
   --linea:#DCE5E5;
   --linea-fuerte:#C2D2D2;
 
-  --verde:#1F7A5C;
-  --ambar:#C8860D;
-  --rojo:#B02A24;
-  --verde-f:#E7F2ED;
-  --ambar-f:#FBF1DE;
-  --rojo-f:#F8E8E7;
+  --verde:#128A4C;
+  --ambar:#E0A100;
+  --rojo:#D92B1F;
 
   --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
   --mono:ui-monospace,"SF Mono","Cascadia Mono","Segoe UI Mono",Menlo,Consolas,monospace;
@@ -137,6 +134,15 @@ button{font-family:inherit;font-size:inherit;color:inherit;cursor:pointer}
 .chip.modo{border-style:dashed;color:var(--marca);border-color:var(--marca-3)}
 .chip.modo[aria-pressed="true"]{background:var(--marca-2);border-color:var(--marca-2);border-style:solid;color:#fff}
 .pista{font-size:11px;color:var(--tinta-3);margin-left:2px;align-self:center}
+.drop-p .fila{display:flex;align-items:center;gap:4px;border-radius:6px}
+.drop-p .fila:hover{background:var(--papel)}
+.drop-p .fila label{flex:1;min-width:0}
+.drop-p .fila label span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.solo{border:0;background:transparent;color:var(--tinta-3);font-size:11px;padding:4px 9px;
+      border-radius:5px;opacity:0;transition:opacity .12s;flex:none}
+.drop-p .fila:hover .solo{opacity:1}
+.solo:hover{background:var(--marca);color:#fff}
+.drop-p{min-width:270px}
 
 .btn{border:1px solid var(--marca);background:var(--superficie);color:var(--marca);
      border-radius:8px;padding:8px 15px;font-weight:600;font-size:13px;transition:all .12s}
@@ -184,15 +190,15 @@ tbody tr:hover td.tcol{background:#EDF4F4}
 
 /* semáforo */
 .sem{display:flex;flex-direction:column;justify-content:center;gap:3px;height:38px;padding:0}
-.sem-v{font-weight:600;line-height:1}
-.sem-v.v{color:var(--verde)} .sem-v.a{color:var(--ambar)} .sem-v.r{color:var(--rojo)}
-.regla{position:relative;height:4px;border-radius:2px;background:var(--linea);overflow:visible}
-.regla i{position:absolute;left:0;top:0;bottom:0;border-radius:2px;display:block}
-.regla i.v{background:var(--verde)} .regla i.a{background:var(--ambar)} .regla i.r{background:var(--rojo)}
-.regla u{position:absolute;top:-2px;bottom:-2px;width:1px;background:var(--tinta-3);opacity:.55}
-td.sem-cell{padding:0 14px}
-td.sem-cell.r{background:var(--rojo-f)!important}
-td.sem-cell.a{background:var(--ambar-f)!important}
+.sem-v{font-weight:700;line-height:1;color:#fff}
+.regla{position:relative;height:4px;border-radius:2px;background:rgba(255,255,255,.32);overflow:visible}
+.regla i{position:absolute;left:0;top:0;bottom:0;border-radius:2px;display:block;background:#fff}
+.regla u{position:absolute;top:-2px;bottom:-2px;width:1px;background:#fff;opacity:.75}
+td.sem-cell{padding:0 14px;border-bottom-color:rgba(255,255,255,.35)}
+td.sem-cell.v{background:var(--verde)!important}
+td.sem-cell.a{background:var(--ambar)!important}
+td.sem-cell.r{background:var(--rojo)!important}
+tbody tr:hover td.sem-cell{filter:brightness(1.06)}
 
 /* ============================================================
    GRÁFICOS
@@ -262,7 +268,16 @@ td.sem-cell.a{background:var(--ambar-f)!important}
 
       <div class="ctrl-b" id="box-unidades">
         <span class="ctrl-l" id="lbl-unidades">Unidades</span>
-        <div class="chips" id="chips-unidades"></div>
+        <div class="drop">
+          <button class="drop-t" id="unid-t" onclick="toggleDropUnid(event)">Todas</button>
+          <div class="drop-p" id="unid-p">
+            <div class="drop-a">
+              <button onclick="todasUnidades()">Todas</button>
+              <button onclick="ningunaUnidad()">Ninguna</button>
+            </div>
+            <div id="unid-list"></div>
+          </div>
+        </div>
       </div>
 
       <button class="btn spacer" onclick="descargarTabla()">Descargar tabla</button>
@@ -292,21 +307,21 @@ const CONFIG = {
   semaforo: {
     'Alquiler y expensas': { amarillo: 10.5, rojo: 15.5 },
     'Personal':            { amarillo: 10.5, rojo: 15.5 },
-    'Gastos Varios':       { amarillo: 10.5, rojo: 15.5 },
+    'Gastos varios':       { amarillo: 10.5, rojo: 15.5 },
   },
 
   // Zonas y negocios. Se usan si el archivo de datos NO trae su propia
   // configuración; si la trae, gana la del archivo (o sea, la del script de R).
   zonas: {
-    'Lucero Zona Centro'        : ['Florida', 'Recoleta'],
-    'Lucero Zona San Telmo'     : ['San Telmo', 'French'],
-    'Lucero Güemes+San Telmo 2' : ['Güemes', 'San Telmo 2'],
-    'Lucero Joyería'            : ['Güemes 2', 'El Solar'],
-    'AS'                        : ['AS San Telmo', 'AS Güemes'],
+    'Cuero Centro'      : ['Güemes', 'Florida', 'Recoleta'],
+    'Cuero San Telmo'   : ['San Telmo', 'French'],
+    'Joyería Centro'    : ['El Solar', 'Güemes 2'],
+    'Joyería San Telmo' : ['San Telmo 2'],
+    'AS'                : ['AS San Telmo', 'AS Güemes'],
   },
   negocios: {
-    'Cuero'   : ['Florida', 'Recoleta', 'San Telmo', 'French', 'Güemes', 'San Telmo 2'],
-    'Joyería' : ['Güemes 2', 'El Solar'],
+    'Cuero'   : ['Güemes', 'Florida', 'Recoleta', 'San Telmo', 'French'],
+    'Joyería' : ['El Solar', 'Güemes 2', 'San Telmo 2'],
     'AS'      : ['AS San Telmo', 'AS Güemes'],
   },
 };
@@ -317,11 +332,11 @@ const ITEMS = [
   { n:'Venta c/imp',                     tipo:'venta'                                              },
   { n:'Alquiler y expensas',             tipo:'gasto', color:'#005363', corto:'Alquiler'          },
   { n:'Personal',                        tipo:'gasto', color:'#177F8E', corto:'Personal'          },
-  { n:'Administración (10%)',            tipo:'gasto', color:'#5FA8AE', corto:'Administración'    },
-  { n:'Logística (5%)',                  tipo:'gasto', color:'#9DC6C2', corto:'Logística'         },
-  { n:'Gastos Varios',                   tipo:'gasto', color:'#A8622F', corto:'Gastos varios'     },
+  { n:'Administración',                  tipo:'gasto', color:'#5FA8AE', corto:'Administración'    },
+  { n:'Logística',                       tipo:'gasto', color:'#9DC6C2', corto:'Logística'         },
+  { n:'Gastos varios',                   tipo:'gasto', color:'#A8622F', corto:'Gastos varios'     },
   { n:'Impuestos',                       tipo:'gasto', color:'#D19A4A', corto:'Impuestos'         },
-  { n:'Costo de Mercadería y Packaging', tipo:'gasto', color:'#2E4B54', corto:'Costo mercadería'  },
+  { n:'Costo de Mercadería y Packaging', tipo:'gasto', color:'#2E4B54', corto:'Costo y packaging' },
   { n:'Resultado',                       tipo:'resultado'                                          },
 ];
 
@@ -332,7 +347,7 @@ const GASTOS = ITEMS.filter(i => i.tipo === 'gasto');
 /* ================================================================
    DATOS
    ================================================================ */
-const DATOS_EMBEBIDOS = {"config": {"zonas": {"Lucero Zona Centro": ["Florida", "Recoleta"], "Lucero Zona San Telmo": ["San Telmo", "French"], "Lucero Güemes+San Telmo 2": ["Güemes", "San Telmo 2"], "Lucero Joyería": ["Güemes 2", "El Solar"], "AS": ["AS San Telmo", "AS Güemes"]}, "negocios": {"Cuero": ["Florida", "Recoleta", "San Telmo", "French", "Güemes", "San Telmo 2"], "Joyería": ["Güemes 2", "El Solar"], "AS": ["AS San Telmo", "AS Güemes"]}}, "datos": [{"anio": 2026, "mes": 1, "tienda": "Florida", "item": "Venta c/imp", "valor": 17341857.78}, {"anio": 2026, "mes": 1, "tienda": "Florida", "item": "Alquiler y expensas", "valor": 2447470.72}, {"anio": 2026, "mes": 1, "tienda": "Florida", "item": "Personal", "valor": 1377233.42}, {"anio": 2026, "mes": 1, "tienda": "Florida", "item": "Administración (10%)", "valor": 1734185.78}, {"anio": 2026, "mes": 1, "tienda": "Florida", "item": "Logística (5%)", "valor": 867092.89}, {"anio": 2026, "mes": 1, "tienda": "Florida", "item": "Gastos Varios", "valor": 1740815.58}, {"anio": 2026, "mes": 1, "tienda": "Florida", "item": "Impuestos", "valor": 3722040.56}, {"anio": 2026, "mes": 1, "tienda": "Florida", "item": "Costo de Mercadería y Packaging", "valor": 4466219.63}, {"anio": 2026, "mes": 1, "tienda": "Florida", "item": "Resultado", "valor": 986799.21}, {"anio": 2026, "mes": 2, "tienda": "Florida", "item": "Venta c/imp", "valor": 20548218.35}, {"anio": 2026, "mes": 2, "tienda": "Florida", "item": "Alquiler y expensas", "valor": 1135276.57}, {"anio": 2026, "mes": 2, "tienda": "Florida", "item": "Personal", "valor": 2596759.29}, {"anio": 2026, "mes": 2, "tienda": "Florida", "item": "Administración (10%)", "valor": 2054821.83}, {"anio": 2026, "mes": 2, "tienda": "Florida", "item": "Logística (5%)", "valor": 1027410.92}, {"anio": 2026, "mes": 2, "tienda": "Florida", "item": "Gastos Varios", "valor": 626275.04}, {"anio": 2026, "mes": 2, "tienda": "Florida", "item": "Impuestos", "valor": 4184203.3}, {"anio": 2026, "mes": 2, "tienda": "Florida", "item": "Costo de Mercadería y Packaging", "valor": 6271059.28}, {"anio": 2026, "mes": 2, "tienda": "Florida", "item": "Resultado", "valor": 2652412.11}, {"anio": 2026, "mes": 3, "tienda": "Florida", "item": "Venta c/imp", "valor": 23420351.62}, {"anio": 2026, "mes": 3, "tienda": "Florida", "item": "Alquiler y expensas", "valor": 1576945.55}, {"anio": 2026, "mes": 3, "tienda": "Florida", "item": "Personal", "valor": 2319108.17}, {"anio": 2026, "mes": 3, "tienda": "Florida", "item": "Administración (10%)", "valor": 2342035.16}, {"anio": 2026, "mes": 3, "tienda": "Florida", "item": "Logística (5%)", "valor": 1171017.58}, {"anio": 2026, "mes": 3, "tienda": "Florida", "item": "Gastos Varios", "valor": 2672613.04}, {"anio": 2026, "mes": 3, "tienda": "Florida", "item": "Impuestos", "valor": 5571897.39}, {"anio": 2026, "mes": 3, "tienda": "Florida", "item": "Costo de Mercadería y Packaging", "valor": 7612161.92}, {"anio": 2026, "mes": 3, "tienda": "Florida", "item": "Resultado", "valor": 154572.81}, {"anio": 2026, "mes": 4, "tienda": "Florida", "item": "Venta c/imp", "valor": 19552327.49}, {"anio": 2026, "mes": 4, "tienda": "Florida", "item": "Alquiler y expensas", "valor": 3649944.71}, {"anio": 2026, "mes": 4, "tienda": "Florida", "item": "Personal", "valor": 1487066.9}, {"anio": 2026, "mes": 4, "tienda": "Florida", "item": "Administración (10%)", "valor": 1955232.75}, {"anio": 2026, "mes": 4, "tienda": "Florida", "item": "Logística (5%)", "valor": 977616.37}, {"anio": 2026, "mes": 4, "tienda": "Florida", "item": "Gastos Varios", "valor": 2908805.02}, {"anio": 2026, "mes": 4, "tienda": "Florida", "item": "Impuestos", "valor": 4136966.92}, {"anio": 2026, "mes": 4, "tienda": "Florida", "item": "Costo de Mercadería y Packaging", "valor": 5254749.82}, {"anio": 2026, "mes": 4, "tienda": "Florida", "item": "Resultado", "valor": -818055.0}, {"anio": 2026, "mes": 1, "tienda": "Recoleta", "item": "Venta c/imp", "valor": 11602191.94}, {"anio": 2026, "mes": 1, "tienda": "Recoleta", "item": "Alquiler y expensas", "valor": 1905749.25}, {"anio": 2026, "mes": 1, "tienda": "Recoleta", "item": "Personal", "valor": 1084740.32}, {"anio": 2026, "mes": 1, "tienda": "Recoleta", "item": "Administración (10%)", "valor": 1160219.19}, {"anio": 2026, "mes": 1, "tienda": "Recoleta", "item": "Logística (5%)", "valor": 580109.6}, {"anio": 2026, "mes": 1, "tienda": "Recoleta", "item": "Gastos Varios", "valor": 1244219.35}, {"anio": 2026, "mes": 1, "tienda": "Recoleta", "item": "Impuestos", "valor": 2616950.26}, {"anio": 2026, "mes": 1, "tienda": "Recoleta", "item": "Costo de Mercadería y Packaging", "valor": 3462229.6}, {"anio": 2026, "mes": 1, "tienda": "Recoleta", "item": "Resultado", "valor": -452025.62}, {"anio": 2026, "mes": 2, "tienda": "Recoleta", "item": "Venta c/imp", "valor": 12932789.1}, {"anio": 2026, "mes": 2, "tienda": "Recoleta", "item": "Alquiler y expensas", "valor": 760324.57}, {"anio": 2026, "mes": 2, "tienda": "Recoleta", "item": "Personal", "valor": 1005500.45}, {"anio": 2026, "mes": 2, "tienda": "Recoleta", "item": "Administración (10%)", "valor": 1293278.91}, {"anio": 2026, "mes": 2, "tienda": "Recoleta", "item": "Logística (5%)", "valor": 646639.45}, {"anio": 2026, "mes": 2, "tienda": "Recoleta", "item": "Gastos Varios", "valor": 658198.87}, {"anio": 2026, "mes": 2, "tienda": "Recoleta", "item": "Impuestos", "valor": 2938536.59}, {"anio": 2026, "mes": 2, "tienda": "Recoleta", "item": "Costo de Mercadería y Packaging", "valor": 3952092.22}, {"anio": 2026, "mes": 2, "tienda": "Recoleta", "item": "Resultado", "valor": 1678218.02}, {"anio": 2026, "mes": 3, "tienda": "Recoleta", "item": "Venta c/imp", "valor": 11633698.3}, {"anio": 2026, "mes": 3, "tienda": "Recoleta", "item": "Alquiler y expensas", "valor": 1535399.92}, {"anio": 2026, "mes": 3, "tienda": "Recoleta", "item": "Personal", "valor": 1499746.22}, {"anio": 2026, "mes": 3, "tienda": "Recoleta", "item": "Administración (10%)", "valor": 1163369.83}, {"anio": 2026, "mes": 3, "tienda": "Recoleta", "item": "Logística (5%)", "valor": 581684.91}, {"anio": 2026, "mes": 3, "tienda": "Recoleta", "item": "Gastos Varios", "valor": 755783.79}, {"anio": 2026, "mes": 3, "tienda": "Recoleta", "item": "Impuestos", "valor": 2696402.51}, {"anio": 2026, "mes": 3, "tienda": "Recoleta", "item": "Costo de Mercadería y Packaging", "valor": 3965570.32}, {"anio": 2026, "mes": 3, "tienda": "Recoleta", "item": "Resultado", "valor": -564259.21}, {"anio": 2026, "mes": 4, "tienda": "Recoleta", "item": "Venta c/imp", "valor": 11244129.71}, {"anio": 2026, "mes": 4, "tienda": "Recoleta", "item": "Alquiler y expensas", "valor": 1466451.74}, {"anio": 2026, "mes": 4, "tienda": "Recoleta", "item": "Personal", "valor": 1554788.17}, {"anio": 2026, "mes": 4, "tienda": "Recoleta", "item": "Administración (10%)", "valor": 1124412.97}, {"anio": 2026, "mes": 4, "tienda": "Recoleta", "item": "Logística (5%)", "valor": 562206.49}, {"anio": 2026, "mes": 4, "tienda": "Recoleta", "item": "Gastos Varios", "valor": 1700906.52}, {"anio": 2026, "mes": 4, "tienda": "Recoleta", "item": "Impuestos", "valor": 2576905.04}, {"anio": 2026, "mes": 4, "tienda": "Recoleta", "item": "Costo de Mercadería y Packaging", "valor": 3231921.67}, {"anio": 2026, "mes": 4, "tienda": "Recoleta", "item": "Resultado", "valor": -973462.89}, {"anio": 2026, "mes": 1, "tienda": "San Telmo", "item": "Venta c/imp", "valor": 37765035.31}, {"anio": 2026, "mes": 1, "tienda": "San Telmo", "item": "Alquiler y expensas", "valor": 4098911.0}, {"anio": 2026, "mes": 1, "tienda": "San Telmo", "item": "Personal", "valor": 6360701.48}, {"anio": 2026, "mes": 1, "tienda": "San Telmo", "item": "Administración (10%)", "valor": 3776503.53}, {"anio": 2026, "mes": 1, "tienda": "San Telmo", "item": "Logística (5%)", "valor": 1888251.77}, {"anio": 2026, "mes": 1, "tienda": "San Telmo", "item": "Gastos Varios", "valor": 1616255.9}, {"anio": 2026, "mes": 1, "tienda": "San Telmo", "item": "Impuestos", "valor": 8291635.41}, {"anio": 2026, "mes": 1, "tienda": "San Telmo", "item": "Costo de Mercadería y Packaging", "valor": 9633745.07}, {"anio": 2026, "mes": 1, "tienda": "San Telmo", "item": "Resultado", "valor": 2099031.13}, {"anio": 2026, "mes": 2, "tienda": "San Telmo", "item": "Venta c/imp", "valor": 48723976.02}, {"anio": 2026, "mes": 2, "tienda": "San Telmo", "item": "Alquiler y expensas", "valor": 7651609.36}, {"anio": 2026, "mes": 2, "tienda": "San Telmo", "item": "Personal", "valor": 7040291.6}, {"anio": 2026, "mes": 2, "tienda": "San Telmo", "item": "Administración (10%)", "valor": 4872397.6}, {"anio": 2026, "mes": 2, "tienda": "San Telmo", "item": "Logística (5%)", "valor": 2436198.8}, {"anio": 2026, "mes": 2, "tienda": "San Telmo", "item": "Gastos Varios", "valor": 7372993.51}, {"anio": 2026, "mes": 2, "tienda": "San Telmo", "item": "Impuestos", "valor": 10356276.26}, {"anio": 2026, "mes": 2, "tienda": "San Telmo", "item": "Costo de Mercadería y Packaging", "valor": 16585076.12}, {"anio": 2026, "mes": 2, "tienda": "San Telmo", "item": "Resultado", "valor": -7590867.23}, {"anio": 2026, "mes": 3, "tienda": "San Telmo", "item": "Venta c/imp", "valor": 47252970.66}, {"anio": 2026, "mes": 3, "tienda": "San Telmo", "item": "Alquiler y expensas", "valor": 6198896.48}, {"anio": 2026, "mes": 3, "tienda": "San Telmo", "item": "Personal", "valor": 6110125.37}, {"anio": 2026, "mes": 3, "tienda": "San Telmo", "item": "Administración (10%)", "valor": 4725297.07}, {"anio": 2026, "mes": 3, "tienda": "San Telmo", "item": "Logística (5%)", "valor": 2362648.53}, {"anio": 2026, "mes": 3, "tienda": "San Telmo", "item": "Gastos Varios", "valor": 6898705.35}, {"anio": 2026, "mes": 3, "tienda": "San Telmo", "item": "Impuestos", "valor": 11236153.66}, {"anio": 2026, "mes": 3, "tienda": "San Telmo", "item": "Costo de Mercadería y Packaging", "valor": 14725574.79}, {"anio": 2026, "mes": 3, "tienda": "San Telmo", "item": "Resultado", "valor": -5004430.59}, {"anio": 2026, "mes": 4, "tienda": "San Telmo", "item": "Venta c/imp", "valor": 48643028.45}, {"anio": 2026, "mes": 4, "tienda": "San Telmo", "item": "Alquiler y expensas", "valor": 2845311.68}, {"anio": 2026, "mes": 4, "tienda": "San Telmo", "item": "Personal", "valor": 7840962.52}, {"anio": 2026, "mes": 4, "tienda": "San Telmo", "item": "Administración (10%)", "valor": 4864302.84}, {"anio": 2026, "mes": 4, "tienda": "San Telmo", "item": "Logística (5%)", "valor": 2432151.42}, {"anio": 2026, "mes": 4, "tienda": "San Telmo", "item": "Gastos Varios", "valor": 5694606.66}, {"anio": 2026, "mes": 4, "tienda": "San Telmo", "item": "Impuestos", "valor": 11660893.45}, {"anio": 2026, "mes": 4, "tienda": "San Telmo", "item": "Costo de Mercadería y Packaging", "valor": 17358275.51}, {"anio": 2026, "mes": 4, "tienda": "San Telmo", "item": "Resultado", "valor": -4053475.64}, {"anio": 2026, "mes": 1, "tienda": "French", "item": "Venta c/imp", "valor": 18040955.71}, {"anio": 2026, "mes": 1, "tienda": "French", "item": "Alquiler y expensas", "valor": 2590886.55}, {"anio": 2026, "mes": 1, "tienda": "French", "item": "Personal", "valor": 1315784.28}, {"anio": 2026, "mes": 1, "tienda": "French", "item": "Administración (10%)", "valor": 1804095.57}, {"anio": 2026, "mes": 1, "tienda": "French", "item": "Logística (5%)", "valor": 902047.79}, {"anio": 2026, "mes": 1, "tienda": "French", "item": "Gastos Varios", "valor": 1610232.75}, {"anio": 2026, "mes": 1, "tienda": "French", "item": "Impuestos", "valor": 3729461.28}, {"anio": 2026, "mes": 1, "tienda": "French", "item": "Costo de Mercadería y Packaging", "valor": 4784866.53}, {"anio": 2026, "mes": 1, "tienda": "French", "item": "Resultado", "valor": 1303580.97}, {"anio": 2026, "mes": 2, "tienda": "French", "item": "Venta c/imp", "valor": 15315620.1}, {"anio": 2026, "mes": 2, "tienda": "French", "item": "Alquiler y expensas", "valor": 2413016.05}, {"anio": 2026, "mes": 2, "tienda": "French", "item": "Personal", "valor": 1329613.75}, {"anio": 2026, "mes": 2, "tienda": "French", "item": "Administración (10%)", "valor": 1531562.01}, {"anio": 2026, "mes": 2, "tienda": "French", "item": "Logística (5%)", "valor": 765781.0}, {"anio": 2026, "mes": 2, "tienda": "French", "item": "Gastos Varios", "valor": 875168.61}, {"anio": 2026, "mes": 2, "tienda": "French", "item": "Impuestos", "valor": 3302629.5}, {"anio": 2026, "mes": 2, "tienda": "French", "item": "Costo de Mercadería y Packaging", "valor": 5563932.85}, {"anio": 2026, "mes": 2, "tienda": "French", "item": "Resultado", "valor": -466083.68}, {"anio": 2026, "mes": 3, "tienda": "French", "item": "Venta c/imp", "valor": 15495956.19}, {"anio": 2026, "mes": 3, "tienda": "French", "item": "Alquiler y expensas", "valor": 1749280.17}, {"anio": 2026, "mes": 3, "tienda": "French", "item": "Personal", "valor": 2191549.51}, {"anio": 2026, "mes": 3, "tienda": "French", "item": "Administración (10%)", "valor": 1549595.62}, {"anio": 2026, "mes": 3, "tienda": "French", "item": "Logística (5%)", "valor": 774797.81}, {"anio": 2026, "mes": 3, "tienda": "French", "item": "Gastos Varios", "valor": 2363250.68}, {"anio": 2026, "mes": 3, "tienda": "French", "item": "Impuestos", "valor": 3607012.22}, {"anio": 2026, "mes": 3, "tienda": "French", "item": "Costo de Mercadería y Packaging", "valor": 5614463.56}, {"anio": 2026, "mes": 3, "tienda": "French", "item": "Resultado", "valor": -2353993.38}, {"anio": 2026, "mes": 4, "tienda": "French", "item": "Venta c/imp", "valor": 17145646.14}, {"anio": 2026, "mes": 4, "tienda": "French", "item": "Alquiler y expensas", "valor": 1854156.11}, {"anio": 2026, "mes": 4, "tienda": "French", "item": "Personal", "valor": 1999872.48}, {"anio": 2026, "mes": 4, "tienda": "French", "item": "Administración (10%)", "valor": 1714564.61}, {"anio": 2026, "mes": 4, "tienda": "French", "item": "Logística (5%)", "valor": 857282.31}, {"anio": 2026, "mes": 4, "tienda": "French", "item": "Gastos Varios", "valor": 2616921.52}, {"anio": 2026, "mes": 4, "tienda": "French", "item": "Impuestos", "valor": 4085966.04}, {"anio": 2026, "mes": 4, "tienda": "French", "item": "Costo de Mercadería y Packaging", "valor": 4622804.27}, {"anio": 2026, "mes": 4, "tienda": "French", "item": "Resultado", "valor": -605921.2}, {"anio": 2026, "mes": 1, "tienda": "Güemes", "item": "Venta c/imp", "valor": 13131656.77}, {"anio": 2026, "mes": 1, "tienda": "Güemes", "item": "Alquiler y expensas", "valor": 1085555.35}, {"anio": 2026, "mes": 1, "tienda": "Güemes", "item": "Personal", "valor": 1747103.31}, {"anio": 2026, "mes": 1, "tienda": "Güemes", "item": "Administración (10%)", "valor": 1313165.68}, {"anio": 2026, "mes": 1, "tienda": "Güemes", "item": "Logística (5%)", "valor": 656582.84}, {"anio": 2026, "mes": 1, "tienda": "Güemes", "item": "Gastos Varios", "valor": 1423058.28}, {"anio": 2026, "mes": 1, "tienda": "Güemes", "item": "Impuestos", "valor": 2764343.29}, {"anio": 2026, "mes": 1, "tienda": "Güemes", "item": "Costo de Mercadería y Packaging", "valor": 3289902.45}, {"anio": 2026, "mes": 1, "tienda": "Güemes", "item": "Resultado", "valor": 851945.58}, {"anio": 2026, "mes": 2, "tienda": "Güemes", "item": "Venta c/imp", "valor": 14353451.75}, {"anio": 2026, "mes": 2, "tienda": "Güemes", "item": "Alquiler y expensas", "valor": 1459681.46}, {"anio": 2026, "mes": 2, "tienda": "Güemes", "item": "Personal", "valor": 2061505.31}, {"anio": 2026, "mes": 2, "tienda": "Güemes", "item": "Administración (10%)", "valor": 1435345.18}, {"anio": 2026, "mes": 2, "tienda": "Güemes", "item": "Logística (5%)", "valor": 717672.59}, {"anio": 2026, "mes": 2, "tienda": "Güemes", "item": "Gastos Varios", "valor": 2339105.8}, {"anio": 2026, "mes": 2, "tienda": "Güemes", "item": "Impuestos", "valor": 3267129.05}, {"anio": 2026, "mes": 2, "tienda": "Güemes", "item": "Costo de Mercadería y Packaging", "valor": 4550243.52}, {"anio": 2026, "mes": 2, "tienda": "Güemes", "item": "Resultado", "valor": -1477231.14}, {"anio": 2026, "mes": 3, "tienda": "Güemes", "item": "Venta c/imp", "valor": 15651411.34}, {"anio": 2026, "mes": 3, "tienda": "Güemes", "item": "Alquiler y expensas", "valor": 2264258.56}, {"anio": 2026, "mes": 3, "tienda": "Güemes", "item": "Personal", "valor": 1205457.24}, {"anio": 2026, "mes": 3, "tienda": "Güemes", "item": "Administración (10%)", "valor": 1565141.13}, {"anio": 2026, "mes": 3, "tienda": "Güemes", "item": "Logística (5%)", "valor": 782570.57}, {"anio": 2026, "mes": 3, "tienda": "Güemes", "item": "Gastos Varios", "valor": 2424872.4}, {"anio": 2026, "mes": 3, "tienda": "Güemes", "item": "Impuestos", "valor": 3618587.2}, {"anio": 2026, "mes": 3, "tienda": "Güemes", "item": "Costo de Mercadería y Packaging", "valor": 5692210.36}, {"anio": 2026, "mes": 3, "tienda": "Güemes", "item": "Resultado", "valor": -1901686.12}, {"anio": 2026, "mes": 4, "tienda": "Güemes", "item": "Venta c/imp", "valor": 16829367.83}, {"anio": 2026, "mes": 4, "tienda": "Güemes", "item": "Alquiler y expensas", "valor": 1765956.84}, {"anio": 2026, "mes": 4, "tienda": "Güemes", "item": "Personal", "valor": 2050948.75}, {"anio": 2026, "mes": 4, "tienda": "Güemes", "item": "Administración (10%)", "valor": 1682936.78}, {"anio": 2026, "mes": 4, "tienda": "Güemes", "item": "Logística (5%)", "valor": 841468.39}, {"anio": 2026, "mes": 4, "tienda": "Güemes", "item": "Gastos Varios", "valor": 597956.93}, {"anio": 2026, "mes": 4, "tienda": "Güemes", "item": "Impuestos", "valor": 3792861.26}, {"anio": 2026, "mes": 4, "tienda": "Güemes", "item": "Costo de Mercadería y Packaging", "valor": 4343528.85}, {"anio": 2026, "mes": 4, "tienda": "Güemes", "item": "Resultado", "valor": 1753710.02}, {"anio": 2026, "mes": 1, "tienda": "San Telmo 2", "item": "Venta c/imp", "valor": 9379130.95}, {"anio": 2026, "mes": 1, "tienda": "San Telmo 2", "item": "Alquiler y expensas", "valor": 682073.35}, {"anio": 2026, "mes": 1, "tienda": "San Telmo 2", "item": "Personal", "valor": 1071162.17}, {"anio": 2026, "mes": 1, "tienda": "San Telmo 2", "item": "Administración (10%)", "valor": 937913.09}, {"anio": 2026, "mes": 1, "tienda": "San Telmo 2", "item": "Logística (5%)", "valor": 468956.55}, {"anio": 2026, "mes": 1, "tienda": "San Telmo 2", "item": "Gastos Varios", "valor": 261549.64}, {"anio": 2026, "mes": 1, "tienda": "San Telmo 2", "item": "Impuestos", "valor": 1875913.71}, {"anio": 2026, "mes": 1, "tienda": "San Telmo 2", "item": "Costo de Mercadería y Packaging", "valor": 2529218.11}, {"anio": 2026, "mes": 1, "tienda": "San Telmo 2", "item": "Resultado", "valor": 1552344.33}, {"anio": 2026, "mes": 2, "tienda": "San Telmo 2", "item": "Venta c/imp", "valor": 8872536.99}, {"anio": 2026, "mes": 2, "tienda": "San Telmo 2", "item": "Alquiler y expensas", "valor": 895286.8}, {"anio": 2026, "mes": 2, "tienda": "San Telmo 2", "item": "Personal", "valor": 650491.07}, {"anio": 2026, "mes": 2, "tienda": "San Telmo 2", "item": "Administración (10%)", "valor": 887253.7}, {"anio": 2026, "mes": 2, "tienda": "San Telmo 2", "item": "Logística (5%)", "valor": 443626.85}, {"anio": 2026, "mes": 2, "tienda": "San Telmo 2", "item": "Gastos Varios", "valor": 1341082.69}, {"anio": 2026, "mes": 2, "tienda": "San Telmo 2", "item": "Impuestos", "valor": 1992441.39}, {"anio": 2026, "mes": 2, "tienda": "San Telmo 2", "item": "Costo de Mercadería y Packaging", "valor": 2389476.8}, {"anio": 2026, "mes": 2, "tienda": "San Telmo 2", "item": "Resultado", "valor": 272877.68}, {"anio": 2026, "mes": 3, "tienda": "San Telmo 2", "item": "Venta c/imp", "valor": 9584483.51}, {"anio": 2026, "mes": 3, "tienda": "San Telmo 2", "item": "Alquiler y expensas", "valor": 945361.09}, {"anio": 2026, "mes": 3, "tienda": "San Telmo 2", "item": "Personal", "valor": 1124655.25}, {"anio": 2026, "mes": 3, "tienda": "San Telmo 2", "item": "Administración (10%)", "valor": 958448.35}, {"anio": 2026, "mes": 3, "tienda": "San Telmo 2", "item": "Logística (5%)", "valor": 479224.18}, {"anio": 2026, "mes": 3, "tienda": "San Telmo 2", "item": "Gastos Varios", "valor": 368296.57}, {"anio": 2026, "mes": 3, "tienda": "San Telmo 2", "item": "Impuestos", "valor": 2242361.58}, {"anio": 2026, "mes": 3, "tienda": "San Telmo 2", "item": "Costo de Mercadería y Packaging", "valor": 3633509.84}, {"anio": 2026, "mes": 3, "tienda": "San Telmo 2", "item": "Resultado", "valor": -167373.35}, {"anio": 2026, "mes": 4, "tienda": "San Telmo 2", "item": "Venta c/imp", "valor": 10593583.08}, {"anio": 2026, "mes": 4, "tienda": "San Telmo 2", "item": "Alquiler y expensas", "valor": 1247255.12}, {"anio": 2026, "mes": 4, "tienda": "San Telmo 2", "item": "Personal", "valor": 859828.23}, {"anio": 2026, "mes": 4, "tienda": "San Telmo 2", "item": "Administración (10%)", "valor": 1059358.31}, {"anio": 2026, "mes": 4, "tienda": "San Telmo 2", "item": "Logística (5%)", "valor": 529679.15}, {"anio": 2026, "mes": 4, "tienda": "San Telmo 2", "item": "Gastos Varios", "valor": 374251.61}, {"anio": 2026, "mes": 4, "tienda": "San Telmo 2", "item": "Impuestos", "valor": 2263906.26}, {"anio": 2026, "mes": 4, "tienda": "San Telmo 2", "item": "Costo de Mercadería y Packaging", "valor": 3013009.91}, {"anio": 2026, "mes": 4, "tienda": "San Telmo 2", "item": "Resultado", "valor": 1246294.48}, {"anio": 2026, "mes": 1, "tienda": "Güemes 2", "item": "Venta c/imp", "valor": 33743222.38}, {"anio": 2026, "mes": 1, "tienda": "Güemes 2", "item": "Alquiler y expensas", "valor": 1796266.49}, {"anio": 2026, "mes": 1, "tienda": "Güemes 2", "item": "Personal", "valor": 6533636.86}, {"anio": 2026, "mes": 1, "tienda": "Güemes 2", "item": "Administración (10%)", "valor": 3374322.24}, {"anio": 2026, "mes": 1, "tienda": "Güemes 2", "item": "Logística (5%)", "valor": 1687161.12}, {"anio": 2026, "mes": 1, "tienda": "Güemes 2", "item": "Gastos Varios", "valor": 3348630.46}, {"anio": 2026, "mes": 1, "tienda": "Güemes 2", "item": "Impuestos", "valor": 6946518.16}, {"anio": 2026, "mes": 1, "tienda": "Güemes 2", "item": "Costo de Mercadería y Packaging", "valor": 10818496.03}, {"anio": 2026, "mes": 1, "tienda": "Güemes 2", "item": "Resultado", "valor": -761808.98}, {"anio": 2026, "mes": 2, "tienda": "Güemes 2", "item": "Venta c/imp", "valor": 31404670.5}, {"anio": 2026, "mes": 2, "tienda": "Güemes 2", "item": "Alquiler y expensas", "valor": 3892147.94}, {"anio": 2026, "mes": 2, "tienda": "Güemes 2", "item": "Personal", "valor": 6193163.12}, {"anio": 2026, "mes": 2, "tienda": "Güemes 2", "item": "Administración (10%)", "valor": 3140467.05}, {"anio": 2026, "mes": 2, "tienda": "Güemes 2", "item": "Logística (5%)", "valor": 1570233.52}, {"anio": 2026, "mes": 2, "tienda": "Güemes 2", "item": "Gastos Varios", "valor": 4694959.13}, {"anio": 2026, "mes": 2, "tienda": "Güemes 2", "item": "Impuestos", "valor": 7155487.33}, {"anio": 2026, "mes": 2, "tienda": "Güemes 2", "item": "Costo de Mercadería y Packaging", "valor": 8917198.4}, {"anio": 2026, "mes": 2, "tienda": "Güemes 2", "item": "Resultado", "valor": -4158985.99}, {"anio": 2026, "mes": 3, "tienda": "Güemes 2", "item": "Venta c/imp", "valor": 37314857.67}, {"anio": 2026, "mes": 3, "tienda": "Güemes 2", "item": "Alquiler y expensas", "valor": 2738383.85}, {"anio": 2026, "mes": 3, "tienda": "Güemes 2", "item": "Personal", "valor": 6356657.95}, {"anio": 2026, "mes": 3, "tienda": "Güemes 2", "item": "Administración (10%)", "valor": 3731485.77}, {"anio": 2026, "mes": 3, "tienda": "Güemes 2", "item": "Logística (5%)", "valor": 1865742.88}, {"anio": 2026, "mes": 3, "tienda": "Güemes 2", "item": "Gastos Varios", "valor": 3727338.58}, {"anio": 2026, "mes": 3, "tienda": "Güemes 2", "item": "Impuestos", "valor": 8625784.43}, {"anio": 2026, "mes": 3, "tienda": "Güemes 2", "item": "Costo de Mercadería y Packaging", "valor": 10927896.72}, {"anio": 2026, "mes": 3, "tienda": "Güemes 2", "item": "Resultado", "valor": -658432.51}, {"anio": 2026, "mes": 4, "tienda": "Güemes 2", "item": "Venta c/imp", "valor": 34815142.9}, {"anio": 2026, "mes": 4, "tienda": "Güemes 2", "item": "Alquiler y expensas", "valor": 5696160.35}, {"anio": 2026, "mes": 4, "tienda": "Güemes 2", "item": "Personal", "valor": 6894804.36}, {"anio": 2026, "mes": 4, "tienda": "Güemes 2", "item": "Administración (10%)", "valor": 3481514.29}, {"anio": 2026, "mes": 4, "tienda": "Güemes 2", "item": "Logística (5%)", "valor": 1740757.14}, {"anio": 2026, "mes": 4, "tienda": "Güemes 2", "item": "Gastos Varios", "valor": 5148961.88}, {"anio": 2026, "mes": 4, "tienda": "Güemes 2", "item": "Impuestos", "valor": 8085578.22}, {"anio": 2026, "mes": 4, "tienda": "Güemes 2", "item": "Costo de Mercadería y Packaging", "valor": 12407534.91}, {"anio": 2026, "mes": 4, "tienda": "Güemes 2", "item": "Resultado", "valor": -8640168.26}, {"anio": 2026, "mes": 1, "tienda": "El Solar", "item": "Venta c/imp", "valor": 31909681.45}, {"anio": 2026, "mes": 1, "tienda": "El Solar", "item": "Alquiler y expensas", "valor": 3907960.22}, {"anio": 2026, "mes": 1, "tienda": "El Solar", "item": "Personal", "valor": 3708643.08}, {"anio": 2026, "mes": 1, "tienda": "El Solar", "item": "Administración (10%)", "valor": 3190968.14}, {"anio": 2026, "mes": 1, "tienda": "El Solar", "item": "Logística (5%)", "valor": 1595484.07}, {"anio": 2026, "mes": 1, "tienda": "El Solar", "item": "Gastos Varios", "valor": 776905.74}, {"anio": 2026, "mes": 1, "tienda": "El Solar", "item": "Impuestos", "valor": 6417594.82}, {"anio": 2026, "mes": 1, "tienda": "El Solar", "item": "Costo de Mercadería y Packaging", "valor": 9136520.72}, {"anio": 2026, "mes": 1, "tienda": "El Solar", "item": "Resultado", "valor": 3175604.66}, {"anio": 2026, "mes": 2, "tienda": "El Solar", "item": "Venta c/imp", "valor": 32426008.49}, {"anio": 2026, "mes": 2, "tienda": "El Solar", "item": "Alquiler y expensas", "valor": 4765101.56}, {"anio": 2026, "mes": 2, "tienda": "El Solar", "item": "Personal", "valor": 6301896.17}, {"anio": 2026, "mes": 2, "tienda": "El Solar", "item": "Administración (10%)", "valor": 3242600.85}, {"anio": 2026, "mes": 2, "tienda": "El Solar", "item": "Logística (5%)", "valor": 1621300.42}, {"anio": 2026, "mes": 2, "tienda": "El Solar", "item": "Gastos Varios", "valor": 2823791.44}, {"anio": 2026, "mes": 2, "tienda": "El Solar", "item": "Impuestos", "valor": 7700556.0}, {"anio": 2026, "mes": 2, "tienda": "El Solar", "item": "Costo de Mercadería y Packaging", "valor": 12271459.08}, {"anio": 2026, "mes": 2, "tienda": "El Solar", "item": "Resultado", "valor": -6300697.03}, {"anio": 2026, "mes": 3, "tienda": "El Solar", "item": "Venta c/imp", "valor": 43502787.38}, {"anio": 2026, "mes": 3, "tienda": "El Solar", "item": "Alquiler y expensas", "valor": 4395914.2}, {"anio": 2026, "mes": 3, "tienda": "El Solar", "item": "Personal", "valor": 4291989.44}, {"anio": 2026, "mes": 3, "tienda": "El Solar", "item": "Administración (10%)", "valor": 4350278.74}, {"anio": 2026, "mes": 3, "tienda": "El Solar", "item": "Logística (5%)", "valor": 2175139.37}, {"anio": 2026, "mes": 3, "tienda": "El Solar", "item": "Gastos Varios", "valor": 2350319.61}, {"anio": 2026, "mes": 3, "tienda": "El Solar", "item": "Impuestos", "valor": 9042848.13}, {"anio": 2026, "mes": 3, "tienda": "El Solar", "item": "Costo de Mercadería y Packaging", "valor": 12031502.27}, {"anio": 2026, "mes": 3, "tienda": "El Solar", "item": "Resultado", "valor": 4864795.61}, {"anio": 2026, "mes": 4, "tienda": "El Solar", "item": "Venta c/imp", "valor": 38234683.11}, {"anio": 2026, "mes": 4, "tienda": "El Solar", "item": "Alquiler y expensas", "valor": 6730954.72}, {"anio": 2026, "mes": 4, "tienda": "El Solar", "item": "Personal", "valor": 6853820.01}, {"anio": 2026, "mes": 4, "tienda": "El Solar", "item": "Administración (10%)", "valor": 3823468.31}, {"anio": 2026, "mes": 4, "tienda": "El Solar", "item": "Logística (5%)", "valor": 1911734.16}, {"anio": 2026, "mes": 4, "tienda": "El Solar", "item": "Gastos Varios", "valor": 3514570.84}, {"anio": 2026, "mes": 4, "tienda": "El Solar", "item": "Impuestos", "valor": 8645592.96}, {"anio": 2026, "mes": 4, "tienda": "El Solar", "item": "Costo de Mercadería y Packaging", "valor": 13533307.05}, {"anio": 2026, "mes": 4, "tienda": "El Solar", "item": "Resultado", "valor": -6778764.93}, {"anio": 2026, "mes": 1, "tienda": "AS San Telmo", "item": "Venta c/imp", "valor": 12220009.01}, {"anio": 2026, "mes": 1, "tienda": "AS San Telmo", "item": "Alquiler y expensas", "valor": 2167448.32}, {"anio": 2026, "mes": 1, "tienda": "AS San Telmo", "item": "Personal", "valor": 2098167.91}, {"anio": 2026, "mes": 1, "tienda": "AS San Telmo", "item": "Administración (10%)", "valor": 1222000.9}, {"anio": 2026, "mes": 1, "tienda": "AS San Telmo", "item": "Logística (5%)", "valor": 611000.45}, {"anio": 2026, "mes": 1, "tienda": "AS San Telmo", "item": "Gastos Varios", "valor": 1619408.66}, {"anio": 2026, "mes": 1, "tienda": "AS San Telmo", "item": "Impuestos", "valor": 2677664.38}, {"anio": 2026, "mes": 1, "tienda": "AS San Telmo", "item": "Costo de Mercadería y Packaging", "valor": 3338602.06}, {"anio": 2026, "mes": 1, "tienda": "AS San Telmo", "item": "Resultado", "valor": -1514283.68}, {"anio": 2026, "mes": 2, "tienda": "AS San Telmo", "item": "Venta c/imp", "valor": 12864244.18}, {"anio": 2026, "mes": 2, "tienda": "AS San Telmo", "item": "Alquiler y expensas", "valor": 1242073.75}, {"anio": 2026, "mes": 2, "tienda": "AS San Telmo", "item": "Personal", "valor": 2239755.78}, {"anio": 2026, "mes": 2, "tienda": "AS San Telmo", "item": "Administración (10%)", "valor": 1286424.42}, {"anio": 2026, "mes": 2, "tienda": "AS San Telmo", "item": "Logística (5%)", "valor": 643212.21}, {"anio": 2026, "mes": 2, "tienda": "AS San Telmo", "item": "Gastos Varios", "valor": 2132230.38}, {"anio": 2026, "mes": 2, "tienda": "AS San Telmo", "item": "Impuestos", "valor": 2776535.36}, {"anio": 2026, "mes": 2, "tienda": "AS San Telmo", "item": "Costo de Mercadería y Packaging", "valor": 3887320.99}, {"anio": 2026, "mes": 2, "tienda": "AS San Telmo", "item": "Resultado", "valor": -1343308.71}, {"anio": 2026, "mes": 3, "tienda": "AS San Telmo", "item": "Venta c/imp", "valor": 13654374.91}, {"anio": 2026, "mes": 3, "tienda": "AS San Telmo", "item": "Alquiler y expensas", "valor": 2068252.93}, {"anio": 2026, "mes": 3, "tienda": "AS San Telmo", "item": "Personal", "valor": 1257574.43}, {"anio": 2026, "mes": 3, "tienda": "AS San Telmo", "item": "Administración (10%)", "valor": 1365437.49}, {"anio": 2026, "mes": 3, "tienda": "AS San Telmo", "item": "Logística (5%)", "valor": 682718.75}, {"anio": 2026, "mes": 3, "tienda": "AS San Telmo", "item": "Gastos Varios", "valor": 533281.92}, {"anio": 2026, "mes": 3, "tienda": "AS San Telmo", "item": "Impuestos", "valor": 2813429.71}, {"anio": 2026, "mes": 3, "tienda": "AS San Telmo", "item": "Costo de Mercadería y Packaging", "valor": 5019768.39}, {"anio": 2026, "mes": 3, "tienda": "AS San Telmo", "item": "Resultado", "valor": -86088.71}, {"anio": 2026, "mes": 4, "tienda": "AS San Telmo", "item": "Venta c/imp", "valor": 12951277.72}, {"anio": 2026, "mes": 4, "tienda": "AS San Telmo", "item": "Alquiler y expensas", "valor": 912604.06}, {"anio": 2026, "mes": 4, "tienda": "AS San Telmo", "item": "Personal", "valor": 2298157.12}, {"anio": 2026, "mes": 4, "tienda": "AS San Telmo", "item": "Administración (10%)", "valor": 1295127.77}, {"anio": 2026, "mes": 4, "tienda": "AS San Telmo", "item": "Logística (5%)", "valor": 647563.89}, {"anio": 2026, "mes": 4, "tienda": "AS San Telmo", "item": "Gastos Varios", "valor": 2163457.73}, {"anio": 2026, "mes": 4, "tienda": "AS San Telmo", "item": "Impuestos", "valor": 2930754.11}, {"anio": 2026, "mes": 4, "tienda": "AS San Telmo", "item": "Costo de Mercadería y Packaging", "valor": 3827788.68}, {"anio": 2026, "mes": 4, "tienda": "AS San Telmo", "item": "Resultado", "valor": -1124175.64}]}; // <<< la línea que reemplaza el script de R
+const DATOS_EMBEBIDOS = {"datos": [{"anio": 2026, "mes": 1, "tienda": "Florida", "item": "Venta c/imp", "valor": 17484948.95}, {"anio": 2026, "mes": 1, "tienda": "Florida", "item": "Alquiler y expensas", "valor": 1779858.06}, {"anio": 2026, "mes": 1, "tienda": "Florida", "item": "Personal", "valor": 2596682.86}, {"anio": 2026, "mes": 1, "tienda": "Florida", "item": "Administración", "valor": 1748494.89}, {"anio": 2026, "mes": 1, "tienda": "Florida", "item": "Logística", "valor": 874247.45}, {"anio": 2026, "mes": 1, "tienda": "Florida", "item": "Gastos varios", "valor": 1990802.11}, {"anio": 2026, "mes": 1, "tienda": "Florida", "item": "Impuestos", "valor": 3542820.54}, {"anio": 2026, "mes": 1, "tienda": "Florida", "item": "Costo de Mercadería y Packaging", "valor": 4401168.65}, {"anio": 2026, "mes": 1, "tienda": "Florida", "item": "Resultado", "valor": 550874.38}, {"anio": 2026, "mes": 2, "tienda": "Florida", "item": "Venta c/imp", "valor": 19209680.78}, {"anio": 2026, "mes": 2, "tienda": "Florida", "item": "Alquiler y expensas", "valor": 1657979.13}, {"anio": 2026, "mes": 2, "tienda": "Florida", "item": "Personal", "valor": 1929862.64}, {"anio": 2026, "mes": 2, "tienda": "Florida", "item": "Administración", "valor": 1920968.08}, {"anio": 2026, "mes": 2, "tienda": "Florida", "item": "Logística", "valor": 960484.04}, {"anio": 2026, "mes": 2, "tienda": "Florida", "item": "Gastos varios", "valor": 3253096.54}, {"anio": 2026, "mes": 2, "tienda": "Florida", "item": "Impuestos", "valor": 4203280.63}, {"anio": 2026, "mes": 2, "tienda": "Florida", "item": "Costo de Mercadería y Packaging", "valor": 6891280.67}, {"anio": 2026, "mes": 2, "tienda": "Florida", "item": "Resultado", "valor": -1607270.94}, {"anio": 2026, "mes": 3, "tienda": "Florida", "item": "Venta c/imp", "valor": 17085726.52}, {"anio": 2026, "mes": 3, "tienda": "Florida", "item": "Alquiler y expensas", "valor": 2382938.41}, {"anio": 2026, "mes": 3, "tienda": "Florida", "item": "Personal", "valor": 1530541.69}, {"anio": 2026, "mes": 3, "tienda": "Florida", "item": "Administración", "valor": 1708572.65}, {"anio": 2026, "mes": 3, "tienda": "Florida", "item": "Logística", "valor": 854286.33}, {"anio": 2026, "mes": 3, "tienda": "Florida", "item": "Gastos varios", "valor": 1968772.87}, {"anio": 2026, "mes": 3, "tienda": "Florida", "item": "Impuestos", "valor": 4010392.69}, {"anio": 2026, "mes": 3, "tienda": "Florida", "item": "Costo de Mercadería y Packaging", "valor": 5433492.67}, {"anio": 2026, "mes": 3, "tienda": "Florida", "item": "Resultado", "valor": -803270.79}, {"anio": 2026, "mes": 4, "tienda": "Florida", "item": "Venta c/imp", "valor": 18643765.51}, {"anio": 2026, "mes": 4, "tienda": "Florida", "item": "Alquiler y expensas", "valor": 2684657.61}, {"anio": 2026, "mes": 4, "tienda": "Florida", "item": "Personal", "valor": 1460255.91}, {"anio": 2026, "mes": 4, "tienda": "Florida", "item": "Administración", "valor": 1864376.55}, {"anio": 2026, "mes": 4, "tienda": "Florida", "item": "Logística", "valor": 932188.28}, {"anio": 2026, "mes": 4, "tienda": "Florida", "item": "Gastos varios", "valor": 2493315.35}, {"anio": 2026, "mes": 4, "tienda": "Florida", "item": "Impuestos", "valor": 4169565.98}, {"anio": 2026, "mes": 4, "tienda": "Florida", "item": "Costo de Mercadería y Packaging", "valor": 5391120.65}, {"anio": 2026, "mes": 4, "tienda": "Florida", "item": "Resultado", "valor": -351714.81}, {"anio": 2026, "mes": 1, "tienda": "Recoleta", "item": "Venta c/imp", "valor": 10546393.47}, {"anio": 2026, "mes": 1, "tienda": "Recoleta", "item": "Alquiler y expensas", "valor": 1225331.38}, {"anio": 2026, "mes": 1, "tienda": "Recoleta", "item": "Personal", "valor": 1723777.54}, {"anio": 2026, "mes": 1, "tienda": "Recoleta", "item": "Administración", "valor": 1054639.35}, {"anio": 2026, "mes": 1, "tienda": "Recoleta", "item": "Logística", "valor": 527319.67}, {"anio": 2026, "mes": 1, "tienda": "Recoleta", "item": "Gastos varios", "valor": 1601173.71}, {"anio": 2026, "mes": 1, "tienda": "Recoleta", "item": "Impuestos", "valor": 2410538.32}, {"anio": 2026, "mes": 1, "tienda": "Recoleta", "item": "Costo de Mercadería y Packaging", "valor": 3899453.34}, {"anio": 2026, "mes": 1, "tienda": "Recoleta", "item": "Resultado", "valor": -1895839.82}, {"anio": 2026, "mes": 2, "tienda": "Recoleta", "item": "Venta c/imp", "valor": 9039835.28}, {"anio": 2026, "mes": 2, "tienda": "Recoleta", "item": "Alquiler y expensas", "valor": 1465603.43}, {"anio": 2026, "mes": 2, "tienda": "Recoleta", "item": "Personal", "valor": 1155297.61}, {"anio": 2026, "mes": 2, "tienda": "Recoleta", "item": "Administración", "valor": 903983.53}, {"anio": 2026, "mes": 2, "tienda": "Recoleta", "item": "Logística", "valor": 451991.76}, {"anio": 2026, "mes": 2, "tienda": "Recoleta", "item": "Gastos varios", "valor": 1449429.18}, {"anio": 2026, "mes": 2, "tienda": "Recoleta", "item": "Impuestos", "valor": 2125759.45}, {"anio": 2026, "mes": 2, "tienda": "Recoleta", "item": "Costo de Mercadería y Packaging", "valor": 2374485.04}, {"anio": 2026, "mes": 2, "tienda": "Recoleta", "item": "Resultado", "valor": -886714.73}, {"anio": 2026, "mes": 3, "tienda": "Recoleta", "item": "Venta c/imp", "valor": 8210637.78}, {"anio": 2026, "mes": 3, "tienda": "Recoleta", "item": "Alquiler y expensas", "valor": 659956.05}, {"anio": 2026, "mes": 3, "tienda": "Recoleta", "item": "Personal", "valor": 1605281.65}, {"anio": 2026, "mes": 3, "tienda": "Recoleta", "item": "Administración", "valor": 821063.78}, {"anio": 2026, "mes": 3, "tienda": "Recoleta", "item": "Logística", "valor": 410531.89}, {"anio": 2026, "mes": 3, "tienda": "Recoleta", "item": "Gastos varios", "valor": 701387.82}, {"anio": 2026, "mes": 3, "tienda": "Recoleta", "item": "Impuestos", "valor": 1847934.84}, {"anio": 2026, "mes": 3, "tienda": "Recoleta", "item": "Costo de Mercadería y Packaging", "valor": 2373969.67}, {"anio": 2026, "mes": 3, "tienda": "Recoleta", "item": "Resultado", "valor": -209487.91}, {"anio": 2026, "mes": 4, "tienda": "Recoleta", "item": "Venta c/imp", "valor": 9399309.83}, {"anio": 2026, "mes": 4, "tienda": "Recoleta", "item": "Alquiler y expensas", "valor": 977728.2}, {"anio": 2026, "mes": 4, "tienda": "Recoleta", "item": "Personal", "valor": 1086732.82}, {"anio": 2026, "mes": 4, "tienda": "Recoleta", "item": "Administración", "valor": 939930.98}, {"anio": 2026, "mes": 4, "tienda": "Recoleta", "item": "Logística", "valor": 469965.49}, {"anio": 2026, "mes": 4, "tienda": "Recoleta", "item": "Gastos varios", "valor": 1012880.12}, {"anio": 2026, "mes": 4, "tienda": "Recoleta", "item": "Impuestos", "valor": 2099524.51}, {"anio": 2026, "mes": 4, "tienda": "Recoleta", "item": "Costo de Mercadería y Packaging", "valor": 3454680.89}, {"anio": 2026, "mes": 4, "tienda": "Recoleta", "item": "Resultado", "valor": -642133.19}, {"anio": 2026, "mes": 1, "tienda": "San Telmo", "item": "Venta c/imp", "valor": 39053525.64}, {"anio": 2026, "mes": 1, "tienda": "San Telmo", "item": "Alquiler y expensas", "valor": 6635040.89}, {"anio": 2026, "mes": 1, "tienda": "San Telmo", "item": "Personal", "valor": 7764959.93}, {"anio": 2026, "mes": 1, "tienda": "San Telmo", "item": "Administración", "valor": 3905352.56}, {"anio": 2026, "mes": 1, "tienda": "San Telmo", "item": "Logística", "valor": 1952676.28}, {"anio": 2026, "mes": 1, "tienda": "San Telmo", "item": "Gastos varios", "valor": 4713410.29}, {"anio": 2026, "mes": 1, "tienda": "San Telmo", "item": "Impuestos", "valor": 8065489.74}, {"anio": 2026, "mes": 1, "tienda": "San Telmo", "item": "Costo de Mercadería y Packaging", "valor": 14132802.31}, {"anio": 2026, "mes": 1, "tienda": "San Telmo", "item": "Resultado", "valor": -8116206.36}, {"anio": 2026, "mes": 2, "tienda": "San Telmo", "item": "Venta c/imp", "valor": 39468629.03}, {"anio": 2026, "mes": 2, "tienda": "San Telmo", "item": "Alquiler y expensas", "valor": 6972426.88}, {"anio": 2026, "mes": 2, "tienda": "San Telmo", "item": "Personal", "valor": 5682850.11}, {"anio": 2026, "mes": 2, "tienda": "San Telmo", "item": "Administración", "valor": 3946862.9}, {"anio": 2026, "mes": 2, "tienda": "San Telmo", "item": "Logística", "valor": 1973431.45}, {"anio": 2026, "mes": 2, "tienda": "San Telmo", "item": "Gastos varios", "valor": 5015379.46}, {"anio": 2026, "mes": 2, "tienda": "San Telmo", "item": "Impuestos", "valor": 8227038.35}, {"anio": 2026, "mes": 2, "tienda": "San Telmo", "item": "Costo de Mercadería y Packaging", "valor": 14134072.49}, {"anio": 2026, "mes": 2, "tienda": "San Telmo", "item": "Resultado", "valor": -6483432.62}, {"anio": 2026, "mes": 3, "tienda": "San Telmo", "item": "Venta c/imp", "valor": 34919476.49}, {"anio": 2026, "mes": 3, "tienda": "San Telmo", "item": "Alquiler y expensas", "valor": 3139052.98}, {"anio": 2026, "mes": 3, "tienda": "San Telmo", "item": "Personal", "valor": 2732444.67}, {"anio": 2026, "mes": 3, "tienda": "San Telmo", "item": "Administración", "valor": 3491947.65}, {"anio": 2026, "mes": 3, "tienda": "San Telmo", "item": "Logística", "valor": 1745973.82}, {"anio": 2026, "mes": 3, "tienda": "San Telmo", "item": "Gastos varios", "valor": 5171273.23}, {"anio": 2026, "mes": 3, "tienda": "San Telmo", "item": "Impuestos", "valor": 8366435.61}, {"anio": 2026, "mes": 3, "tienda": "San Telmo", "item": "Costo de Mercadería y Packaging", "valor": 9131699.83}, {"anio": 2026, "mes": 3, "tienda": "San Telmo", "item": "Resultado", "valor": 1140648.69}, {"anio": 2026, "mes": 4, "tienda": "San Telmo", "item": "Venta c/imp", "valor": 37560597.71}, {"anio": 2026, "mes": 4, "tienda": "San Telmo", "item": "Alquiler y expensas", "valor": 4036436.71}, {"anio": 2026, "mes": 4, "tienda": "San Telmo", "item": "Personal", "valor": 3365410.73}, {"anio": 2026, "mes": 4, "tienda": "San Telmo", "item": "Administración", "valor": 3756059.77}, {"anio": 2026, "mes": 4, "tienda": "San Telmo", "item": "Logística", "valor": 1878029.89}, {"anio": 2026, "mes": 4, "tienda": "San Telmo", "item": "Gastos varios", "valor": 2407021.59}, {"anio": 2026, "mes": 4, "tienda": "San Telmo", "item": "Impuestos", "valor": 8667170.85}, {"anio": 2026, "mes": 4, "tienda": "San Telmo", "item": "Costo de Mercadería y Packaging", "valor": 13651764.07}, {"anio": 2026, "mes": 4, "tienda": "San Telmo", "item": "Resultado", "valor": -201295.89}, {"anio": 2026, "mes": 1, "tienda": "French", "item": "Venta c/imp", "valor": 10262141.68}, {"anio": 2026, "mes": 1, "tienda": "French", "item": "Alquiler y expensas", "valor": 577672.72}, {"anio": 2026, "mes": 1, "tienda": "French", "item": "Personal", "valor": 1676805.85}, {"anio": 2026, "mes": 1, "tienda": "French", "item": "Administración", "valor": 1026214.17}, {"anio": 2026, "mes": 1, "tienda": "French", "item": "Logística", "valor": 513107.08}, {"anio": 2026, "mes": 1, "tienda": "French", "item": "Gastos varios", "valor": 714687.58}, {"anio": 2026, "mes": 1, "tienda": "French", "item": "Impuestos", "valor": 2414027.34}, {"anio": 2026, "mes": 1, "tienda": "French", "item": "Costo de Mercadería y Packaging", "valor": 3873780.42}, {"anio": 2026, "mes": 1, "tienda": "French", "item": "Resultado", "valor": -534153.49}, {"anio": 2026, "mes": 2, "tienda": "French", "item": "Venta c/imp", "valor": 9894186.98}, {"anio": 2026, "mes": 2, "tienda": "French", "item": "Alquiler y expensas", "valor": 1877830.14}, {"anio": 2026, "mes": 2, "tienda": "French", "item": "Personal", "valor": 1090904.43}, {"anio": 2026, "mes": 2, "tienda": "French", "item": "Administración", "valor": 989418.7}, {"anio": 2026, "mes": 2, "tienda": "French", "item": "Logística", "valor": 494709.35}, {"anio": 2026, "mes": 2, "tienda": "French", "item": "Gastos varios", "valor": 312118.12}, {"anio": 2026, "mes": 2, "tienda": "French", "item": "Impuestos", "valor": 2216204.01}, {"anio": 2026, "mes": 2, "tienda": "French", "item": "Costo de Mercadería y Packaging", "valor": 2513906.21}, {"anio": 2026, "mes": 2, "tienda": "French", "item": "Resultado", "valor": 399096.02}, {"anio": 2026, "mes": 3, "tienda": "French", "item": "Venta c/imp", "valor": 8855410.73}, {"anio": 2026, "mes": 3, "tienda": "French", "item": "Alquiler y expensas", "valor": 948512.42}, {"anio": 2026, "mes": 3, "tienda": "French", "item": "Personal", "valor": 1322650.58}, {"anio": 2026, "mes": 3, "tienda": "French", "item": "Administración", "valor": 885541.07}, {"anio": 2026, "mes": 3, "tienda": "French", "item": "Logística", "valor": 442770.54}, {"anio": 2026, "mes": 3, "tienda": "French", "item": "Gastos varios", "valor": 384589.15}, {"anio": 2026, "mes": 3, "tienda": "French", "item": "Impuestos", "valor": 1786113.61}, {"anio": 2026, "mes": 3, "tienda": "French", "item": "Costo de Mercadería y Packaging", "valor": 3212842.85}, {"anio": 2026, "mes": 3, "tienda": "French", "item": "Resultado", "valor": -127609.49}, {"anio": 2026, "mes": 4, "tienda": "French", "item": "Venta c/imp", "valor": 9248095.94}, {"anio": 2026, "mes": 4, "tienda": "French", "item": "Alquiler y expensas", "valor": 1703613.21}, {"anio": 2026, "mes": 4, "tienda": "French", "item": "Personal", "valor": 1725377.99}, {"anio": 2026, "mes": 4, "tienda": "French", "item": "Administración", "valor": 924809.59}, {"anio": 2026, "mes": 4, "tienda": "French", "item": "Logística", "valor": 462404.8}, {"anio": 2026, "mes": 4, "tienda": "French", "item": "Gastos varios", "valor": 709036.59}, {"anio": 2026, "mes": 4, "tienda": "French", "item": "Impuestos", "valor": 2019935.69}, {"anio": 2026, "mes": 4, "tienda": "French", "item": "Costo de Mercadería y Packaging", "valor": 2937283.02}, {"anio": 2026, "mes": 4, "tienda": "French", "item": "Resultado", "valor": -1234364.93}, {"anio": 2026, "mes": 1, "tienda": "Güemes", "item": "Venta c/imp", "valor": 33684866.33}, {"anio": 2026, "mes": 1, "tienda": "Güemes", "item": "Alquiler y expensas", "valor": 4321652.09}, {"anio": 2026, "mes": 1, "tienda": "Güemes", "item": "Personal", "valor": 5073493.22}, {"anio": 2026, "mes": 1, "tienda": "Güemes", "item": "Administración", "valor": 3368486.63}, {"anio": 2026, "mes": 1, "tienda": "Güemes", "item": "Logística", "valor": 1684243.32}, {"anio": 2026, "mes": 1, "tienda": "Güemes", "item": "Gastos varios", "valor": 5426402.51}, {"anio": 2026, "mes": 1, "tienda": "Güemes", "item": "Impuestos", "valor": 7420138.49}, {"anio": 2026, "mes": 1, "tienda": "Güemes", "item": "Costo de Mercadería y Packaging", "valor": 10309418.46}, {"anio": 2026, "mes": 1, "tienda": "Güemes", "item": "Resultado", "valor": -3918968.4}, {"anio": 2026, "mes": 2, "tienda": "Güemes", "item": "Venta c/imp", "valor": 35073385.44}, {"anio": 2026, "mes": 2, "tienda": "Güemes", "item": "Alquiler y expensas", "valor": 2920525.27}, {"anio": 2026, "mes": 2, "tienda": "Güemes", "item": "Personal", "valor": 3827954.6}, {"anio": 2026, "mes": 2, "tienda": "Güemes", "item": "Administración", "valor": 3507338.54}, {"anio": 2026, "mes": 2, "tienda": "Güemes", "item": "Logística", "valor": 1753669.27}, {"anio": 2026, "mes": 2, "tienda": "Güemes", "item": "Gastos varios", "valor": 5845667.03}, {"anio": 2026, "mes": 2, "tienda": "Güemes", "item": "Impuestos", "valor": 7745785.03}, {"anio": 2026, "mes": 2, "tienda": "Güemes", "item": "Costo de Mercadería y Packaging", "valor": 11268937.07}, {"anio": 2026, "mes": 2, "tienda": "Güemes", "item": "Resultado", "valor": -1796491.37}, {"anio": 2026, "mes": 3, "tienda": "Güemes", "item": "Venta c/imp", "valor": 27177917.79}, {"anio": 2026, "mes": 3, "tienda": "Güemes", "item": "Alquiler y expensas", "valor": 2938733.25}, {"anio": 2026, "mes": 3, "tienda": "Güemes", "item": "Personal", "valor": 3951546.34}, {"anio": 2026, "mes": 3, "tienda": "Güemes", "item": "Administración", "valor": 2717791.78}, {"anio": 2026, "mes": 3, "tienda": "Güemes", "item": "Logística", "valor": 1358895.89}, {"anio": 2026, "mes": 3, "tienda": "Güemes", "item": "Gastos varios", "valor": 625307.73}, {"anio": 2026, "mes": 3, "tienda": "Güemes", "item": "Impuestos", "valor": 6105027.79}, {"anio": 2026, "mes": 3, "tienda": "Güemes", "item": "Costo de Mercadería y Packaging", "valor": 9028055.03}, {"anio": 2026, "mes": 3, "tienda": "Güemes", "item": "Resultado", "valor": 452559.98}, {"anio": 2026, "mes": 4, "tienda": "Güemes", "item": "Venta c/imp", "valor": 27719498.48}, {"anio": 2026, "mes": 4, "tienda": "Güemes", "item": "Alquiler y expensas", "valor": 3820516.25}, {"anio": 2026, "mes": 4, "tienda": "Güemes", "item": "Personal", "valor": 3620514.54}, {"anio": 2026, "mes": 4, "tienda": "Güemes", "item": "Administración", "valor": 2771949.85}, {"anio": 2026, "mes": 4, "tienda": "Güemes", "item": "Logística", "valor": 1385974.92}, {"anio": 2026, "mes": 4, "tienda": "Güemes", "item": "Gastos varios", "valor": 3378790.92}, {"anio": 2026, "mes": 4, "tienda": "Güemes", "item": "Impuestos", "valor": 5934829.98}, {"anio": 2026, "mes": 4, "tienda": "Güemes", "item": "Costo de Mercadería y Packaging", "valor": 9477394.45}, {"anio": 2026, "mes": 4, "tienda": "Güemes", "item": "Resultado", "valor": -2670472.44}, {"anio": 2026, "mes": 1, "tienda": "San Telmo 2", "item": "Venta c/imp", "valor": 30285299.23}, {"anio": 2026, "mes": 1, "tienda": "San Telmo 2", "item": "Alquiler y expensas", "valor": 1771107.09}, {"anio": 2026, "mes": 1, "tienda": "San Telmo 2", "item": "Personal", "valor": 4781523.0}, {"anio": 2026, "mes": 1, "tienda": "San Telmo 2", "item": "Administración", "valor": 3028529.92}, {"anio": 2026, "mes": 1, "tienda": "San Telmo 2", "item": "Logística", "valor": 1514264.96}, {"anio": 2026, "mes": 1, "tienda": "San Telmo 2", "item": "Gastos varios", "valor": 4981805.65}, {"anio": 2026, "mes": 1, "tienda": "San Telmo 2", "item": "Impuestos", "valor": 6361272.38}, {"anio": 2026, "mes": 1, "tienda": "San Telmo 2", "item": "Costo de Mercadería y Packaging", "valor": 9367866.23}, {"anio": 2026, "mes": 1, "tienda": "San Telmo 2", "item": "Resultado", "valor": -1521070.0}, {"anio": 2026, "mes": 2, "tienda": "San Telmo 2", "item": "Venta c/imp", "valor": 37335147.21}, {"anio": 2026, "mes": 2, "tienda": "San Telmo 2", "item": "Alquiler y expensas", "valor": 3539504.64}, {"anio": 2026, "mes": 2, "tienda": "San Telmo 2", "item": "Personal", "valor": 4379941.49}, {"anio": 2026, "mes": 2, "tienda": "San Telmo 2", "item": "Administración", "valor": 3733514.72}, {"anio": 2026, "mes": 2, "tienda": "San Telmo 2", "item": "Logística", "valor": 1866757.36}, {"anio": 2026, "mes": 2, "tienda": "San Telmo 2", "item": "Gastos varios", "valor": 2497743.72}, {"anio": 2026, "mes": 2, "tienda": "San Telmo 2", "item": "Impuestos", "valor": 8018326.16}, {"anio": 2026, "mes": 2, "tienda": "San Telmo 2", "item": "Costo de Mercadería y Packaging", "valor": 12224676.96}, {"anio": 2026, "mes": 2, "tienda": "San Telmo 2", "item": "Resultado", "valor": 1074682.15}, {"anio": 2026, "mes": 3, "tienda": "San Telmo 2", "item": "Venta c/imp", "valor": 33723433.73}, {"anio": 2026, "mes": 3, "tienda": "San Telmo 2", "item": "Alquiler y expensas", "valor": 3466851.54}, {"anio": 2026, "mes": 3, "tienda": "San Telmo 2", "item": "Personal", "valor": 5746322.82}, {"anio": 2026, "mes": 3, "tienda": "San Telmo 2", "item": "Administración", "valor": 3372343.37}, {"anio": 2026, "mes": 3, "tienda": "San Telmo 2", "item": "Logística", "valor": 1686171.69}, {"anio": 2026, "mes": 3, "tienda": "San Telmo 2", "item": "Gastos varios", "valor": 810650.0}, {"anio": 2026, "mes": 3, "tienda": "San Telmo 2", "item": "Impuestos", "valor": 7512580.13}, {"anio": 2026, "mes": 3, "tienda": "San Telmo 2", "item": "Costo de Mercadería y Packaging", "valor": 11653891.76}, {"anio": 2026, "mes": 3, "tienda": "San Telmo 2", "item": "Resultado", "valor": -525377.57}, {"anio": 2026, "mes": 4, "tienda": "San Telmo 2", "item": "Venta c/imp", "valor": 33842223.37}, {"anio": 2026, "mes": 4, "tienda": "San Telmo 2", "item": "Alquiler y expensas", "valor": 2746475.72}, {"anio": 2026, "mes": 4, "tienda": "San Telmo 2", "item": "Personal", "valor": 5905298.67}, {"anio": 2026, "mes": 4, "tienda": "San Telmo 2", "item": "Administración", "valor": 3384222.34}, {"anio": 2026, "mes": 4, "tienda": "San Telmo 2", "item": "Logística", "valor": 1692111.17}, {"anio": 2026, "mes": 4, "tienda": "San Telmo 2", "item": "Gastos varios", "valor": 1888540.79}, {"anio": 2026, "mes": 4, "tienda": "San Telmo 2", "item": "Impuestos", "valor": 7022118.32}, {"anio": 2026, "mes": 4, "tienda": "San Telmo 2", "item": "Costo de Mercadería y Packaging", "valor": 10375364.46}, {"anio": 2026, "mes": 4, "tienda": "San Telmo 2", "item": "Resultado", "valor": 828091.9}, {"anio": 2026, "mes": 1, "tienda": "Güemes 2", "item": "Venta c/imp", "valor": 29959990.05}, {"anio": 2026, "mes": 1, "tienda": "Güemes 2", "item": "Alquiler y expensas", "valor": 2848453.18}, {"anio": 2026, "mes": 1, "tienda": "Güemes 2", "item": "Personal", "valor": 3397102.59}, {"anio": 2026, "mes": 1, "tienda": "Güemes 2", "item": "Administración", "valor": 2995999.01}, {"anio": 2026, "mes": 1, "tienda": "Güemes 2", "item": "Logística", "valor": 1497999.5}, {"anio": 2026, "mes": 1, "tienda": "Güemes 2", "item": "Gastos varios", "valor": 4345122.34}, {"anio": 2026, "mes": 1, "tienda": "Güemes 2", "item": "Impuestos", "valor": 6517413.23}, {"anio": 2026, "mes": 1, "tienda": "Güemes 2", "item": "Costo de Mercadería y Packaging", "valor": 10822134.88}, {"anio": 2026, "mes": 1, "tienda": "Güemes 2", "item": "Resultado", "valor": -2464234.67}, {"anio": 2026, "mes": 2, "tienda": "Güemes 2", "item": "Venta c/imp", "valor": 30758507.03}, {"anio": 2026, "mes": 2, "tienda": "Güemes 2", "item": "Alquiler y expensas", "valor": 2987863.93}, {"anio": 2026, "mes": 2, "tienda": "Güemes 2", "item": "Personal", "valor": 4753118.52}, {"anio": 2026, "mes": 2, "tienda": "Güemes 2", "item": "Administración", "valor": 3075850.7}, {"anio": 2026, "mes": 2, "tienda": "Güemes 2", "item": "Logística", "valor": 1537925.35}, {"anio": 2026, "mes": 2, "tienda": "Güemes 2", "item": "Gastos varios", "valor": 4697892.6}, {"anio": 2026, "mes": 2, "tienda": "Güemes 2", "item": "Impuestos", "valor": 6706710.59}, {"anio": 2026, "mes": 2, "tienda": "Güemes 2", "item": "Costo de Mercadería y Packaging", "valor": 8589424.42}, {"anio": 2026, "mes": 2, "tienda": "Güemes 2", "item": "Resultado", "valor": -1590279.08}, {"anio": 2026, "mes": 3, "tienda": "Güemes 2", "item": "Venta c/imp", "valor": 30185868.45}, {"anio": 2026, "mes": 3, "tienda": "Güemes 2", "item": "Alquiler y expensas", "valor": 3747511.21}, {"anio": 2026, "mes": 3, "tienda": "Güemes 2", "item": "Personal", "valor": 2861756.01}, {"anio": 2026, "mes": 3, "tienda": "Güemes 2", "item": "Administración", "valor": 3018586.85}, {"anio": 2026, "mes": 3, "tienda": "Güemes 2", "item": "Logística", "valor": 1509293.42}, {"anio": 2026, "mes": 3, "tienda": "Güemes 2", "item": "Gastos varios", "valor": 4256708.1}, {"anio": 2026, "mes": 3, "tienda": "Güemes 2", "item": "Impuestos", "valor": 7049579.2}, {"anio": 2026, "mes": 3, "tienda": "Güemes 2", "item": "Costo de Mercadería y Packaging", "valor": 8266889.71}, {"anio": 2026, "mes": 3, "tienda": "Güemes 2", "item": "Resultado", "valor": -524456.05}, {"anio": 2026, "mes": 4, "tienda": "Güemes 2", "item": "Venta c/imp", "valor": 32052708.3}, {"anio": 2026, "mes": 4, "tienda": "Güemes 2", "item": "Alquiler y expensas", "valor": 5224966.42}, {"anio": 2026, "mes": 4, "tienda": "Güemes 2", "item": "Personal", "valor": 4918547.17}, {"anio": 2026, "mes": 4, "tienda": "Güemes 2", "item": "Administración", "valor": 3205270.83}, {"anio": 2026, "mes": 4, "tienda": "Güemes 2", "item": "Logística", "valor": 1602635.41}, {"anio": 2026, "mes": 4, "tienda": "Güemes 2", "item": "Gastos varios", "valor": 4517466.28}, {"anio": 2026, "mes": 4, "tienda": "Güemes 2", "item": "Impuestos", "valor": 6853231.62}, {"anio": 2026, "mes": 4, "tienda": "Güemes 2", "item": "Costo de Mercadería y Packaging", "valor": 8553572.53}, {"anio": 2026, "mes": 4, "tienda": "Güemes 2", "item": "Resultado", "valor": -2822981.97}, {"anio": 2026, "mes": 1, "tienda": "El Solar", "item": "Venta c/imp", "valor": 21205739.68}, {"anio": 2026, "mes": 1, "tienda": "El Solar", "item": "Alquiler y expensas", "valor": 1865350.79}, {"anio": 2026, "mes": 1, "tienda": "El Solar", "item": "Personal", "valor": 2439212.61}, {"anio": 2026, "mes": 1, "tienda": "El Solar", "item": "Administración", "valor": 2120573.97}, {"anio": 2026, "mes": 1, "tienda": "El Solar", "item": "Logística", "valor": 1060286.98}, {"anio": 2026, "mes": 1, "tienda": "El Solar", "item": "Gastos varios", "valor": 1750233.84}, {"anio": 2026, "mes": 1, "tienda": "El Solar", "item": "Impuestos", "valor": 4597210.27}, {"anio": 2026, "mes": 1, "tienda": "El Solar", "item": "Costo de Mercadería y Packaging", "valor": 6430383.44}, {"anio": 2026, "mes": 1, "tienda": "El Solar", "item": "Resultado", "valor": 942487.77}, {"anio": 2026, "mes": 2, "tienda": "El Solar", "item": "Venta c/imp", "valor": 22039841.4}, {"anio": 2026, "mes": 2, "tienda": "El Solar", "item": "Alquiler y expensas", "valor": 1583335.6}, {"anio": 2026, "mes": 2, "tienda": "El Solar", "item": "Personal", "valor": 1556145.78}, {"anio": 2026, "mes": 2, "tienda": "El Solar", "item": "Administración", "valor": 2203984.14}, {"anio": 2026, "mes": 2, "tienda": "El Solar", "item": "Logística", "valor": 1101992.07}, {"anio": 2026, "mes": 2, "tienda": "El Solar", "item": "Gastos varios", "valor": 3559217.85}, {"anio": 2026, "mes": 2, "tienda": "El Solar", "item": "Impuestos", "valor": 5183751.53}, {"anio": 2026, "mes": 2, "tienda": "El Solar", "item": "Costo de Mercadería y Packaging", "valor": 8337645.01}, {"anio": 2026, "mes": 2, "tienda": "El Solar", "item": "Resultado", "valor": -1486230.57}, {"anio": 2026, "mes": 3, "tienda": "El Solar", "item": "Venta c/imp", "valor": 18839929.0}, {"anio": 2026, "mes": 3, "tienda": "El Solar", "item": "Alquiler y expensas", "valor": 3448132.1}, {"anio": 2026, "mes": 3, "tienda": "El Solar", "item": "Personal", "valor": 3590118.74}, {"anio": 2026, "mes": 3, "tienda": "El Solar", "item": "Administración", "valor": 1883992.9}, {"anio": 2026, "mes": 3, "tienda": "El Solar", "item": "Logística", "valor": 941996.45}, {"anio": 2026, "mes": 3, "tienda": "El Solar", "item": "Gastos varios", "valor": 1004424.64}, {"anio": 2026, "mes": 3, "tienda": "El Solar", "item": "Impuestos", "valor": 4329809.82}, {"anio": 2026, "mes": 3, "tienda": "El Solar", "item": "Costo de Mercadería y Packaging", "valor": 6759216.93}, {"anio": 2026, "mes": 3, "tienda": "El Solar", "item": "Resultado", "valor": -3117762.58}, {"anio": 2026, "mes": 4, "tienda": "El Solar", "item": "Venta c/imp", "valor": 20344497.56}, {"anio": 2026, "mes": 4, "tienda": "El Solar", "item": "Alquiler y expensas", "valor": 2495498.73}, {"anio": 2026, "mes": 4, "tienda": "El Solar", "item": "Personal", "valor": 2188568.25}, {"anio": 2026, "mes": 4, "tienda": "El Solar", "item": "Administración", "valor": 2034449.76}, {"anio": 2026, "mes": 4, "tienda": "El Solar", "item": "Logística", "valor": 1017224.88}, {"anio": 2026, "mes": 4, "tienda": "El Solar", "item": "Gastos varios", "valor": 1447720.69}, {"anio": 2026, "mes": 4, "tienda": "El Solar", "item": "Impuestos", "valor": 4254007.04}, {"anio": 2026, "mes": 4, "tienda": "El Solar", "item": "Costo de Mercadería y Packaging", "valor": 5266148.6}, {"anio": 2026, "mes": 4, "tienda": "El Solar", "item": "Resultado", "valor": 1640879.61}, {"anio": 2026, "mes": 1, "tienda": "AS San Telmo", "item": "Venta c/imp", "valor": 28305539.81}, {"anio": 2026, "mes": 1, "tienda": "AS San Telmo", "item": "Alquiler y expensas", "valor": 4625885.58}, {"anio": 2026, "mes": 1, "tienda": "AS San Telmo", "item": "Personal", "valor": 2147257.83}, {"anio": 2026, "mes": 1, "tienda": "AS San Telmo", "item": "Administración", "valor": 2830553.98}, {"anio": 2026, "mes": 1, "tienda": "AS San Telmo", "item": "Logística", "valor": 1415276.99}, {"anio": 2026, "mes": 1, "tienda": "AS San Telmo", "item": "Gastos varios", "valor": 4402683.07}, {"anio": 2026, "mes": 1, "tienda": "AS San Telmo", "item": "Impuestos", "valor": 6446536.43}, {"anio": 2026, "mes": 1, "tienda": "AS San Telmo", "item": "Costo de Mercadería y Packaging", "valor": 10475912.1}, {"anio": 2026, "mes": 1, "tienda": "AS San Telmo", "item": "Resultado", "valor": -4038566.17}, {"anio": 2026, "mes": 2, "tienda": "AS San Telmo", "item": "Venta c/imp", "valor": 34659171.35}, {"anio": 2026, "mes": 2, "tienda": "AS San Telmo", "item": "Alquiler y expensas", "valor": 6098436.37}, {"anio": 2026, "mes": 2, "tienda": "AS San Telmo", "item": "Personal", "valor": 5025716.49}, {"anio": 2026, "mes": 2, "tienda": "AS San Telmo", "item": "Administración", "valor": 3465917.13}, {"anio": 2026, "mes": 2, "tienda": "AS San Telmo", "item": "Logística", "valor": 1732958.57}, {"anio": 2026, "mes": 2, "tienda": "AS San Telmo", "item": "Gastos varios", "valor": 761520.03}, {"anio": 2026, "mes": 2, "tienda": "AS San Telmo", "item": "Impuestos", "valor": 7965091.08}, {"anio": 2026, "mes": 2, "tienda": "AS San Telmo", "item": "Costo de Mercadería y Packaging", "valor": 9438968.05}, {"anio": 2026, "mes": 2, "tienda": "AS San Telmo", "item": "Resultado", "valor": 170563.62}, {"anio": 2026, "mes": 3, "tienda": "AS San Telmo", "item": "Venta c/imp", "valor": 28439760.5}, {"anio": 2026, "mes": 3, "tienda": "AS San Telmo", "item": "Alquiler y expensas", "valor": 4061352.93}, {"anio": 2026, "mes": 3, "tienda": "AS San Telmo", "item": "Personal", "valor": 3931664.29}, {"anio": 2026, "mes": 3, "tienda": "AS San Telmo", "item": "Administración", "valor": 2843976.05}, {"anio": 2026, "mes": 3, "tienda": "AS San Telmo", "item": "Logística", "valor": 1421988.02}, {"anio": 2026, "mes": 3, "tienda": "AS San Telmo", "item": "Gastos varios", "valor": 2333839.76}, {"anio": 2026, "mes": 3, "tienda": "AS San Telmo", "item": "Impuestos", "valor": 6756197.81}, {"anio": 2026, "mes": 3, "tienda": "AS San Telmo", "item": "Costo de Mercadería y Packaging", "valor": 9373213.47}, {"anio": 2026, "mes": 3, "tienda": "AS San Telmo", "item": "Resultado", "valor": -2282471.83}, {"anio": 2026, "mes": 4, "tienda": "AS San Telmo", "item": "Venta c/imp", "valor": 28871961.52}, {"anio": 2026, "mes": 4, "tienda": "AS San Telmo", "item": "Alquiler y expensas", "valor": 2464120.23}, {"anio": 2026, "mes": 4, "tienda": "AS San Telmo", "item": "Personal", "valor": 5255170.88}, {"anio": 2026, "mes": 4, "tienda": "AS San Telmo", "item": "Administración", "valor": 2887196.15}, {"anio": 2026, "mes": 4, "tienda": "AS San Telmo", "item": "Logística", "valor": 1443598.08}, {"anio": 2026, "mes": 4, "tienda": "AS San Telmo", "item": "Gastos varios", "valor": 2644083.39}, {"anio": 2026, "mes": 4, "tienda": "AS San Telmo", "item": "Impuestos", "valor": 6677882.72}, {"anio": 2026, "mes": 4, "tienda": "AS San Telmo", "item": "Costo de Mercadería y Packaging", "valor": 8538576.92}, {"anio": 2026, "mes": 4, "tienda": "AS San Telmo", "item": "Resultado", "valor": -1038666.86}]}; // <<< la línea que reemplaza el script de R
 
 const MESES_N = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
 let D = null;                 // { indice, tiendas, periodos, zonas, negocios }
@@ -393,14 +408,28 @@ function gruposDe(tipo){
         .filter(g => g.tiendas.length);
 
   if (tipo === 'total')  return [{ nombre:'Todas las tiendas', tiendas:[...D.tiendas] }];
-  if (tipo === 'tienda') return D.tiendas.map(t => ({ nombre:t, tiendas:[t] }));
 
-  const mapa = tipo === 'zona' ? D.zonas : D.negocios;
-  const gs = desde(mapa);
-  const asignadas = new Set(gs.flatMap(g => g.tiendas));
-  const sueltas = D.tiendas.filter(t => !asignadas.has(t));
-  if (sueltas.length) gs.push({ nombre:'Sin asignar', tiendas:sueltas });
-  return gs;
+  let gs;
+  if (tipo === 'tienda'){
+    gs = D.tiendas.map(t => ({ nombre:t, tiendas:[t] }));
+  } else {
+    const mapa = tipo === 'zona' ? D.zonas : D.negocios;
+    gs = desde(mapa);
+    const asignadas = new Set(gs.flatMap(g => g.tiendas));
+    const sueltas = D.tiendas.filter(t => !asignadas.has(t));
+    if (sueltas.length) gs.push({ nombre:'Sin asignar', tiendas:sueltas });
+  }
+  return ordenarPorVenta(gs);
+}
+
+// Ordena de mayor a menor venta c/imp, sobre los meses seleccionados.
+function ordenarPorVenta(gs){
+  const meses = mesesArr();
+  if (!meses.length) return gs;
+  return gs
+    .map(g => ({ g, v: val(g.tiendas, meses, ITEM_VENTA) }))
+    .sort((a,b) => b.v - a.v)
+    .map(x => x.g);
 }
 
 function gruposVisibles(){
@@ -431,8 +460,8 @@ function celdaSemaforo(item, pct){
   const tA = u.amarillo / max * 100, tR = u.rojo / max * 100;
   return `<td class="pct sem-cell ${b}">
     <div class="sem">
-      <span class="sem-v ${b}">${fmtP(pct)}</span>
-      <span class="regla"><i class="${b}" style="width:${w}%"></i>
+      <span class="sem-v">${fmtP(pct)}</span>
+      <span class="regla"><i style="width:${w}%"></i>
         <u style="left:${tA}%"></u><u style="left:${tR}%"></u></span>
     </div></td>`;
 }
@@ -440,6 +469,27 @@ function celdaSemaforo(item, pct){
 /* ================================================================
    TABLA
    ================================================================ */
+// Arma las columnas de la tabla. Con una sola unidad seleccionada, las
+// columnas son los meses (como en el dashboard anterior); con varias,
+// las columnas son las unidades y los meses se suman dentro de cada una.
+function columnasTabla(grupos, meses){
+  const porMes = grupos.length === 1;
+
+  if (porMes){
+    const tiendas = grupos[0].tiendas;
+    const cols = meses.map(m => ({ nombre: labelMes(m), tiendas, meses:[m] }));
+    if (meses.length > 1) cols.push({ nombre:'Total', tiendas, meses:[...meses], total:true });
+    return { cols, porMes };
+  }
+
+  const conTotal = grupos.length > 1;
+  const cols = (conTotal
+    ? [...grupos, { nombre:'Total', tiendas:[...new Set(grupos.flatMap(g=>g.tiendas))], total:true }]
+    : grupos
+  ).map(g => ({ ...g, meses }));
+  return { cols, porMes };
+}
+
 function construirTabla(){
   const grupos = gruposVisibles(), meses = mesesArr();
   const tabla = document.getElementById('tabla');
@@ -450,8 +500,7 @@ function construirTabla(){
     return;
   }
 
-  const conTotal = grupos.length > 1;
-  const cols = conTotal ? [...grupos, { nombre:'Total', tiendas:[...new Set(grupos.flatMap(g=>g.tiendas))], total:true }] : grupos;
+  const { cols, porMes } = columnasTabla(grupos, meses);
 
   let h1 = `<tr><th class="c-item" rowspan="2">Ítem</th>`;
   let h2 = `<tr>`;
@@ -461,14 +510,14 @@ function construirTabla(){
   });
   h1 += `</tr>`; h2 += `</tr>`;
 
-  const ventas = cols.map(c => val(c.tiendas, meses, ITEM_VENTA));
+  const ventas = cols.map(c => val(c.tiendas, c.meses, ITEM_VENTA));
 
   let body = '';
   ITEMS.forEach(it => {
     const cls = it.tipo === 'venta' ? 'r-venta' : it.tipo === 'resultado' ? 'r-res' : '';
     let fila = `<tr class="${cls}"><td class="c-item">${it.n}</td>`;
     cols.forEach((c, i) => {
-      const v = val(c.tiendas, meses, it.n);
+      const v = val(c.tiendas, c.meses, it.n);
       const pct = ventas[i] ? v / ventas[i] * 100 : 0;
       const tc = c.total ? ' tcol' : '';
       fila += `<td class="mon${tc}${v<0?' neg':''}">${fmt(v)}</td>`;
@@ -484,9 +533,9 @@ function construirTabla(){
   const nomAgr = AGRUPACIONES.find(a => a.id === agrupacion).label;
   document.getElementById('tabla-titulo').textContent =
     grupos.length === 1 ? `Resultados — ${grupos[0].nombre}` : `Resultados por ${nomAgr.toLowerCase()}`;
-  document.getElementById('tabla-sub').textContent =
-    meses.length === D.periodos.length ? `Todos los meses (${meses.length})`
-    : meses.map(labelMes).join(' · ');
+  document.getElementById('tabla-sub').textContent = porMes
+    ? 'Un mes por columna'
+    : (meses.length === D.periodos.length ? `Todos los meses (${meses.length})` : meses.map(labelMes).join(' · '));
 }
 
 /* ================================================================
@@ -546,9 +595,7 @@ function graficosComparativos(cont, grupos, meses){
                : AGRUPACIONES.find(a => a.id === agrupacion).label.toLowerCase().replace(/s$/, '');
 
   cont.innerHTML =
-    tarjeta('g-res',   `Resultado por ${nomAgr}`, 'En pesos, del período seleccionado.') +
-    tarjeta('g-casc',  'Cascada de resultados', 'De la venta al resultado, restando cada ítem.', true) +
-    tarjeta('g-dist',  'Distribución de gastos', 'Peso de cada ítem sobre el total de egresos.', true);
+    tarjeta('g-res', `Resultado por ${nomAgr}`, 'En pesos, del período seleccionado.');
 
   // 1. Resultado por unidad
   const res = eje.map(g => val(g.tiendas, meses, ITEM_RESULT));
@@ -562,23 +609,6 @@ function graficosComparativos(cont, grupos, meses){
         tooltip:{ callbacks:{ label:c=>' $ '+fmt(c.parsed.y) } } } })
   });
 
-  // 2. Cascada consolidada
-  cascada('g-casc', [...new Set(eje.flatMap(g=>g.tiendas))], meses);
-
-  // 3. Distribución de gastos (100% apilado por unidad)
-  const ds = GASTOS.map(it => ({
-    label: it.n, backgroundColor: it.color, borderWidth:0,
-    data: eje.map(g => { const tot = GASTOS.reduce((s,x)=>s+val(g.tiendas,meses,x.n),0);
-                         return tot ? val(g.tiendas,meses,it.n)/tot*100 : 0; })
-  }));
-  charts.dist = new Chart(document.getElementById('g-dist'), {
-    type:'bar', data:{ labels:nom, datasets:ds },
-    options: opts({ scales:{ x:{...ejeBase, stacked:true, ticks:{...ejeBase.ticks, maxRotation:55, font:{size:10}}},
-      y:{...ejeBase, stacked:true, max:100, ticks:{...ejeBase.ticks, callback:v=>v+'%'}} },
-      plugins:{ legend:{position:'bottom', labels:{color:'#4A6B72', boxWidth:11, boxHeight:11, padding:11, font:{size:11}}},
-        datalabels:{display:false},
-        tooltip:{ callbacks:{ label:c=>` ${c.dataset.label}: ${fmtP(c.parsed.y)}` } } } })
-  });
 }
 
 /* ---------- vista de una sola unidad ---------- */
@@ -587,13 +617,11 @@ function graficosDetalle(cont, g, meses){
 
   cont.innerHTML =
     tarjeta('g-ve',   'Ventas vs Egresos', 'Comparación mes a mes.') +
-    tarjeta('g-resm', 'Resultado', 'Resultado de cada mes.') +
     tarjeta('g-comp', 'Composición de egresos', 'Cómo se reparte el gasto total del período.', true) +
     tarjeta('g-distm','Distribución de gastos', 'Peso de cada ítem sobre los egresos, mes a mes.', true);
 
   const ventas  = meses.map(m => val(g.tiendas, [m], ITEM_VENTA));
   const egresos = meses.map(m => GASTOS.reduce((s,it) => s + val(g.tiendas, [m], it.n), 0));
-  const res     = meses.map(m => val(g.tiendas, [m], ITEM_RESULT));
 
   charts.ve = new Chart(document.getElementById('g-ve'), {
     type:'bar',
@@ -605,14 +633,6 @@ function graficosDetalle(cont, g, meses){
         datalabels:{display:false}, tooltip:{callbacks:{label:c=>` ${c.dataset.label}: $ ${fmt(c.parsed.y)}`}} } })
   });
 
-  charts.resm = new Chart(document.getElementById('g-resm'), {
-    type:'bar',
-    data:{ labels:lbl, datasets:[{ data:res, borderRadius:4,
-      backgroundColor: res.map(v => v<0 ? 'rgba(176,42,36,.82)' : 'rgba(31,122,92,.82)') }] },
-    options: opts({ scales:{ x:ejeBase, y:{...ejeBase, ticks:{...ejeBase.ticks, callback:v=>fmt(v)}} },
-      plugins:{ legend:{display:false}, datalabels:{display:false},
-        tooltip:{callbacks:{label:c=>' $ '+fmt(c.parsed.y)}} } })
-  });
 
   // dona con etiquetas sobre los segmentos
   const vals = GASTOS.map(it => val(g.tiendas, meses, it.n));
@@ -621,10 +641,11 @@ function graficosDetalle(cont, g, meses){
     type:'doughnut',
     data:{ labels:GASTOS.map(i=>i.n), datasets:[{ data:vals,
       backgroundColor:GASTOS.map(i=>i.color), borderColor:'#fff', borderWidth:2 }] },
-    options: opts({ cutout:'52%', layout:{padding:14},
+    options: opts({ cutout:'52%', layout:{padding:{top:26,bottom:26,left:64,right:64}},
       plugins:{ legend:{display:false},
-        datalabels:{ display: c => tot && c.dataset.data[c.dataIndex]/tot > .045,
-          color:'#fff', textAlign:'center', font:{size:10.5, weight:600},
+        datalabels:{ display: c => tot && c.dataset.data[c.dataIndex]/tot > .03,
+          anchor:'end', align:'end', offset:9, clamp:true,
+          color:'#0C2A31', textAlign:'center', font:{size:11, weight:600},
           formatter:(v,c)=> `${GASTOS[c.dataIndex].corto}\n${fmtP(v/tot*100)}` },
         tooltip:{callbacks:{label:c=>` ${c.label}: $ ${fmt(c.parsed)} (${fmtP(tot?c.parsed/tot*100:0)})`}} } }),
     plugins:[ChartDataLabels]
@@ -675,18 +696,17 @@ function cascada(canvasId, tiendas, meses){
 function descargarTabla(){
   const grupos = gruposVisibles(), meses = mesesArr();
   if (!grupos.length || !meses.length) return;
-  const conTotal = grupos.length > 1;
-  const cols = conTotal ? [...grupos, { nombre:'Total', tiendas:[...new Set(grupos.flatMap(g=>g.tiendas))] }] : grupos;
+  const { cols } = columnasTabla(grupos, meses);
 
   const h1 = ['Ítem'], h2 = [''];
   cols.forEach(c => { h1.push(c.nombre, ''); h2.push('$', '% vta'); });
 
   const rows = [h1, h2];
-  const ventas = cols.map(c => val(c.tiendas, meses, ITEM_VENTA));
+  const ventas = cols.map(c => val(c.tiendas, c.meses, ITEM_VENTA));
   ITEMS.forEach(it => {
     const r = [it.n];
     cols.forEach((c,i) => {
-      const v = val(c.tiendas, meses, it.n);
+      const v = val(c.tiendas, c.meses, it.n);
       r.push(Math.round(v), ventas[i] ? +(v/ventas[i]).toFixed(4) : 0);
     });
     rows.push(r);
@@ -715,8 +735,10 @@ function toggleDrop(e){
   document.getElementById('meses-p').classList.toggle('open');
 }
 document.addEventListener('click', e => {
-  const p = document.getElementById('meses-p');
-  if (p && !p.contains(e.target)) p.classList.remove('open');
+  ['meses-p','unid-p'].forEach(id => {
+    const p = document.getElementById(id);
+    if (p && !p.contains(e.target)) p.classList.remove('open');
+  });
 });
 
 function pintarMeses(){
@@ -741,40 +763,42 @@ function cambiarAgrupacion(id){
   pintarAgrupacion(); pintarUnidades(); render();
 }
 
+function toggleDropUnid(e){
+  e.stopPropagation();
+  document.getElementById('unid-p').classList.toggle('open');
+}
+
 function pintarUnidades(){
   const box = document.getElementById('box-unidades');
   if (agrupacion === 'total'){ box.classList.add('oculto'); return; }
   box.classList.remove('oculto');
+
   const gs = gruposDe(agrupacion);
   const etiqueta = { tienda:'Tiendas', zona:'Zonas', negocio:'Negocios' }[agrupacion];
   document.getElementById('lbl-unidades').textContent =
     `${etiqueta} — ${unidadesSel.size === 1 ? 'vista de detalle' : 'comparación'}`;
-  document.getElementById('chips-unidades').innerHTML =
-    gs.map(g => `<button class="chip" aria-pressed="${unidadesSel.has(g.nombre)}"
-        onclick="clicUnidad(event, ${JSON.stringify(g.nombre).replace(/"/g,'&quot;')})">${g.nombre}</button>`).join('')
-    + `<button class="chip modo" aria-pressed="${modoComparar}" onclick="toggleModo()">Comparar</button>`
-    + `<button class="chip mini" onclick="todasUnidades()">Todas</button>`
-    + `<span class="pista">${modoComparar
-        ? 'Tocá las que quieras sumar o sacar de la comparación.'
-        : 'Tocá una para verla sola. Para elegir varias, activá Comparar.'}</span>`;
-}
-let modoComparar = false;
-function toggleModo(){ modoComparar = !modoComparar; pintarUnidades(); }
 
-function clicUnidad(e, n){
-  const todas = gruposDe(agrupacion).map(g => g.nombre);
-  if (modoComparar || (e && (e.ctrlKey || e.shiftKey))){
-    // sumar o restar de la comparación actual
-    unidadesSel.has(n) ? unidadesSel.delete(n) : unidadesSel.add(n);
-    if (!unidadesSel.size) unidadesSel.add(n);
-  } else if (unidadesSel.size === 1 && unidadesSel.has(n)){
-    unidadesSel = new Set(todas);   // segundo clic: volver a todas
-  } else {
-    unidadesSel = new Set([n]);     // clic simple: ver sólo esta
-  }
+  document.getElementById('unid-list').innerHTML = gs.map(g => {
+    const j = JSON.stringify(g.nombre).replace(/"/g,'&quot;');
+    return `<div class="fila">
+      <label><input type="checkbox" ${unidadesSel.has(g.nombre)?'checked':''}
+        onchange="cambiarUnidad(${j}, this.checked)"><span>${g.nombre}</span></label>
+      <button class="solo" onclick="soloUnidad(${j})" title="Ver sólo ${g.nombre}">sólo</button>
+    </div>`;
+  }).join('');
+
+  const n = unidadesSel.size;
+  document.getElementById('unid-t').textContent =
+    n === 0 ? 'Ninguna' : n === gs.length ? `Todas (${n})`
+    : n === 1 ? [...unidadesSel][0] : `${n} seleccionadas`;
+}
+
+function cambiarUnidad(n, marcado){
+  marcado ? unidadesSel.add(n) : unidadesSel.delete(n);
   pintarUnidades(); render();
 }
-function toggleUnidad(n){ clicUnidad({ctrlKey:true}, n); }
+function soloUnidad(n){ unidadesSel = new Set([n]); pintarUnidades(); render(); }
+function ningunaUnidad(){ unidadesSel = new Set(); pintarUnidades(); render(); }
 function todasUnidades(){ unidadesSel = new Set(gruposDe(agrupacion).map(g=>g.nombre)); pintarUnidades(); render(); }
 
 function pintarLeyenda(){

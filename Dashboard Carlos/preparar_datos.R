@@ -28,16 +28,16 @@ ruta_salida <- "Dashboard Carlos/publicar/Tablero_Carlos.html"
 # esté en una sola zona.
 
 zonas <- list(
-  "Lucero Zona Centro"        = c("Florida", "Recoleta"),
-  "Lucero Zona San Telmo"     = c("San Telmo", "French"),
-  "Lucero Güemes+San Telmo 2" = c("Güemes", "San Telmo 2"),
-  "Lucero Joyería"            = c("Güemes 2", "El Solar"),
-  "AS"                        = c("AS San Telmo", "AS Güemes")
+  "Cuero Centro"      = c("Güemes", "Florida", "Recoleta"),
+  "Cuero San Telmo"   = c("San Telmo", "French"),
+  "Joyería Centro"    = c("El Solar", "Güemes 2"),
+  "Joyería San Telmo" = c("San Telmo 2"),
+  "AS"                = c("AS San Telmo", "AS Güemes")
 )
 
 negocios <- list(
-  "Cuero"   = c("Florida", "Recoleta", "San Telmo", "French", "Güemes", "San Telmo 2"),
-  "Joyería" = c("Güemes 2", "El Solar"),
+  "Cuero"   = c("Güemes", "Florida", "Recoleta", "San Telmo", "French"),
+   "Joyería" = c("El Solar", "Güemes 2", "San Telmo 2"),
   "AS"      = c("AS San Telmo", "AS Güemes")
 )
 
@@ -170,10 +170,9 @@ message("Ítems: ", paste(unique(datos$item), collapse = " · "))
 # 7. SALIDA
 # --------------------------------------------------------------
 paquete <- list(
-  meta   = list(generado = format(Sys.time(), "%Y-%m-%d %H:%M"),
-                base_porcentaje = "Venta c/imp"),
-  config = list(zonas = zonas, negocios = negocios),
-  datos  = datos
+  meta  = list(generado = format(Sys.time(), "%Y-%m-%d %H:%M"),
+               base_porcentaje = "Venta c/imp"),
+  datos = datos
 )
 
 json <- toJSON(paquete, auto_unbox = TRUE, dataframe = "rows", digits = 2)

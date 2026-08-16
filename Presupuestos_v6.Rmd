@@ -349,6 +349,8 @@ Gastos_unificados <- FACTURAS_TIENDAS %>%
                               CONCEPTO == "HONORARIOS" ~ "Honorarios",
                               CONCEPTO == "MARKETING LUCERO" ~ "Marketing",
                               CONCEPTO == "SERVICIOS" ~ "Servicios",
+                              CONCEPTO == "LIBRERÍA" ~ "Librería",
+                              CONCEPTO == "CADETERIA" ~ "Cadetería",
                               TRUE ~ CONCEPTO))
 
 #calculo el total
@@ -370,14 +372,28 @@ Tabla_gastos <- bind_rows(Gastos_unificados, fila_total_gastos) %>%
 
 #Primero calculo el % a aplicar a las ventas con MP
 #Cargo el archivo
-Mercadopago <- read_excel("Cupones Tarjetas/Mercadopago.xlsx") |> 
+Mercadopago <- read_excel("Cupones Tarjetas/Mercadopago.xlsx", 
+    col_types = c("text", "text", "text", 
+        "text", "text", "text", "text", "text", 
+        "text", "text", "text", "text", "text", 
+        "text", "text", "text", "text", "text", 
+        "text", "text", "text", "numeric", 
+        "text", "text", "text", "text", 
+        "text", "text", "text", "text", 
+        "text", "text", "text", "text", 
+        "text", "text", "text", "text", 
+        "text", "text", "text", "text", 
+        "text", "date", "text", "text", 
+        "text", "date", "date", "text")) |> 
   select(FECHA = "FECHA REDUCIDA", ID = "ID DE OPERACIÓN EN MERCADO PAGO", MEDIO_PAGO = "TIPO DE MEDIO DE PAGO", COMPRA_VALOR = "VALOR DE LA COMPRA", COMPRA_NETA = "MONTO NETO DE LA OPERACIÓN QUE IMPACTÓ TU DINERO", PLATAFORMA_COBRO = "PLATAFORMA DE COBRO", CATEGORIA) |> 
   mutate(
-    FECHA = case_when(str_detect(FECHA, "-") ~ ymd(FECHA), # ya es fecha texto
-      TRUE                   ~ as.Date(as.numeric(FECHA), # serial de Excel
-                                       origin = "1899-12-30")),
-    mutate(across(c(COMPRA_VALOR, COMPRA_NETA), 
-                ~ as.numeric(str_remove_all(.x, ",")))))  %>% 
+    FECHA = coalesce(
+      suppressWarnings(ymd(FECHA, quiet = TRUE)),
+      suppressWarnings(as.Date(as.numeric(FECHA), origin = "1899-12-30"))
+    )
+  ) |>
+  mutate(across(c(COMPRA_VALOR, COMPRA_NETA),
+                ~ as.numeric(str_remove_all(.x, ",")))) %>%
   group_by(ID) |> 
   filter(n() == 1) |> #para eliminar las ventas devueltas
   ungroup() |> 
@@ -442,7 +458,8 @@ venta_MP <- bind_rows(
   leer_mp("Cupones Tarjetas/VENTAS MARZO 2026.xlsx", 2026, 3, hojas_validas),
   leer_mp("Cupones Tarjetas/VENTAS ABRIL 2026.xlsx", 2026, 4, hojas_validas),
   leer_mp("Cupones Tarjetas/VENTAS MAYO 2026.xlsx", 2026, 5, hojas_validas),
-  leer_mp("Cupones Tarjetas/VENTAS JUNIO 2026.xlsx", 2026, 6, hojas_validas)
+  leer_mp("Cupones Tarjetas/VENTAS JUNIO 2026.xlsx", 2026, 6, hojas_validas),
+  leer_mp("Cupones Tarjetas/VENTAS JULIO 2026.xlsx", 2026, 7, hojas_validas)
   ) 
 
 Costo_MP <- venta_MP |> 
@@ -553,9 +570,10 @@ Sueldos_limpio <- Sueldos |>
       ~ as.numeric(gsub(",", "", .))
     )
   ) |>
-  mutate(Periodo = if_else(!is.na(Periodo_2), NA, Periodo),
-         Periodo = as.Date(as.numeric(Periodo), origin = "1899-12-30"),
-         Periodo = if_else(is.na(Periodo), Periodo_2, Periodo)) |> 
+  mutate(Periodo = coalesce(
+    Periodo_2,
+    as.Date(suppressWarnings(as.numeric(Periodo)), origin = "1899-12-30")
+  )) |>
   select(-Periodo_2) |> 
   filter(Periodo >= as.Date("2026-01-01")) |> 
   filter(!(Empleado == 21 & Concepto == 441)) #quito el descuento de vacaciones que debería haber sido en diciembre
@@ -897,7 +915,7 @@ TABLA_PRESUPUESTO <- Tablas_unidas %>%
     CONCEPTO %in% c("Alquiler", "Expensas", "ABL", "AYSA",
                     "Administración", "Edesur", "Fumigación", "Internet",
                     "Logística", "Mantenimiento", "Matafuegos", "Packaging",
-                    "Alarma", "Servicios", "Multa", "Otros gastos",
+                    "Alarma", "Servicios", "Multa", "Librería", "Cadetería", "Otros gastos",
                     "Subtotal_gastos")                                   ~ "Gastos Operativos",
     
     CONCEPTO %in% c("Tarjeta crédito 1 cuota", "Tarjeta crédito 2 cuotas",
@@ -930,7 +948,7 @@ TABLA_REPORTE_GASTOS <- Tablas_unidas %>%
     CONCEPTO %in% c("Alquiler", "Expensas", "ABL", "AYSA",
                     "Administración", "Edesur", "Fumigación", "Internet",
                     "Logística", "Mantenimiento", "Matafuegos", "Packaging",
-                    "Alarma", "Servicios", "Multa", "Otros gastos",
+                    "Alarma", "Servicios", "Multa", "Librería", "Cadetería", "Otros gastos",
                     "Subtotal_gastos")                                   ~ "Gastos Operativos",
     
     CONCEPTO %in% c("Tarjeta crédito 1 cuota", "Tarjeta crédito 2 cuotas",
