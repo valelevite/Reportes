@@ -29,8 +29,8 @@ cat("df_base actualizado:", format(file.info("Data/df_base.rds")$mtime), "\n")
 
 ```{r filtro para la quincena a analizar}
 
-fecha_inicio_quincena <- as.Date("2026/07/16") 
-fecha_fin_quincena <- as.Date("2026/07/31")
+fecha_inicio_quincena <- as.Date("2026/08/01") 
+fecha_fin_quincena <- as.Date("2026/08/15")
 
 fecha_proveedores <- strftime("2026/07/27","%Y%m%d")
 

@@ -28,7 +28,7 @@ library(janitor)
 #Pongo las fechas y leo los archivos
 ```{r pongo la fecha de corte}
 
-fecha_hasta <- strftime("2026/08/03","%Y%m%d")
+fecha_hasta <- strftime("2026/08/19","%Y%m%d")
 
 fecha_desde <- strftime("2025/12/09", "%Y%m%d")
 
@@ -46,7 +46,9 @@ Odoo_Facturas <- read_excel(paste0("Exportacion_sistema/Odoo - Facturas desde ",
         "text", "numeric", "numeric", "text", 
         "text", "text", "text", "text", "text", 
         "numeric", "numeric", 
-        "numeric"))
+        "numeric")) |> 
+  rename_with(~ str_remove(., "^Recibo/")) # le quito esa primera parte a los nombres de la columnas que desde mediados de agosto de 2026 aparecieron
+  
 
 REVISAR_problemas_base_Odoo <- problems(Odoo_Facturas)
 
@@ -289,7 +291,7 @@ Odoo_Facturas_arreglada <- Odoo_Facturas_descuento2 |>
     Nota_general== "VCHINA" ~ "CHINA",
     Nota_general %in% c("VENEAUELA", "VENEZOLANO") ~ "VENEZUELA",
     Nota_general %in% c("UAS", "U7SA", "EWSTADOS UNIDOS", "ETADOS NIDOS", "ESTADS UNIDOS", "ESTADOS UNIUDOS", "ESTADOS UNIDSO", "ESTADOS UNIDIOS", "ESTADOS UNHIDOS", "ESTADO UNIDOS", "ESTADOS UNIDOS", "ESTADOS UNDOS", "ESTADOS UNIDOIS", "ETADOS UNIDOS", "ESATDOS UNIDOS", "ESTADOUNIDENSE", "HAWAI", "ESTADOS UNNIDOS", "ESTADOS UIDOS") ~ "USA",
-    Nota_general %in% c("RGENTINA", "ARRGENTINA", "ARGGENTINA", "ARGNTINA", "ARGETINO", "ARGETINA", "ARGENTUNA", "ARGENTIUNA", "ARGENTINO", "ARGENTINBA", "ARGENTINA 6 CUOTAS", "ARGENTIN", "ARG", "AGENTINA", "AREGENTINA", "ARGENRINA", "ARGENTTINO", "ARGENTINA 3CUOTAS", "ARGENTNA", "ARGWENTINA", "ARGENTI8NA", "ARGENTINA DESCUENTO A EMPLEADO ROCIO MARTINEZ", "ARGENTINA DESCUENTO A EMPLEADO AUTORIZADO POR ROCIO") ~ "ARGENTINA",
+    Nota_general %in% c("RGENTINA", "ARRGENTINA", "ARGGENTINA", "ARGNTINA", "ARGETINO", "ARGETINA", "ARGENTUNA", "ARGENTIUNA", "ARGENTINO", "ARGENTINBA", "ARGENTINA 6 CUOTAS", "ARGENTIN", "ARG", "AGENTINA", "AREGENTINA", "ARGENRINA", "ARGENTTINO", "ARGENTINA 3CUOTAS", "ARGENTNA", "ARGWENTINA", "ARGENTI8NA", "ARGENTINA DESCUENTO A EMPLEADO ROCIO MARTINEZ", "ARGENTINA DESCUENTO A EMPLEADO AUTORIZADO POR ROCIO", "ARGEN TINA") ~ "ARGENTINA",
     Nota_general %in% c("ALEMANIS", "ALEMANA", "GERMAN", "ALEMANNIA", "GERMANY") ~ "ALEMANIA",
     Nota_general == "SLOVENIA" ~ "ESLOVENIA",
     Nota_general == "COLMBIANO" ~ "COLOMBIA",
@@ -316,6 +318,7 @@ Odoo_Facturas_arreglada <- Odoo_Facturas_descuento2 |>
     Nota_general == "MASEDONIA" ~ "MACEDONIA",
     Nota_general == "TURKEY" ~ "TURQUIA",
     Nota_general == "CHILENO" ~ "CHILE",
+    Nota_general == "EMIRATOS ARABES" ~ "EMIRATOS ARABES UNIDOS",
     TRUE~ Nota_general))
 
 ```
@@ -345,7 +348,7 @@ Odoo_Facturas_arreglada2 <- Odoo_Facturas_arreglada |>
     Nota_interna == "ISRAREL TAX FREE" ~ "ISRAEL",
     Nota_interna %in% c("MEXICA", "MEXICANA", "CHILE MEXICO") ~ "MEXICO",
     Nota_interna %in% c("USA MEXICO", "USA USA") ~ "USA",
-    Nota_interna %in% c("ARGENTINO", "ARGERTINA", "AREGTINA", "ARGENTINA SIN INTERES", "ARGEMTINA") ~ "ARGENTINA",
+    Nota_interna %in% c("ARGENTINO", "ARGERTINA", "AREGTINA", "ARGENTINA SIN INTERES", "ARGEMTINA", "ARGEWNTINA") ~ "ARGENTINA",
     Nota_interna %in% c("ALE", "GERMANY") ~ "ALEMANIA",
     Nota_interna== "CROATIA" ~ "CROACIA",
     Nota_interna %in% c("INGLATERRA", "GRAN BRETAÑA", "UK", "ENGLAND") ~ "REINO UNIDO",
@@ -357,6 +360,7 @@ Odoo_Facturas_arreglada2 <- Odoo_Facturas_arreglada |>
    Nota_interna == "TAX FREE PAISES BAJ OS" ~ "TAX FREE PAISES BAJOS",
    Nota_interna == "CH CHILE" ~ "CHILE",
    Nota_interna == "RUSO" ~ "RUSIA",
+   Nota_interna == "FRANCCIA" ~ "FRANCIA",
     TRUE~ Nota_interna))
 
 ```
