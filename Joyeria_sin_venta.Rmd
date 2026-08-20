@@ -8,19 +8,32 @@ date: "2026-05-27"
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-1. Actualizo las facturas de venta y el stock
-2. Corro Arreglo base
+1. Actualizo el stock
+2. Cargo base de ventas arreglada
+
+```{r cargo las librerías}
+
+library(tidyverse)
+library(readxl)
+library(openxlsx)
+library(lubridate)
+library(janitor)
+
+```
+
 
 ```{r}
 
-fecha_stock_descripcion <- strftime("2026/05/27","%Y%m%d")
+base_arreglada <- readRDS("data/df_base.rds")
+
+fecha_stock_descripcion <- strftime("2026/08/20","%Y%m%d")
 
 ```
 
 #Filtro las facturas para quedarme con joyería
 ```{r}
 
-FACTURAS_JOYERIA <- Odoo_mas_Alegra %>%
+FACTURAS_JOYERIA <- base_arreglada %>%
   select(-PRECIO_UNITARIO_SIN_IMP) %>% 
   filter(TIENDA %in% c("Güemes 2", "El Solar", "San Telmo 2")) %>% 
   filter(TIENDA != "San Telmo 2" | FECHA_EMISION > as.Date("2026-05-22")) %>% #filtro, para ST2, desde que es joyería

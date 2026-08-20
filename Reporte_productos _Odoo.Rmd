@@ -8,12 +8,25 @@ date: "2025-04-25"
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-#1 corro Arreglo base para tener corregida la base de artículos
+```{r}
+library(tidyverse)
+library(openxlsx)
+library(janitor)
+
+```
+
+
+#1 cargo la base arreglada ya guardada
+
+```{r}
+base_arreglada <- readRDS("data/df_base.rds")
+```
+
 
 #LLAVERO ABC
 ```{r creo la tabla}
 
-Venta_llaveros <- Odoo_mas_Alegra %>% 
+Venta_llaveros <- base_arreglada %>% 
   #filter(FECHA_EMISION >= "2025-05-01") %>% 
   filter(DESCRIPCION == "LLAVERO ABC") %>%
   mutate(MES = month(FECHA_EMISION), AÑO = year(FECHA_EMISION)) %>% 
@@ -44,6 +57,108 @@ Venta_llaveros |>
   ggplot(aes(periodo, VARIANTE, fill = VENTA)) +
   geom_tile() +
   scale_fill_gradient(low = "white", high = "steelblue")
+
+```
+
+
+#SANDALIAS LOLA
+```{r creo la tabla}
+
+Venta_lola_con_taco <- base_arreglada %>% 
+  #filter(FECHA_EMISION >= "2025-05-01") %>% 
+  filter(DESCRIPCION == "SANDALIA LOLA C/TACO") %>%
+  #mutate(MES = month(FECHA_EMISION), AÑO = year(FECHA_EMISION)) %>% 
+  #group_by(AÑO, MES, VARIANTE) %>%
+  group_by(TALLE, COLOR) |> 
+  summarise(VENTA = sum(PRODUCTO_CANTIDAD)) |> 
+  ungroup()
+  
+
+tabla_historica_LOLA_CON_TACO <- Venta_lola_con_taco |>
+  pivot_wider(
+    names_from = TALLE,
+    values_from = VENTA,
+    values_fill = 0,
+    names_sort = TRUE
+  ) |>
+  adorn_totals("both")
+
+
+Venta_lola_sin_taco <- base_arreglada %>% 
+  #filter(FECHA_EMISION >= "2025-05-01") %>% 
+  filter(DESCRIPCION == "SANDALIA LOLA") %>%
+  #mutate(MES = month(FECHA_EMISION), AÑO = year(FECHA_EMISION)) %>% 
+  #group_by(AÑO, MES, VARIANTE) %>%
+  group_by(TALLE, COLOR) |> 
+  summarise(VENTA = sum(PRODUCTO_CANTIDAD)) |> 
+  ungroup()
+  
+
+tabla_historica_LOLA_SIN_TACO <- Venta_lola_sin_taco |>
+  pivot_wider(
+    names_from = TALLE,
+    values_from = VENTA,
+    values_fill = 0,
+    names_sort = TRUE
+  ) |>
+  adorn_totals("both")
+
+```
+
+```{r gráficos y excel}
+
+wb <- createWorkbook()
+addWorksheet(wb, "LOLA")
+
+colores_sandalias <- c(
+  "CARAMELO" = "#C68642",  # marrón caramelo
+  "NEGRO"    = "#1A1A1A",  # negro
+  "SUELA"    = "#D2B48C"   # beige/tostado tipo suela natural
+)
+
+## --- Posiciones ---
+fila_inicio <- 1
+col_tabla1  <- 1
+col_tabla2  <- ncol(tabla_historica_LOLA_CON_TACO) + 2  # deja 1 columna de espacio
+
+## --- Tabla 1: CON TACO ---
+writeData(wb, "LOLA", tabla_historica_LOLA_CON_TACO,
+          startRow = fila_inicio, startCol = col_tabla1)
+
+grafico_con_taco <- ggplot(Venta_lola_con_taco, aes(x = TALLE, y = VENTA, fill = COLOR)) +
+  geom_col(position = "stack") +
+  scale_fill_manual(values = colores_sandalias) +
+  labs(title = "Venta LOLA CON TACO por talle y color", x = "Talle", y = "Unidades") +
+  theme_minimal()
+
+print(grafico_con_taco)
+insertPlot(
+  wb, "LOLA",
+  startRow = fila_inicio + nrow(tabla_historica_LOLA_CON_TACO) + 3,
+  startCol = col_tabla1,
+  width = 16, height = 10, units = "cm"
+)
+
+## --- Tabla 2: SIN TACO ---
+writeData(wb, "LOLA", tabla_historica_LOLA_SIN_TACO,
+          startRow = fila_inicio, startCol = col_tabla2)
+
+grafico_sin_taco <- ggplot(Venta_lola_sin_taco, aes(x = TALLE, y = VENTA, fill = COLOR)) +
+  geom_col(position = "stack") +
+  scale_fill_manual(values = colores_sandalias) +
+  labs(title = "Venta LOLA SIN TACO por talle y color", x = "Talle", y = "Unidades") +
+  theme_minimal()
+
+print(grafico_sin_taco)
+insertPlot(
+  wb, "LOLA",
+  startRow = fila_inicio + nrow(tabla_historica_LOLA_SIN_TACO) + 3,
+  startCol = col_tabla2,
+  width = 16, height = 10, units = "cm"
+)
+
+saveWorkbook(wb, "Reporte_productos/ventas_sandalia_lola.xlsx", overwrite = TRUE)
+
 
 ```
 
