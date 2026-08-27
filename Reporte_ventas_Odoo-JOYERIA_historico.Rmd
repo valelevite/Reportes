@@ -20,8 +20,9 @@ library(magick)
 ```
 QUITO LOS ANTICIPOS POR ANILLOS DOS LETRAS PERO PONERLOS CON EL MONTO ENTERO CUANDO PAGUEN EL SALDO!!
 
-#1.Corro Arreglo_base_Odoo
-#2.Corro este
+#1.Actualizo stock, precios y proveedores
+#2.Corro Arreglo_base_Odoo y no borro el enviroment porque necesito que esté el método de pago (hasta que lo guarde en una carpeta como rds)
+#3.Corro este
 
 ```{r filtro para el mes a analizar}
 
@@ -32,21 +33,30 @@ QUITO LOS ANTICIPOS POR ANILLOS DOS LETRAS PERO PONERLOS CON EL MONTO ENTERO CUA
 
 
 fecha_inicio <- as.Date("2025/12/09") 
-fecha_fin <- as.Date("2026/07/26")
+fecha_fin <- as.Date("2026/08/26")
 
 dias_periodo <- as.integer(fecha_fin - fecha_inicio) + 1
 
-fecha_stock <- strftime("2026/07/27","%Y%m%d")
+fecha_stock <- strftime("2026/08/27","%Y%m%d")
 
-fecha_precios <- strftime("2026/07/27","%Y%m%d")
+fecha_precios <- strftime("2026/08/27","%Y%m%d")
 
 fecha_proveedores <- strftime("2026/07/27","%Y%m%d")
 
 ```
 
+
+```{r cargo el archivo base}
+
+df_base <- readRDS("Data/df_base.rds")
+cat("df_base actualizado:", format(file.info("Data/df_base.rds")$mtime), "\n")
+
+```
+
+
 ```{r filtro las facturas por fecha y tiendas}
 
-FACTURAS_MES_JOYERIA <- Odoo_mas_Alegra %>%
+FACTURAS_MES_JOYERIA <- df_base %>%
   select(-PRECIO_UNITARIO_SIN_IMP) %>% 
   filter(CODIGO_BARRAS != "Anticipo") |> 
   filter(as.Date(FECHA_EMISION) >= fecha_inicio,
