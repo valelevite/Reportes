@@ -1,0 +1,73 @@
+---
+title: "Clientes"
+output: html_document
+date: "2026-08-21"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+
+library(readxl)
+library(tidyverse)
+library(openxlsx)
+library(lubridate)
+
+```
+
+#pongo la fecha del archivo de Odoo y cargo el archivo arreglado para tomar los datos de tax free
+```{r}
+
+fecha_clientes_odoo <- strftime("2026/08/21","%Y%m%d")
+
+tax_free_odoo <- readRDS("~/Vale laburo/Castelli/Reportes/Data/df_base.rds") |> 
+  select(NOMBRE_FACTURA, CLIENTE, TAX_FREE) |> 
+  distinct() |> 
+  filter(TAX_FREE == "Sí",
+         CLIENTE != "Consumidor Final")
+
+```
+
+
+```{r cargo el archivo de odoo y lo preparo}
+
+clientes <- read_excel(paste0("Clientes/Clientes_Odoo_", fecha_clientes_odoo, ".xlsx")) |> 
+  rename_with(~ str_remove(., "^Recibo/")) |>  # le quito esa primera parte a los nombres de la columnas que desde mediados de agosto de 2026 aparecieron
+  filter(Estado != "Cancelado") |> 
+  mutate(Factura = if_else(Estado == "Registrado", "Sin datos", Factura)) |> 
+  select(Fecha, TIENDA = "Punto de venta/Empresa", NOMBRE_FACTURA = Factura, TIPO_FACTURA = "Factura/Tipo de Documento/Nombre", TOTAL_FACTURA = Total, CLIENTE = Cliente, CLIENTE_ID = "Cliente/ID", CLIENTE_DOCUMENTO = "Cliente/Número de Identificación", CLIENTE_MAIL = "Cliente/Correo electrónico", CLIENTE_ID_PAIS = "Cliente/Código del país", CLIENTE_PAIS = "Cliente/País") |> 
+  filter(CLIENTE_ID != 7) |> 
+  left_join(tax_free_odoo, by = c("CLIENTE", "NOMBRE_FACTURA")) |> 
+  mutate(FECHA = as.Date(Fecha),
+         HORA = format(Fecha, "%H:%M:%S"),
+         CLIENTE_DOCUMENTO = str_remove_all(CLIENTE_DOCUMENTO, "\\.|-"),
+         CLIENTE_DOCUMENTO = if_else(is.na(CLIENTE_DOCUMENTO), CLIENTE, CLIENTE_DOCUMENTO), #cuando no hay doc, uso el nombre
+         VENTA = if_else(TOTAL_FACTURA < 0, -1, 1)) #HAGO esto para que reste las facturas negativas del total de compras
+ 
+```
+
+
+```{r creo tabla}
+
+#preparo clientes para el cruce
+clientes_odoo_cruce <- clientes |>
+  group_by(CLIENTE_DOCUMENTO) |> 
+  slice_max(FECHA, n = 1) |> 
+  ungroup() |> 
+  select(CLIENTE, CLIENTE_DOCUMENTO, CLIENTE_PAIS, CLIENTE_MAIL, FECHA_ULTIMA_COMPRA = FECHA, TIENDA) |> 
+  distinct()
+
+
+tabla_clientes <- clientes |> 
+  group_by(CLIENTE_DOCUMENTO) |> 
+  summarise(Cant_ventas = sum(VENTA), 
+            Facturado = sum(TOTAL_FACTURA)) |> 
+  filter(Facturado >0) |> 
+  left_join(clientes_odoo_cruce, by = "CLIENTE_DOCUMENTO")
+
+REVISAR_VENTA_0 <- filter(tabla_clientes, Cant_ventas <1)
+
+```
+
