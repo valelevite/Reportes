@@ -28,7 +28,7 @@ library(janitor)
 #Pongo las fechas y leo los archivos
 ```{r pongo la fecha de corte}
 
-fecha_hasta <- strftime("2026/08/27","%Y%m%d")
+fecha_hasta <- strftime("2026/09/01","%Y%m%d")
 
 fecha_desde <- strftime("2025/12/09", "%Y%m%d")
 
@@ -347,7 +347,7 @@ Odoo_Facturas_arreglada2 <- Odoo_Facturas_arreglada |>
     Nota_interna %in% c("ENGLAND TAX FREE", "TAX FREE IINGLATERRA", "TAX FREE UNITED KINDOM") ~ "REINO UNIDO TAX FREE",
     Nota_interna == "ISRAREL TAX FREE" ~ "ISRAEL",
     Nota_interna %in% c("MEXICA", "MEXICANA", "CHILE MEXICO") ~ "MEXICO",
-    Nota_interna %in% c("USA MEXICO", "USA USA", "USAA") ~ "USA",
+    Nota_interna %in% c("USA MEXICO", "USA USA", "USAA", "ESTOS UNIDOS") ~ "USA",
     Nota_interna %in% c("ARGENTINO", "ARGERTINA", "AREGTINA", "ARGENTINA SIN INTERES", "ARGEMTINA", "ARGEWNTINA") ~ "ARGENTINA",
     Nota_interna %in% c("ALE", "GERMANY") ~ "ALEMANIA",
     Nota_interna== "CROATIA" ~ "CROACIA",
