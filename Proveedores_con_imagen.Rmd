@@ -1,0 +1,142 @@
+---
+title: "Productos por proveedor con imagen"
+output: word_document
+date: "2026-09-03"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = TRUE)
+library(tidyverse)
+library(openxlsx)
+library(magick)
+```
+
+# Qué hace
+
+Toma `Proveedores/proveedores_dedup.rds` (lo genera `Proveedores_dedup.Rmd`), filtra por
+un proveedor y arma un Excel con **una fila por producto** y una columna con la foto.
+
+- El producto se identifica por el **código interno** (el `[...]` del nombre), no por el
+  código de barras. Cada producto puede tener varias variantes / códigos de barras; se
+  listan juntas en la columna `COD_BARRAS`.
+- Las imágenes salen de `imagenes/`, archivos `CODIGO_NOMBRE.jpg`; se matchea por los
+  dígitos iniciales del nombre del archivo.
+
+```{r parametros}
+PROVEEDOR_FILTRO <- "PASSA DISEGNI S.R.L."
+
+RDS_PROV   <- "Proveedores/proveedores_dedup.rds"
+CARPETA_IMG <- "imagenes"
+
+slug     <- str_replace_all(str_to_upper(PROVEEDOR_FILTRO), "[^A-Z0-9]+", "_") |>
+  str_replace_all("^_|_$", "")
+OUT_XLSX <- file.path("Proveedores", paste0("Productos_", slug, ".xlsx"))
+
+IMG_IN <- 0.65   # tamaño de la imagen en el Excel (pulgadas)
+IMG_PT <- 50     # alto de fila (puntos)
+```
+
+```{r leer}
+proveedores_dedup <- readRDS(RDS_PROV)
+
+# Control de frescura: avisar si el export de Odoo es más nuevo que el .rds
+xlsx_prov <- list.files("Proveedores", "^proveedores_odoo_LUCERO_.*\\.xlsx$", full.names = TRUE)
+if (length(xlsx_prov) && file.mtime(RDS_PROV) < max(file.mtime(xlsx_prov))) {
+  warning("proveedores_dedup.rds es más viejo que el último export de Odoo: corré Proveedores_dedup.Rmd.")
+}
+```
+
+```{r armar-tabla}
+tabla <- proveedores_dedup %>%
+  filter(PROVEEDOR == PROVEEDOR_FILTRO) %>%
+  mutate(
+    CODIGO   = str_extract(PRODUCTO, "(?<=^\\[)[^\\]]+"),
+    PRODUCTO = str_squish(str_remove(PRODUCTO, "^\\[[^\\]]*\\]"))
+  ) %>%
+  group_by(CODIGO, PRODUCTO, PROVEEDOR) %>%
+  summarise(
+    COD_BARRAS   = paste(sort(unique(CODIGO_BARRAS)), collapse = ", "),
+    N_COD_BARRAS = n_distinct(CODIGO_BARRAS),
+    .groups = "drop"
+  ) %>%
+  arrange(CODIGO)
+
+# Lookup de imágenes por código inicial del nombre de archivo
+img_files  <- list.files(CARPETA_IMG, full.names = TRUE,
+                         pattern = "\\.(jpg|jpeg|png|webp)$", ignore.case = TRUE)
+img_lookup <- tibble(filepath = img_files,
+                     ref = str_extract(basename(img_files), "^\\d+")) %>%
+  filter(!is.na(ref)) %>%
+  distinct(ref, .keep_all = TRUE)
+
+buscar_img <- function(codigo) {
+  if (is.na(codigo) || codigo == "") return(NA_character_)
+  hit <- img_lookup$filepath[img_lookup$ref == codigo]
+  if (!length(hit) && nchar(codigo) >= 6)
+    hit <- img_lookup$filepath[img_lookup$ref == substr(codigo, 1, 6)]
+  if (length(hit)) hit[1] else NA_character_
+}
+
+tabla <- tabla %>% mutate(img_path = map_chr(CODIGO, buscar_img))
+```
+
+```{r validacion}
+SIN_IMAGEN <- tabla %>% filter(is.na(img_path)) %>% select(CODIGO, PRODUCTO)
+
+message("Proveedor: ", PROVEEDOR_FILTRO)
+message("Productos: ", nrow(tabla), " | con imagen: ", sum(!is.na(tabla$img_path)),
+        " | sin imagen: ", nrow(SIN_IMAGEN))
+if (nrow(SIN_IMAGEN) > 0) {
+  message("\n=== Productos sin imagen en '", CARPETA_IMG, "' ===")
+  walk2(SIN_IMAGEN$CODIGO, SIN_IMAGEN$PRODUCTO, ~ message("  ", .x, "  ", .y))
+}
+```
+
+```{r tabla-preview, echo=FALSE}
+knitr::kable(head(select(tabla, CODIGO, PRODUCTO, N_COD_BARRAS, COD_BARRAS), 20))
+```
+
+```{r escribir-excel}
+compress_img <- function(filepath, max_px = 180, quality = 72) {
+  img  <- image_read(filepath)
+  info <- image_info(img)
+  if (info$width > max_px || info$height > max_px)
+    img <- image_scale(img, paste0(max_px, "x", max_px))
+  tmp <- tempfile(fileext = paste0(".", tolower(tools::file_ext(filepath))))
+  image_write(img, path = tmp, quality = quality)
+  tmp
+}
+
+tabla_excel <- tabla %>%
+  transmute(IMAGEN = "", CODIGO, PRODUCTO, PROVEEDOR, N_COD_BARRAS, COD_BARRAS)
+
+wb <- createWorkbook()
+addWorksheet(wb, "Productos", gridLines = FALSE)
+writeData(wb, "Productos", tabla_excel, startRow = 1, startCol = 1, borders = "all")
+addStyle(wb, "Productos",
+         createStyle(textDecoration = "BOLD", halign = "CENTER", valign = "CENTER"),
+         rows = 1, cols = seq_len(ncol(tabla_excel)), gridExpand = TRUE)
+
+setColWidths(wb, "Productos", cols = 1, widths = 11)  # IMAGEN
+setColWidths(wb, "Productos", cols = 2, widths = 12)  # CODIGO
+setColWidths(wb, "Productos", cols = 3, widths = 60)  # PRODUCTO
+setColWidths(wb, "Productos", cols = 4, widths = 24)  # PROVEEDOR
+setColWidths(wb, "Productos", cols = 5, widths = 8)   # N_COD_BARRAS
+setColWidths(wb, "Productos", cols = 6, widths = 40)  # COD_BARRAS
+
+for (i in seq_len(nrow(tabla))) {
+  excel_row <- i + 1
+  setRowHeights(wb, "Productos", rows = excel_row, heights = IMG_PT)
+  ruta <- tabla$img_path[i]
+  if (is.na(ruta)) next
+  insertImage(wb, "Productos", file = compress_img(ruta),
+              startRow = excel_row, startCol = 1,
+              width = IMG_IN, height = IMG_IN, units = "in")
+}
+
+freezePane(wb, "Productos", firstActiveRow = 2)
+addFilter(wb, "Productos", row = 1, cols = seq_len(ncol(tabla_excel)))
+
+saveWorkbook(wb, OUT_XLSX, overwrite = TRUE)
+message("Escrito: ", OUT_XLSX)
+```

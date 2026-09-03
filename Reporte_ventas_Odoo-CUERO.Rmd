@@ -24,23 +24,25 @@ library(janitor)
 
 ```
 VER SI PROVEEDORES LO CRUZO CON DESCRIPCIÓN (SE LLAMA NOMBRE EN ODOO) EN VEZ DE CON EL CÓDIGO DE BARRAS. ASÍ ME ASEGURO EL PROVEEDOR EN EL CASO DE QUE ALGUNA VARIEDAD NO TENGA EL DATO DE PROVEEDOR EN ODOO
-#1.Preparo Tax Free
+#1.Descargo los CSV de Tax free del mes a "Tax free/Tax free para armar" (este Rmd los arma solo vía tax_free_creacion.R)
 #2.Actualizo stock, precios y proveedores
-#3.Corro Arreglo_base_Odoo
-#4.Corro este y REVISO CONSERJES
+#3.Corro Proveedores_dedup.Rmd (deja Proveedores/proveedores_dedup.rds)
+#4.Corro Arreglo_base_Odoo
+#5.Corro este y REVISO CONSERJES
 
 ```{r filtro para el mes a analizar}
 
-fecha_inicio_mes <- as.Date("2026/07/01") 
-fecha_fin_mes <- as.Date("2026/07/31")
+fecha_inicio_mes <- as.Date("2026/08/01") 
+fecha_fin_mes <- as.Date("2026/08/31")
 
-mes <- "2026-07"
+mes <- "2026-08"
 
-fecha_stock <- strftime("2026/07/27","%Y%m%d")
+fecha_stock <- strftime("2026/08/27","%Y%m%d")
 
-fecha_precios <- strftime("2026/07/27","%Y%m%d")
+fecha_precios <- strftime("2026/08/27","%Y%m%d")
 
-fecha_proveedores <- strftime("2026/07/27","%Y%m%d")
+#fecha_proveedores ya no se usa: los proveedores se leen de Proveedores/proveedores_dedup.rds (lo genera Proveedores_dedup.Rmd)
+#fecha_proveedores <- strftime("2026/09/01","%Y%m%d")
 
 fecha_maestro <- strftime("2025/08/22", "%Y%m%d")
 
@@ -78,29 +80,26 @@ FACTURAS_MES2 <- FACTURAS_MES %>%
 
 ```{r le agrego los proveedores}
 
-#CAMBIO sb perdriel, SD y Chaco al genérico
-proveedores_odoo_LUCERO <- read_excel(paste0("Proveedores/proveedores_odoo_LUCERO_", fecha_proveedores, ".xlsx")) |> 
-  rename(CODIGO_BARRAS = "Código de barras", PRODUCTO = Producto, PROVEEDOR = Proveedores) %>% 
-  mutate(PROVEEDOR = str_squish(PROVEEDOR)) %>% #para quitar espacios en blanco al ppio y al final del texto
-  mutate(PROVEEDOR = if_else(
-  PROVEEDOR %in% c("SUCCESSFUL BOXES S.R.L., PERDRIEL", "SUCCESSFUL BOXES S.R.L., CHACO", "SUCCESSFUL BOXES S.R.L., SD 2463"),
-  "SUCCESSFUL BOXES S.R.L.",
-  PROVEEDOR)) %>% 
-  mutate(PROVEEDOR = if_else(PROVEEDOR == "PASSA DISEGNI SRL", "PASSA DISEGNI S.R.L. (ALAIMO)", PROVEEDOR))
+# Los proveedores ya vienen deduplicados (un PROVEEDOR por CODIGO_BARRAS) desde
+# Proveedores_dedup.Rmd: aplica ahí str_squish + familias de nombre (SB / PASSA con  
+# sucursal, "SRL" sin puntos), y resuelve los productos con más de un proveedor
+# (SUCCESSFUL BOXES gana / C DE I se descarta / correcciones manuales).
+rds_prov <- "Proveedores/proveedores_dedup.rds"
+proveedores_odoo_LUCERO <- readRDS(rds_prov)
 
+# Control de frescura: si el export de Odoo es más nuevo que el .rds, hay que volver a
+# correr Proveedores_dedup.Rmd antes de este reporte.
+xlsx_prov <- list.files("Proveedores", "^proveedores_odoo_LUCERO_.*\\.xlsx$", full.names = TRUE)
+if (length(xlsx_prov) && file.mtime(rds_prov) < max(file.mtime(xlsx_prov))) {
+  warning("proveedores_dedup.rds es más viejo que el último export de Odoo: corré Proveedores_dedup.Rmd.")
+}
+cat("proveedores_dedup actualizado:", format(file.mtime(rds_prov)), "\n")
 
-#Reviso los proveedores entre aquellos productos con más de uno 
-REVISO_PROVEEDORES <- proveedores_odoo_LUCERO |>
-  filter(PRODUCTO != "[Delivery_007] Envío estándar" | is.na(PRODUCTO)) %>% #borro esta fila que aparece en primer lugar
-  fill(CODIGO_BARRAS, PRODUCTO, .direction = "down") |>
-  group_by(PRODUCTO) |>
-  summarise(
-    n_proveedores = n_distinct(PROVEEDOR),
-    proveedores   = paste(sort(unique(PROVEEDOR)), collapse = " | "),
-    .groups = "drop"
-  ) %>% 
-  filter(n_proveedores > 1)
-
+# Productos que quedaron con más de un proveedor SIN resolver (solo si hay)
+revisar_prov <- "Proveedores/proveedores_a_revisar.xlsx"
+REVISO_PROVEEDORES <- if (file.exists(revisar_prov)) read_excel(revisar_prov) else tibble()
+if (nrow(REVISO_PROVEEDORES) > 0)
+  warning(nrow(REVISO_PROVEEDORES), " producto(s) con más de un proveedor sin resolver: ver ", revisar_prov)
 
 FACTURAS_MES2$PROVEEDOR <- proveedores_odoo_LUCERO$PROVEEDOR[match(FACTURAS_MES2$CODIGO_BARRAS, proveedores_odoo_LUCERO$CODIGO_BARRAS)]
 
@@ -122,10 +121,14 @@ print(na_por_columna)
 ```
 
 
-```{r}
-#leo el archivo que creé de Tax free
-Tax_free <- read_excel(paste0("Tax free/Tax free armado/Tax free_", mes, ".xlsx")) %>%
-  filter(TFSStatus!="Voided" | is.na(TFSStatus)) %>%
+```{r armo y leo Tax free}
+# Arma el consolidado de Tax free del mes desde los CSV de "Tax free/Tax free para armar"
+# y escribe "Tax free/Tax free armado/Tax free_<mes>.xlsx". Usa el mismo `mes` que el
+# reporte, así no se pueden desincronizar. Antes había que correr Tax_free_creacion_v2.Rmd
+# a mano. Devuelve el df ya tipado (fechas y montos), no hace falta re-leer el .xlsx.
+source("tax_free_creacion.R")
+Tax_free <- crear_tax_free(mes) %>%
+  filter(TFSStatus != "Voided" | is.na(TFSStatus)) %>%
   filter(as.Date(IssuingDate) >= fecha_inicio_mes, IssuingDate <= fecha_fin_mes)
 
 ```
@@ -892,7 +895,7 @@ Stock_Lucero <- Stock |>
 
 #Le agrego las columnas que necesito de los productos
 ##Primero leo y preparo los datos
-df_articulos <- readRDS("~/Vale laburo/Castelli/Reportes/Base artículos Odoo/df_articulos.rds")
+df_articulos <- readRDS("Base artículos Odoo/df_articulos.rds")  # lo genera Arreglo_base_Odoo_5.Rmd
 
 Base_para_stock <- df_articulos |> 
   select(CODIGO_BARRAS, REFERENCIA_INTERNA, RUBRO, MATERIAL, COLOR, TALLE, VARIANTE)

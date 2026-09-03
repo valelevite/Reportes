@@ -15,50 +15,18 @@ library(tidyverse)
 library(openxlsx)
 
 mes <- "2026-07"
-mes_arch <- str_replace(mes, "-", "_")
-
 ```
 
-#Leo los archivos y los unifico
+La lógica vive en `tax_free_creacion.R` (`crear_tax_free()`), así el reporte de ventas la
+puede correr solo con el mismo `mes`. Este Rmd es la versión "a mano" para cuando querés
+armar el Tax free sin correr un reporte de ventas completo.
+
 ```{r}
+source("tax_free_creacion.R")
 
-ruta <- "Tax free/Tax free para armar"
-archivos <- list.files(ruta, pattern = paste0(mes_arch, "\\.csv$"), full.names = TRUE)
-
-Tax_free <- map(archivos, function(archivo) {
-  
-  tienda <- basename(archivo) |>
-  str_remove(paste0("[ _]", mes_arch, "\\.csv$"))
-  
-  read_csv(archivo, show_col_types = FALSE,
-           col_types = cols(TotalGrossAmount        = "c",
-                            TotalRefundAmount       = "c",
-                            TouristCountryNumIsoCode = "c",
-                            InvoiceNumber           = "c")) |>
-    mutate(Tienda = tienda, .before = 1) |>
-    select(-DocumentIdentifier, -DeskID) |>
-    mutate(IssuingTime = as.character(IssuingDate)) |>
-    mutate(
-      IssuingDate       = str_extract(WeekdayName, "[\\d/]+$") |> as.Date(format = "%d/%m/%Y"),
-      WeekdayName       = str_extract(WeekdayName, "^[^,]+"),
-      TotalGrossAmount  = parse_number(TotalGrossAmount,  locale = locale(decimal_mark = ",", grouping_mark = ".")),
-      TotalRefundAmount = parse_number(TotalRefundAmount, locale = locale(decimal_mark = ",", grouping_mark = "."))
-    ) |>
-    rename(TouristCountry = TouristCountryNumIsoCode) |>
-    select(Tienda, WeekdayName, IssuingDate, IssuedStatus, IssuingTime,
-           TFSStatus, TouristCountry, InvoiceNumber,
-           TotalGrossAmount, TotalRefundAmount)
-  
-}) |>
-  bind_rows()
-
-```
-
-#lo escribo en excel
-```{r}
-
-write.xlsx(Tax_free, paste0("Tax free/Tax free armado/Tax free_", mes, ".xlsx"))
-
+# Lee los CSV de "Tax free/Tax free para armar/*_<mes>.csv", escribe
+# "Tax free/Tax free armado/Tax free_<mes>.xlsx" y devuelve el df ya tipado.
+Tax_free <- crear_tax_free(mes)
 ```
 
 #----------------------------------------------------------

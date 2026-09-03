@@ -9,14 +9,15 @@
 | Base Odoo (df_base) | [base-odoo.md](base-odoo.md) | 2026-08-19 | — |
 | Presupuestos y gastos | [presupuestos-gastos.md](presupuestos-gastos.md) | 2026-08-16 | refactors v7 sin empezar (ver lista en CLAUDE.md) |
 | Joyería (ventas) | [joyeria.md](joyeria.md) | 2026-08-27 | — |
-| Cuero (ventas) | [cuero.md](cuero.md) | 2026-07-15 | — |
+| Cuero (ventas) | [cuero.md](cuero.md) | 2026-09-03 | — |
 | Tablero Carlos | [tablero-carlos.md](tablero-carlos.md) | 2026-08-16 | decidir hosting: Cloudflare Pages vs Netlify |
 | Dashboard El Lucero | [dashboard-lucero.md](dashboard-lucero.md) | sin sesión registrada | — |
 | Tickets por hora | [tickets-hora.md](tickets-hora.md) | 2026-08-10 | reactivar AS Güemes si reabre |
 | Horas trabajadas | [horas.md](horas.md) | 2026-08-20 | — |
 | Stock | [stock.md](stock.md) | sin sesión registrada | 201 productos sin imagen en `imagenes/` |
 | Clientes | [clientes.md](clientes.md) | 2026-08-26 | Rmd recién creado, definir alcance |
-| Tax free | [taxfree.md](taxfree.md) | 2026-07-02 | automatización de descarga de CSV a medias |
+| Proveedores por producto | [proveedores.md](proveedores.md) | 2026-09-03 | enganchar el .rds en reportes consumidores + auto-disparo |
+| Tax free | [taxfree.md](taxfree.md) | 2026-09-03 | descarga de CSV a medias; falta enganchar la función en Reporte_ventas_9 |
 
 ---
 

@@ -1,0 +1,4 @@
+﻿WeekdayName,IssuedStatus,IssuingDate,TFSStatus,DeskID,TouristCountryNumIsoCode,InvoiceNumber,DocumentIdentifier,TotalGrossAmount,TotalRefundAmount
+"martes, 25/8/2026",Issued,18:22:42,Processed by Global Blue,1454540,BRAZIL,367,11065408412117982219,"329,960.00","42,894.80"
+"lunes, 31/8/2026",Issued,17:50:15,Issued,1454540,PERU,374,11065408412117992751,"64,995.00","8,449.35"
+

@@ -1,0 +1,323 @@
+---
+title: "Proveedores por producto — deduplicación"
+output: word_document
+date: "2026-09-03"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = TRUE)
+library(tidyverse)
+library(readxl)
+library(openxlsx)
+```
+
+# Qué hace este reporte
+
+Toma el último export de `Proveedores/proveedores_odoo_LUCERO_*.xlsx` (formato Odoo:
+`Código de barras`, `Producto`, `Proveedores`, con el código y el producto en blanco
+en las filas de proveedor adicional) y devuelve **un dataset con un solo proveedor por
+producto**.
+
+Antes de comparar se unifican los nombres de proveedor (chunk `unificar-proveedor`):
+`str_squish`, luego las **familias** de `FAMILIAS_PROVEEDOR` (todo lo que empiece con
+`SUCCESSFUL BOXES S.R.L...` / `PASSA DISEGNI S.R.L...` — sucursal tras la coma, `SRL` sin
+puntos, etc. — colapsa al nombre canónico), luego los **alias exactos** de
+`ALIAS_PROVEEDOR`. Después, un paso genérico colapsa variantes que solo difieren en
+punto final / espacios / mayúsculas (ver `REVISO_variantes_nombre`).
+
+Criterio cuando un producto tiene más de un proveedor:
+
+1. Si entre los proveedores está **`SUCCESSFUL BOXES S.R.L.`** → se deja solo ese.
+2. Si no, y está **`C DE I INTERNACIONAL S.A.`** → se saca ese y se deja el otro.
+3. Si todavía queda más de uno → va a `REVISAR_proveedores` (y al Excel
+   `proveedores_a_revisar.xlsx`) para decidir a mano.
+
+Se **descartan** las filas sin código de barras: en este export son todas cuentas
+contables, servicios, insumos y pseudo-productos de PdV, no mercadería
+(`EXCLUIR_SIN_CODIGO`).
+
+`CORRECCIONES_PROVEEDOR` fuerza el proveedor de casos puntuales, por código interno
+(el `[...]` del nombre). Hoy: `102617` (ANILLO INICIAL (2), todas sus variantes) →
+`MARIEL LINI`.
+
+Los productos con código de barras pero sin **ningún** proveedor cargado en Odoo quedan
+en el dataset con `PROVEEDOR = NA`, y salen aparte en `SIN_proveedor` /
+`Proveedores/proveedores_sin_proveedor.xlsx`.
+
+**Salida** (`proveedores_dedup.rds` / `.xlsx`): una fila por producto, solo tres
+columnas — `CODIGO_BARRAS`, `PRODUCTO`, `PROVEEDOR` — listas para el `match()` por
+`CODIGO_BARRAS` de `Reporte_ventas_Odoo-CUERO.Rmd`, `Reporte_ventas_Odoo-JOYERIA_*.Rmd`
+y `Reporte_debutantes_joyeria.Rmd`. El detalle (`CRITERIO`, `N_PROVEEDORES_ORIGINAL`)
+queda solo en el objeto `dedup_full` para las tablas de control del reporte.
+
+```{r parametros}
+CARPETA        <- "Proveedores"
+PATRON_ARCHIVO <- "^proveedores_odoo_LUCERO_.*\\.xlsx$"
+
+PROV_PRIORIZAR <- "SUCCESSFUL BOXES S.R.L."   # si aparece, se queda solo con este
+PROV_DESCARTAR <- "C DE I INTERNACIONAL S.A." # se descarta salvo que sea el único
+
+# Unificación de nombres de proveedor ANTES de agrupar.
+# 1) Familias: cualquier cosa que empiece así (sucursal/dirección tras la coma,
+#    "SRL" sin puntos, etc.) colapsa al nombre canónico.
+FAMILIAS_PROVEEDOR <- tibble::tribble(
+  ~patron,                              ~canonico,
+  "^SUCCESSFUL BOXES S\\.?R\\.?L\\.?",  "SUCCESSFUL BOXES S.R.L.",
+  "^PASSA DISEGNI S\\.?R\\.?L\\.?",     "PASSA DISEGNI S.R.L."
+)
+# 2) Alias exactos (editable a mano para casos sueltos que no encajan en una familia).
+ALIAS_PROVEEDOR <- tibble::tribble(
+  ~de, ~a
+  # "NOMBRE COMO VIENE", "NOMBRE CANONICO"
+)
+
+# Filas sin código de barras = cuentas contables / servicios / insumos / PdV: fuera.
+EXCLUIR_SIN_CODIGO <- TRUE
+
+# Proveedor forzado a mano, por código interno (el [...] del nombre del producto).
+CORRECCIONES_PROVEEDOR <- tibble::tribble(
+  ~cod_interno, ~proveedor,
+  "102617",     "MARIEL LINI",
+  "102502",     "YIWU QIRUI IMPORT AND EXPORT CO. LTD"
+)
+
+OUT_RDS      <- file.path(CARPETA, "proveedores_dedup.rds")
+OUT_XLSX     <- file.path(CARPETA, "proveedores_dedup.xlsx")
+OUT_REVISAR  <- file.path(CARPETA, "proveedores_a_revisar.xlsx")
+OUT_SIN      <- file.path(CARPETA, "proveedores_sin_proveedor.xlsx")
+```
+
+```{r leer-archivo}
+# Último archivo por fecha en el nombre (proveedores_odoo_LUCERO_AAAAMMDD.xlsx)
+archivos <- list.files(CARPETA, pattern = PATRON_ARCHIVO, full.names = TRUE)
+stopifnot(length(archivos) > 0)
+archivo_in <- archivos[order(basename(archivos), decreasing = TRUE)][1]
+
+message("Archivo de entrada: ", basename(archivo_in),
+        "  (mtime ", format(file.info(archivo_in)$mtime, "%Y-%m-%d %H:%M"), ")")
+
+crudo <- read_excel(archivo_in, col_types = "text")
+names(crudo) <- c("codigo", "producto", "proveedor")
+```
+
+```{r unificar-proveedor}
+# str_squish: saca espacios dobles y los del principio / final.
+crudo <- crudo %>% mutate(proveedor = str_squish(proveedor))
+
+# Familias por patrón (SUCCESSFUL BOXES y PASSA DISEGNI con sucursal, "SRL" sin puntos, etc.)
+for (i in seq_len(nrow(FAMILIAS_PROVEEDOR))) {
+  crudo <- crudo %>%
+    mutate(proveedor = if_else(
+      !is.na(proveedor) & str_detect(proveedor, FAMILIAS_PROVEEDOR$patron[i]),
+      FAMILIAS_PROVEEDOR$canonico[i], proveedor))
+}
+
+# Alias exactos
+if (nrow(ALIAS_PROVEEDOR) > 0) {
+  crudo <- crudo %>%
+    left_join(ALIAS_PROVEEDOR, by = c(proveedor = "de")) %>%
+    mutate(proveedor = coalesce(a, proveedor)) %>%
+    select(-a)
+}
+```
+
+```{r armar-bloques}
+# Cada fila con `producto` no vacío abre un bloque de producto; las siguientes
+# filas con producto/codigo en blanco son proveedores adicionales del mismo producto.
+base <- crudo %>%
+  mutate(grp = cumsum(!is.na(producto))) %>%
+  group_by(grp) %>%
+  mutate(
+    codigo   = first(codigo),
+    producto = first(producto)
+  ) %>%
+  ungroup()
+
+stopifnot(all(base$grp >= 1))  # no debería haber filas antes del primer producto
+```
+
+```{r normalizar-nombres}
+# Clave normalizada para detectar el mismo proveedor escrito distinto.
+norm_prov <- function(x) {
+  x %>%
+    str_squish() %>%
+    str_replace_all("[.,]+$", "") %>%  # punto/coma final
+    str_to_upper()
+}
+
+prov_largo <- base %>%
+  filter(!is.na(proveedor)) %>%
+  mutate(prov_norm = norm_prov(proveedor))
+
+# Nombre canónico por clave: la variante más usada en todo el archivo
+canon <- prov_largo %>%
+  count(prov_norm, proveedor, name = "n") %>%
+  arrange(prov_norm, desc(n)) %>%
+  group_by(prov_norm) %>%
+  summarise(proveedor_canonico = first(proveedor), .groups = "drop")
+
+# Validación: qué claves tenían más de una forma de escribirse
+REVISO_variantes_nombre <- prov_largo %>%
+  distinct(prov_norm, proveedor) %>%
+  group_by(prov_norm) %>%
+  filter(n() > 1) %>%
+  summarise(variantes = paste(sort(unique(proveedor)), collapse = "  |  "),
+            .groups = "drop") %>%
+  left_join(canon, by = "prov_norm")
+
+if (nrow(REVISO_variantes_nombre) > 0) {
+  message("Variantes de nombre unificadas (", nrow(REVISO_variantes_nombre), "):")
+  walk2(REVISO_variantes_nombre$variantes, REVISO_variantes_nombre$proveedor_canonico,
+        ~ message("  ", .x, "   ->   ", .y))
+}
+```
+
+```{r dedup-y-reglas}
+# Proveedores distintos por producto, ya con nombre canónico
+por_producto <- prov_largo %>%
+  left_join(canon, by = "prov_norm") %>%
+  distinct(grp, codigo, producto, proveedor = proveedor_canonico)
+
+# Regla de resolución
+resolver <- function(provs) {
+  p <- unique(provs)
+  if (length(p) <= 1) return(p)
+  if (PROV_PRIORIZAR %in% p) return(PROV_PRIORIZAR)
+  p <- setdiff(p, PROV_DESCARTAR)
+  p  # puede seguir teniendo > 1
+}
+
+resueltos <- por_producto %>%
+  group_by(grp, codigo, producto) %>%
+  summarise(
+    proveedores_originales = paste(sort(unique(proveedor)), collapse = "  |  "),
+    n_original = n_distinct(proveedor),
+    proveedor_final_lst = list(resolver(proveedor)),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    n_final   = lengths(proveedor_final_lst),
+    resuelto  = n_final == 1,
+    proveedor = map_chr(proveedor_final_lst, ~ if (length(.x) == 1) .x else NA_character_),
+    criterio  = case_when(
+      n_original <= 1                              ~ "único",
+      !resuelto                                    ~ "A REVISAR",
+      str_detect(proveedores_originales, fixed(PROV_PRIORIZAR)) ~ "prioriza SUCCESSFUL BOXES",
+      str_detect(proveedores_originales, fixed(PROV_DESCARTAR)) ~ "descarta C DE I",
+      TRUE                                         ~ "único tras unificar variantes"
+    )
+  )
+```
+
+```{r dataset-final}
+# Espina: un producto = una fila.
+spine <- base %>% distinct(grp, codigo, producto)
+
+# Filas sin código de barras: cuentas contables / servicios / insumos / pseudo-productos
+# de PdV. No son mercadería -> se descartan.
+if (EXCLUIR_SIN_CODIGO) {
+  EXCLUIDOS_sin_codigo <- spine %>% filter(is.na(codigo)) %>% distinct(producto)
+  message("Descartadas ", nrow(EXCLUIDOS_sin_codigo),
+          " descripciones sin código de barras (cuentas contables / servicios / insumos).")
+  spine <- spine %>% filter(!is.na(codigo))
+}
+
+# Versión con criterio / conteo, para las validaciones de abajo (no se exporta).
+dedup_full <- spine %>%
+  left_join(select(resueltos, grp, proveedor, criterio, n_original), by = "grp") %>%
+  mutate(
+    n_proveedores_original = coalesce(n_original, 0L),
+    criterio = coalesce(criterio, "sin proveedor"),
+    cod_interno = str_extract(producto, "(?<=^\\[)[^\\]]+")
+  ) %>%
+  # Correcciones manuales de proveedor (por código interno)
+  left_join(CORRECCIONES_PROVEEDOR, by = "cod_interno", suffix = c("", "_fix")) %>%
+  mutate(
+    criterio  = if_else(!is.na(proveedor_fix), "corrección manual", criterio),
+    proveedor = coalesce(proveedor_fix, proveedor)
+  ) %>%
+  transmute(
+    CODIGO_BARRAS          = codigo,
+    PRODUCTO               = producto,
+    PROVEEDOR              = proveedor,
+    CRITERIO               = criterio,
+    N_PROVEEDORES_ORIGINAL = n_proveedores_original
+  ) %>%
+  arrange(PRODUCTO)
+
+# Dataset final: solo las 3 columnas de match. Es lo que se guarda y consumen los reportes.
+proveedores_dedup <- dedup_full %>% select(CODIGO_BARRAS, PRODUCTO, PROVEEDOR)
+
+# Productos con más de un proveedor que las reglas NO pudieron resolver
+# (excluye los arreglados a mano en CORRECCIONES_PROVEEDOR).
+REVISAR_proveedores <- resueltos %>%
+  filter(!resuelto) %>%
+  mutate(cod_interno = str_extract(producto, "(?<=^\\[)[^\\]]+")) %>%
+  filter(!cod_interno %in% CORRECCIONES_PROVEEDOR$cod_interno) %>%
+  transmute(CODIGO_BARRAS = codigo, PRODUCTO = producto,
+            PROVEEDORES_ORIGINALES = proveedores_originales, N_ORIGINAL = n_original) %>%
+  arrange(PRODUCTO)
+
+# Mercadería (con código de barras) que sigue sin ningún proveedor cargado en Odoo.
+SIN_proveedor <- dedup_full %>%
+  filter(CRITERIO == "sin proveedor") %>%
+  distinct(CODIGO_BARRAS, PRODUCTO) %>%
+  arrange(PRODUCTO)
+```
+
+```{r validaciones}
+n_prod        <- nrow(dedup_full)
+n_sin_prov    <- sum(dedup_full$CRITERIO == "sin proveedor")
+n_multi       <- sum(dedup_full$N_PROVEEDORES_ORIGINAL > 1)
+n_a_revisar   <- nrow(REVISAR_proveedores)
+
+message("Productos totales:            ", n_prod)
+message("  con >1 proveedor original: ", n_multi)
+message("  sin ningún proveedor:      ", n_sin_prov)
+message("  SIN resolver (a revisar):  ", n_a_revisar)
+
+if (n_a_revisar > 0) {
+  message("\n>>> HAY ", n_a_revisar, " PRODUCTO(S) CON MÁS DE UN PROVEEDOR SIN RESOLVER <<<")
+  message("=== revisalos en Proveedores/proveedores_a_revisar.xlsx ===")
+  walk(seq_len(n_a_revisar), ~ message(
+    "  ", REVISAR_proveedores$CODIGO_BARRAS[.x], " | ",
+    REVISAR_proveedores$PRODUCTO[.x], "  =>  ",
+    REVISAR_proveedores$PROVEEDORES_ORIGINALES[.x]
+  ))
+}
+```
+
+```{r resumen, echo=FALSE}
+knitr::kable(count(dedup_full, CRITERIO, name = "productos"))
+```
+
+```{r a-revisar-tabla, echo=FALSE}
+if (nrow(REVISAR_proveedores) > 0) knitr::kable(REVISAR_proveedores)
+```
+
+```{r sin-proveedor-tabla, echo=FALSE}
+if (nrow(SIN_proveedor) > 0) {
+  knitr::kable(head(SIN_proveedor, 100),
+               caption = paste0("Mercadería sin proveedor (", nrow(SIN_proveedor),
+                                " en total; primeros 100)"))
+}
+```
+
+```{r exportar}
+saveRDS(proveedores_dedup, OUT_RDS)
+write.xlsx(proveedores_dedup, OUT_XLSX, overwrite = TRUE)
+
+exportar_o_limpiar <- function(df, ruta) {
+  if (nrow(df) > 0) {
+    write.xlsx(df, ruta, overwrite = TRUE)
+  } else if (file.exists(ruta)) {
+    file.remove(ruta)  # sin casos: no dejar un Excel viejo
+  }
+}
+exportar_o_limpiar(REVISAR_proveedores, OUT_REVISAR)
+exportar_o_limpiar(SIN_proveedor, OUT_SIN)
+
+message("Escritos: ", OUT_RDS, " | ", OUT_XLSX,
+        if (nrow(REVISAR_proveedores) > 0) paste0(" | ", OUT_REVISAR) else "",
+        if (nrow(SIN_proveedor) > 0)      paste0(" | ", OUT_SIN) else "")
+```
