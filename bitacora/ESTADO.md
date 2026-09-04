@@ -9,7 +9,7 @@
 | Base Odoo (df_base) | [base-odoo.md](base-odoo.md) | 2026-08-19 | — |
 | Presupuestos y gastos | [presupuestos-gastos.md](presupuestos-gastos.md) | 2026-08-16 | refactors v7 sin empezar (ver lista en CLAUDE.md) |
 | Joyería (ventas) | [joyeria.md](joyeria.md) | 2026-08-27 | — |
-| Cuero (ventas) | [cuero.md](cuero.md) | 2026-09-03 | — |
+| Cuero (ventas) | [cuero.md](cuero.md) | 2026-09-04 | sale listo; único paso manual: "EN PRODUCCIÓN" (hoja SKU) |
 | Tablero Carlos | [tablero-carlos.md](tablero-carlos.md) | 2026-08-16 | decidir hosting: Cloudflare Pages vs Netlify |
 | Dashboard El Lucero | [dashboard-lucero.md](dashboard-lucero.md) | sin sesión registrada | — |
 | Tickets por hora | [tickets-hora.md](tickets-hora.md) | 2026-08-10 | reactivar AS Güemes si reabre |

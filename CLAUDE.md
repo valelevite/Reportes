@@ -38,7 +38,8 @@ Florida, San Telmo, Recoleta, French, Güemes, Güemes 2, El Solar, AS San Telmo
 - **Todo el texto visible en español**: "Estado de Resultados", "Cascada de resultados" — nunca "P&L"
 - **Margen %** se calcula siempre como `1 - (Costo / Venta_sin_imp)`, nunca como promedio simple
 - **Porcentajes**: nunca como promedios simples — siempre en relación a la base correcta (`Venta_sin_imp` o `Venta_con_imp` según corresponda)
-- **Umbral 80% Pareto**: usa regla del punto medio `(cum_prev + cum_part) / 2 < 0.80` para no sobrepasar; decisión deliberada, no cambiar
+- **Umbral 80% Pareto**: regla del punto medio `(cum_prev + cum_part) / 2 < 0.80`. El corte queda en el acumulado **más cercano al 80%, sea por debajo o por arriba**; decisión deliberada, no cambiar. No usar umbrales a mano tipo `<= 0.85` para compensar.
+  - En los **títulos de gráficos** siempre se escribe "(80% de la venta)", aunque el acumulado real caiga en 70 y pico o en 80 y pico: el 80% es el criterio, no el resultado.
 
 ---
 
@@ -112,6 +113,25 @@ Workbook Excel anual con una hoja por mes (`MM-AAAA`), generado con un loop sobr
 ### 6. Stock joyería sin venta
 
 Reporte Excel con imágenes de producto insertadas. Columnas: DESCRIPCION, CODIGO, El Solar, San Telmo 2, Güemes 2, Total tiendas, Florida Depósito.
+
+### 7. Reporte de ventas de Cuero (mensual)
+
+`Reporte_ventas_Odoo-CUERO.Rmd` + `graficos_reporte_cuero.R` + `tax_free_creacion.R`.
+Tiendas: San Telmo, San Telmo 2 (solo hasta 2026-05-22, cuando dejó de ser cuero), Florida, French, Güemes, Recoleta.
+
+**Sale listo para enviar.** El único paso manual es completar la columna "EN PRODUCCIÓN" de la hoja SKU, cuyos datos vienen de otra fuente. No hay que rearmar nada a mano.
+
+**Se genera en dos pasos**, porque openxlsx no sabe hacer gráficos nativos de Excel:
+1. El Rmd arma el libro con `openxlsx` y lo guarda.
+2. `agregar_graficos_cuero()` lo reabre con `openxlsx2` y le inserta los 15 gráficos con `mschart`. Lee los datos de las propias hojas y ubica las tablas **por nombre** (`wb_get_tables`), no por número de fila, así que se puede correr sobre cualquier reporte ya generado.
+
+**Decisiones técnicas clave:**
+- Las hojas dejan bloques de filas/columnas libres para los gráficos; las posiciones están en las constantes `FILA_TABLA_*` del Rmd.
+- **Colores de los gráficos de colores**: cada barra va pintada del color que representa. Los RGB salen de `Reporte_ventas/Colores excel para materiales.xlsx`, editable sin tocar código. Los que faltan salen en gris y se avisan por consola. Los de **materiales** van en un solo color.
+- **Formato condicional de CONDICION** (hojas SKU y SKU-familia): `discontinuado` rojo `#FF0000`, `activo` verde `#92D050`, cualquier otro valor no vacío verde azulado `#31869B`, letra blanca. Vacío sin pintar.
+- **Filas de subtotal** (rubros en "Rubros y Familias", "Total \<familia\>" en SKU-familia) con relleno suave `#D6F2F4`; la fila DESCUENTO va resaltada como TOTAL y sin minigráfico.
+- **Minigráficos** (sparklines) en la columna "Participación en los últimos 13 meses", uno por rubro, leyendo la tabla histórica del AUX.
+- **Tax free**: los CSV de Global Blue vienen a veces en formato argentino y a veces estadounidense, y cambia sin aviso. `parsear_monto()` no depende del locale: como todos los importes traen 2 decimales, el último separador es el decimal. Los nombres de tienda se normalizan a los de Odoo en `TIENDAS_TAX_FREE` (Guemes → Güemes).
 
 ---
 

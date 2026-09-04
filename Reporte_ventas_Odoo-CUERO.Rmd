@@ -22,6 +22,19 @@ library(tibble)
 library(purrr)
 library(janitor)
 
+
+# Corte del 80% de Pareto, regla del punto medio: se incluye una fila mientras el
+# promedio entre el acumulado previo y el propio no pase el umbral. Así el corte queda
+# en el acumulado MÁS CERCANO al 80%, sea por debajo o por arriba, en vez de quedarse
+# siempre corto. Antes cada tabla tenía su umbral a mano (0,80 / 0,81 / 0,85) para
+# compensar eso. Espera los datos ya ordenados de mayor a menor.
+es_top_80 <- function(participacion, umbral = 0.80) {
+  p <- ifelse(is.na(participacion), 0, participacion)
+  acum <- cumsum(p)
+  previo <- c(0, head(acum, -1))
+  (previo + acum) / 2 < umbral
+}
+
 ```
 VER SI PROVEEDORES LO CRUZO CON DESCRIPCIÓN (SE LLAMA NOMBRE EN ODOO) EN VEZ DE CON EL CÓDIGO DE BARRAS. ASÍ ME ASEGURO EL PROVEEDOR EN EL CASO DE QUE ALGUNA VARIEDAD NO TENGA EL DATO DE PROVEEDOR EN ODOO
 #1.Descargo los CSV de Tax free del mes a "Tax free/Tax free para armar" (este Rmd los arma solo vía tax_free_creacion.R)
@@ -187,6 +200,10 @@ SKU_STOCK <- SKU_SD %>%
                                str_starts(DESCRIPCION, "CAMISA") & is.na(CONDICION) ~ "2x1",
                                str_starts(CODIGO, "OUT") | FAMILIA == "OUTLET" | SUBFAMILIA == "OUTLET" ~ "outlet",
                                str_detect(CODIGO, "^[0-9]") & is.na(CONDICION) ~ "activo",
+                               # Los códigos que no están en el Maestro quedaban en blanco y se
+                               # completaban a mano con "activo". El Maestro tiene fecha fija
+                               # (fecha_maestro), así que siempre faltan los productos nuevos.
+                               is.na(CONDICION) ~ "activo",
                                TRUE~CONDICION)
          )
 
@@ -792,10 +809,10 @@ GRABADOS_TOTAL <- bind_rows(fila_total_grabados, GRABADOS)
 ```{r}
 
 #Calculo las ventas con Tax Free
-Tax_free_VENTA_TIENDAS <- Tax_free %>% 
-  group_by(Tienda) %>% 
-  summarise("Tax Free" = sum(TotalGrossAmount, na.rm = TRUE)) |> 
-  filter(Tienda != "San Telmo2")
+Tax_free_VENTA_TIENDAS <- Tax_free %>%
+  group_by(Tienda) %>%
+  summarise("Tax Free" = sum(TotalGrossAmount, na.rm = TRUE)) |>
+  filter(Tienda != "San Telmo 2")   # los nombres de tienda vienen normalizados a los de Odoo
 
 venta_x_tienda <- FACTURAS_MES2 |> 
   select(FECHA_EMISION, NRO_FACTURA, TIENDA, TOTAL_FACTURA) |> 
@@ -817,9 +834,19 @@ VENTAS_TIENDAS <- FACTURAS_MES2 %>%
         NACIONALIDAD != "DESCONOCIDA",
         TOTAL_FACTURA, 0), na.rm = TRUE))
 
+# Si el nombre de una tienda del Tax free no coincide con el de Odoo, el right_join deja
+# la fila con el importe de Tax free y el resto en blanco. Antes pasaba en silencio con
+# "Guemes" vs "Güemes"; ahora avisa. El alias se agrega en TIENDAS_TAX_FREE
+# (tax_free_creacion.R).
+REVISAR_TIENDAS_TAX_FREE <- setdiff(Tax_free_VENTA_TIENDAS$Tienda, VENTAS_TIENDAS$Tienda)
+if (length(REVISAR_TIENDAS_TAX_FREE) > 0)
+  warning("Tiendas del Tax free que no matchean con las ventas: ",
+          paste(REVISAR_TIENDAS_TAX_FREE, collapse = ", "),
+          ". Agregá el alias en TIENDAS_TAX_FREE de tax_free_creacion.R.")
+
 #Creo la tabla final
-TABLA_TAX_FREE <- VENTAS_TIENDAS %>% 
-  right_join(Tax_free_VENTA_TIENDAS) %>% 
+TABLA_TAX_FREE <- VENTAS_TIENDAS %>%
+  right_join(Tax_free_VENTA_TIENDAS, by = "Tienda") %>%
   mutate(`Participación TF` = round(`Tax Free`/`Venta total`, digits = 4),
          `Participación Ext` = round(`Tax Free`/`Venta extranjeros`, digits = 4)) %>%
   select(Tienda, `Venta total`, `Tax Free`, `Participación TF`, `Venta extranjeros`, `Participación Ext`)
@@ -847,7 +874,7 @@ PRECIO_UNITARIO_MARRO_GRANDE <- FACTURAS_MES2 %>%
   mutate(Facturación = Cantidad*Precio, Participación = round((Facturación / sum(Facturación, na.rm = TRUE)), 4)) %>% 
   arrange(desc(Participación)) %>% 
     mutate(Acumulado = cumsum(Participación)) %>%
-  filter(Acumulado <= 0.81)
+  filter(es_top_80(Participación))
 
 #Marro chica
 PRECIO_UNITARIO_MARRO_CHICA <- FACTURAS_MES2 %>% 
@@ -858,7 +885,7 @@ PRECIO_UNITARIO_MARRO_CHICA <- FACTURAS_MES2 %>%
   mutate(Facturación = Cantidad*Precio, Participación = round((Facturación / sum(Facturación, na.rm = TRUE)), 4)) %>% 
   arrange(desc(Participación)) %>% 
     mutate(Acumulado = cumsum(Participación)) %>%
-  filter(Acumulado <= 0.81)
+  filter(es_top_80(Participación))
 
 ```
 
@@ -935,9 +962,17 @@ STOCK_VALOR <- STOCK_TIENDA %>%
     values_from = VALOR_STOCK    # Columna con los valores
   )
 
+# El pivot deja una fila con RUBRO = NA (productos sin rubro) que aparecía vacía y en cero
+# arriba del Total y había que borrarla a mano. Si alguna vez trae valores, avisa.
+REVISAR_STOCK_SIN_RUBRO <- STOCK_VALOR %>% filter(is.na(RUBRO))
+if (nrow(REVISAR_STOCK_SIN_RUBRO) > 0 &&
+    sum(as.matrix(REVISAR_STOCK_SIN_RUBRO[-1]), na.rm = TRUE) > 0)
+  warning("Hay stock valorizado sin RUBRO: ver REVISAR_STOCK_SIN_RUBRO.")
+
 #agrego totales de columnas y las ordeno
-STOCK_VALOR_TOTAL <- STOCK_VALOR %>% 
-  adorn_totals(where = "row") %>% 
+STOCK_VALOR_TOTAL <- STOCK_VALOR %>%
+  filter(!is.na(RUBRO)) %>%
+  adorn_totals(where = "row") %>%
   relocate("Florida Depósito", .after = Barracas)
   
 ```
@@ -1008,7 +1043,7 @@ FAMILIA_AUX <- SKU_FAMILIA %>%
 #Marro grande materiales 80% de la venta
 MARRO_GRANDE_MATERIALES_TOP_80 <- MARRO_GRANDE_MATERIALES %>%
   mutate(Acumulado = cumsum(Participación)) %>%
-  filter(Acumulado <= 0.80)  # Solo los que contribuyen al 80%
+  filter(es_top_80(Participación))
 
 resto_marro_grande_materiales <- MARRO_GRANDE_MATERIALES_TOP_80 %>%
   summarise(
@@ -1022,7 +1057,7 @@ MARRO_GRANDE_MATERIALES_TOP_80 <- bind_rows(MARRO_GRANDE_MATERIALES_TOP_80, rest
 #Marro grande colores 80% de la venta
 MARRO_GRANDE_COLORES_TOP_80 <- MARRO_GRANDE_COLORES %>%
   mutate(Acumulado = cumsum(Participación)) %>%
-  filter(Acumulado <= 0.8)  # Solo los que contribuyen al 80%
+  filter(es_top_80(Participación))
 
 resto_marro_grande_colores <- MARRO_GRANDE_COLORES_TOP_80 %>%
   summarise(
@@ -1036,7 +1071,7 @@ MARRO_GRANDE_COLORES_TOP_80 <- bind_rows(MARRO_GRANDE_COLORES_TOP_80, resto_marr
 #Marro chica materiales 80% de la venta
 MARRO_CHICA_MATERIALES_TOP_80 <- MARRO_CHICA_MATERIALES %>%
   mutate(Acumulado = cumsum(Participación)) %>%
-  filter(Acumulado <= 0.85)  # Solo los que contribuyen al 80%
+  filter(es_top_80(Participación))
 
 resto_marro_chica_materiales <- MARRO_CHICA_MATERIALES_TOP_80 %>%
   summarise(
@@ -1050,7 +1085,7 @@ MARRO_CHICA_MATERIALES_TOP_80 <- bind_rows(MARRO_CHICA_MATERIALES_TOP_80, resto_
 #Marro chica colores 80% de la venta
 MARRO_CHICA_COLORES_TOP_80 <- MARRO_CHICA_COLORES %>%
   mutate(Acumulado = cumsum(Participación)) %>%
-  filter(Acumulado <= 0.8)  # Solo los que contribuyen al 80%
+  filter(es_top_80(Participación))
 
 resto_marro_chica_colores <- MARRO_CHICA_COLORES_TOP_80 %>%
   summarise(
@@ -1081,7 +1116,7 @@ NACIONALIDAD_PARA_GRAFICO <- NACIONALIDAD_X_FACTURACION %>%
   select(NACIONALIDAD, `Total facturación`) %>% 
   arrange(desc(`Total facturación`)) %>% 
   mutate(Participación = round((`Total facturación` / sum(`Total facturación`, na.rm = TRUE)), 4), Acumulado = cumsum(Participación)) %>%
-  filter(Acumulado <= 0.81) 
+  filter(es_top_80(Participación)) 
 
 #Tax free
 TABLA_TAX_FREE_AUX <- TABLA_TAX_FREE_TOTAL %>% 
@@ -1175,6 +1210,50 @@ currencyStyle <- createStyle(numFmt = "$#,##0")
 percentStyle <- createStyle(numFmt = "0.0%")
 numberStyle <- createStyle(numFmt = "#,##0")
 
+# Relleno suave para las filas de subtotal dentro de una tabla (los rubros en
+# "Rubros y Familias" y los "Total <familia>" en SKU-familia). Es un aguamarina lavado,
+# de la misma familia que el #00CED1 de las filas de TOTAL, para que se distingan sin
+# competir con ellas. Se aplica con stack = TRUE para no pisar el formato de número.
+SUBTOTAL_FILL <- "#D6F2F4"
+subtotalStyle <- createStyle(fgFill = SUBTOTAL_FILL)
+
+# Borde fino para las tablas que van como rango (add_plain_table): las tablas de Excel
+# dibujan sus líneas solas, un rango no.
+bordeStyle <- createStyle(border = "TopBottomLeftRight")
+
+# Formato condicional de la columna CONDICION (hojas SKU y SKU-familia). Los colores son
+# los que venían aplicándose a mano en los FINAL: rojo para lo discontinuado, verde para
+# lo activo y verde azulado para el resto (2x1, outlet, fuera de venta...). Las celdas
+# vacías quedan sin pintar. En formato condicional el relleno va en bgFill, no fgFill.
+condDiscontinuado <- createStyle(fontColour = "#FFFFFF", bgFill = "#FF0000")
+condActivo        <- createStyle(fontColour = "#FFFFFF", bgFill = "#92D050")
+condOtro          <- createStyle(fontColour = "#FFFFFF", bgFill = "#31869B")
+
+# Aplica las tres reglas sobre la columna CONDICION de una tabla que arranca en la fila
+# `startRow` (encabezado). `primera_fila_datos` permite saltear las filas de TOTAL y
+# DESCUENTO, que van vacías.
+# OJO con el orden: en Excel gana la regla de menor número de prioridad, y openxlsx le da
+# la prioridad más alta (= menor número) a la ÚLTIMA que se agrega. Por eso se cargan al
+# revés de como se leen: primero la genérica, último "discontinuado".
+formato_condicion <- function(wb, sheet, df, startRow = 1, primera_fila_datos = NULL) {
+  col <- which(names(df) == "CONDICION")
+  if (length(col) != 1) {
+    warning("No encontré la columna CONDICION en la hoja ", sheet)
+    return(invisible(NULL))
+  }
+  desde <- if (is.null(primera_fila_datos)) startRow + 1 else primera_fila_datos
+  filas <- desde:(startRow + nrow(df))
+  letra <- int2col(col)
+  celda <- paste0("$", letra, desde)
+
+  conditionalFormatting(wb, sheet, cols = col, rows = filas, type = "expression",
+                        rule = paste0("LEN(TRIM(", celda, "))>0"), style = condOtro)
+  conditionalFormatting(wb, sheet, cols = col, rows = filas, type = "expression",
+                        rule = paste0(celda, '=="activo"'), style = condActivo)
+  conditionalFormatting(wb, sheet, cols = col, rows = filas, type = "expression",
+                        rule = paste0(celda, '=="discontinuado"'), style = condDiscontinuado)
+}
+
 # Colores para diferentes tablas
 color_codes <- list(
   aguamarina = list(fill = "#00CED1", font = "#FFFFFF"), # Blanco
@@ -1266,7 +1345,7 @@ add_formatted_table <- function(wb, sheet, df, startRow, startCol,
     }
   }
   
-  
+
     # Devolver información de posición
   list(
     start_row = startRow,
@@ -1276,6 +1355,74 @@ add_formatted_table <- function(wb, sheet, df, startRow, startCol,
     next_row = startRow + nrow(df) + 3  # Fila final + 3 filas de espacio
   )
 }
+
+# 2b. Misma tabla pero como rango, no como tabla de Excel ----
+# Hace falta en dos casos donde Excel no admite una tabla: encabezados repetidos
+# (Nacionalidades tiene "Florida" en unidades y en facturación) y celdas combinadas
+# dentro del rango (Grabados combina la descripción de A:E).
+# `cols` permite dejar columnas salteadas: p. ej. c(1, 6, 7) escribe la 1ª columna del
+# df en A y las otras dos en F y G.
+add_plain_table <- function(wb, sheet, df, startRow, startCol,
+                            cols = NULL, headerNames = names(df),
+                            totalRow = "TOTAL", color = "aguamarina",
+                            currencyCols = NULL, percentCols = NULL,
+                            numberCols = NULL) {
+
+  if (is.null(cols)) cols <- startCol + seq_len(ncol(df)) - 1
+
+  for (j in seq_along(cols)) {
+    writeData(wb, sheet, headerNames[j], startRow = startRow, startCol = cols[j])
+    writeData(wb, sheet, df[[j]], startRow = startRow + 1, startCol = cols[j],
+              colNames = FALSE)
+  }
+
+  addStyle(wb, sheet, headerStyle, rows = startRow, cols = cols, gridExpand = TRUE)
+
+  filas_datos <- (startRow + 1):(startRow + nrow(df))
+
+  safe_apply_format <- function(nombres, style) {
+    for (nm in intersect(nombres, names(df)))
+      addStyle(wb, sheet, style, rows = filas_datos, cols = cols[match(nm, names(df))],
+               gridExpand = TRUE)
+  }
+  safe_apply_format(numberCols, numberStyle)
+  safe_apply_format(currencyCols, currencyStyle)
+  safe_apply_format(percentCols, percentStyle)
+
+  # writeDataTable dibuja los bordes solo; como acá va como rango hay que ponerlos a mano
+  # o la tabla sale sin líneas (pasaba en Nacionalidades y en Grabados). Va DESPUÉS de los
+  # formatos de número, que se aplican sin stack y si no le borrarían el borde.
+  addStyle(wb, sheet, bordeStyle, rows = filas_datos, cols = cols,
+           gridExpand = TRUE, stack = TRUE)
+
+  if (!is.null(totalRow) && !is.null(color)) {
+    idx <- which(grepl(paste0("^", totalRow), df[[1]], ignore.case = TRUE))
+    if (length(idx) > 0)
+      addStyle(wb, sheet,
+               createStyle(fgFill = color_codes[[color]]$fill,
+                           fontColour = color_codes[[color]]$font,
+                           textDecoration = "bold"),
+               rows = startRow + idx, cols = cols, gridExpand = TRUE, stack = TRUE)
+  }
+
+  list(start_row = startRow,
+       end_row = startRow + nrow(df),
+       start_col = min(cols),
+       end_col = max(cols),
+       next_row = startRow + nrow(df) + 3)
+}
+
+# 2b. Constantes de layout ----
+# Las hojas dejan bloques de filas/columnas libres para los gráficos que agrega después
+# graficos_reporte_cuero.R. Si se cambia alguna de estas posiciones hay que cambiarla
+# también allá: el script busca las tablas por nombre, pero los anclajes de los gráficos
+# se calculan a partir de estas mismas constantes.
+FILA_TABLA_FAMILIA   <- 30  # "Rubros y Familias": deja 3:12 para la tabla de rubros + gráficos
+FILA_TABLA_MATERIAL  <-  5  # "Materiales y colores": tablas en F y P, gráficos en A:E y K:O
+COL_MARRO_GRANDE     <-  6  # F
+COL_MARRO_CHICA      <- 16  # P
+FILA_TABLA_PROVEEDOR <- 21  # "Proveedores externos": 3:19 libre para el gráfico
+FILA_TABLA_NACION    <- 17  # "Nacionalidades": 1:15 libre para el gráfico (17 = encabezado de grupo)
 
 # 3. Crear hojas y agregar tablas ----
 
@@ -1289,37 +1436,66 @@ addStyle(wb, "Rubros y Familias",
          rows = 1, cols = 1)
 
 # Tabla 1: tabla_venta_rubro
-pos1 <- add_formatted_table(wb, "Rubros y Familias", tabla_venta_rubro, 
+# DESCUENTO va resaltada igual que TOTAL: no es un rubro más y no lleva minigráfico.
+pos1 <- add_formatted_table(wb, "Rubros y Familias", tabla_venta_rubro,
                           startRow = 3, startCol = 1,
                           tableName = "tabla_venta_rubro",
+                          totalRow = "(TOTAL|DESCUENTO)",
                           currencyCols = "Facturación",
                           percentCols = "Participación",
                           numberCols = "Unidades",
                           color = "aguamarina")
 
-# Tabla 2: tabla_rubro_familia (con más espacio)
-pos2 <- add_formatted_table(wb, "Rubros y Familias", tabla_rubro_familia, 
-                          startRow = pos1$end_row + 5,  startCol = 1,
+# Encabezado de la columna E (se completa a mano con datos de otra fuente)
+writeData(wb, "Rubros y Familias", "Participación en los últimos 13 meses",
+          startRow = 3, startCol = 5)
+mergeCells(wb, "Rubros y Familias", cols = 5, rows = 3:5)
+addStyle(wb, "Rubros y Familias",
+         createStyle(textDecoration = "bold", wrapText = TRUE, valign = "top"),
+         rows = 3, cols = 5)
+
+# Tabla 2: tabla_rubro_familia (baja a FILA_TABLA_FAMILIA para dejar lugar a los gráficos
+# de "venta por rubros" y "familias 80%" arriba)
+pos2 <- add_formatted_table(wb, "Rubros y Familias", tabla_rubro_familia,
+                          startRow = FILA_TABLA_FAMILIA,  startCol = 1,
                           tableName = "tabla_rubro_familia",
                           currencyCols = "Facturación",
                           percentCols = "Participación",
                           numberCols = c("Unidades", "Facturación"),
                           color = "aguamarina")
 
+# Las filas de RUBRO (las que no están indentadas) son el subtotal de su bloque: van con
+# relleno suave, en el mismo cuerpo que el resto de la tabla. stack = TRUE conserva el
+# formato de número de cada columna.
+filas_rubro <- which(!startsWith(tabla_rubro_familia$`Rubro/Familia`, " ") &
+                       tabla_rubro_familia$`Rubro/Familia` != "TOTAL")
+if (length(filas_rubro) > 0)
+  addStyle(wb, "Rubros y Familias", subtotalStyle,
+           rows = FILA_TABLA_FAMILIA + filas_rubro, cols = 1:4,
+           gridExpand = TRUE, stack = TRUE)
+
+# E va más ancha que en el armado a mano (14,5) porque ahora lleva los minigráficos
+setColWidths(wb, "Rubros y Familias", cols = c(1, 3, 5), widths = c(17.1, 12.1, 20))
+
 # Hoja 2: SKU
 addWorksheet(wb, "SKU")
-next_row <- add_formatted_table(wb, "SKU", SKU_total, 
+# DESCUENTO va resaltada igual que TOTAL, como en "Rubros y Familias"
+next_row <- add_formatted_table(wb, "SKU", SKU_total,
                                startRow = 1, startCol = 1,
                                tableName = "SKU_total",
+                               totalRow = "(TOTAL|DESCUENTO)",
                                currencyCols = c("PRECIO", "TOTAL"),
                                percentCols = NULL,
                                numberCols = c("VENTA", "STOCK"),
                                color = "naranja")
 
+# Desde la fila 4: las 2 y 3 son TOTAL y DESCUENTO, que van sin CONDICION
+formato_condicion(wb, "SKU", SKU_total, startRow = 1, primera_fila_datos = 4)
+
 
 # Hoja 3: SKU-familia
 addWorksheet(wb, "SKU-familia")
-next_row <- add_formatted_table(wb, "SKU-familia", SKU_FAMILIA_final, 
+next_row <- add_formatted_table(wb, "SKU-familia", SKU_FAMILIA_final,
                                startRow = 1, startCol = 1,
                                tableName = "SKU_FAMILIA_final",
                                currencyCols = c("PRECIO", "TOTAL"),
@@ -1327,12 +1503,25 @@ next_row <- add_formatted_table(wb, "SKU-familia", SKU_FAMILIA_final,
                                numberCols = c("VENTA", "STOCK_TOTAL"),
                                color = NULL)
 
+# Las filas "Total <familia> <subfamilia>" llevan el mismo relleno suave que los
+# subtotales de "Rubros y Familias" (la tabla arranca en la fila 1, así que la fila i del
+# df está en la fila i+1 de la hoja).
+filas_total_familia <- which(startsWith(SKU_FAMILIA_final$DESCRIPCION, "Total"))
+if (length(filas_total_familia) > 0)
+  addStyle(wb, "SKU-familia", subtotalStyle,
+           rows = 1 + filas_total_familia, cols = 1:ncol(SKU_FAMILIA_final),
+           gridExpand = TRUE, stack = TRUE)
+
+formato_condicion(wb, "SKU-familia", SKU_FAMILIA_final, startRow = 1)
+
 
 # Hoja 4: Modelos
 addWorksheet(wb, "Modelos")
-next_row <- add_formatted_table(wb, "Modelos", Modelos_total, 
+# DESCUENTO va resaltada igual que TOTAL, como en "Rubros y Familias" y SKU
+next_row <- add_formatted_table(wb, "Modelos", Modelos_total,
                                startRow = 1, startCol = 1,
                                tableName = "Modelos_total",
+                               totalRow = "(TOTAL|DESCUENTO)",
                                currencyCols = c("PRECIO", "TOTAL"),
                                percentCols = NULL,
                                numberCols = c("VENTA", "STOCK"),
@@ -1347,26 +1536,40 @@ addStyle(wb, "Materiales y colores",
          createStyle(textDecoration = "bold", fontSize = 14),
          rows = 1, cols = 1)
 
+# Las dos tablas van una al lado de la otra (F y P) y las columnas A:E y K:O quedan
+# libres para los cuatro gráficos de materiales y colores.
+writeData(wb, "Materiales y colores", "MARRO GRANDE", startRow = 3, startCol = 1)
+mergeCells(wb, "Materiales y colores", cols = 1:9, rows = 3)
+writeData(wb, "Materiales y colores", "MARRO CHICA", startRow = 3, startCol = 11)
+mergeCells(wb, "Materiales y colores", cols = 11:19, rows = 3)
+addStyle(wb, "Materiales y colores",
+         createStyle(textDecoration = "bold", fontSize = 14),
+         rows = 3, cols = c(1, 11), gridExpand = TRUE)
+
 # Agregar tablas
 # Tabla 1
-pos1 <- add_formatted_table(wb, "Materiales y colores", MARRO_GRANDE_MATERIAL_COLOR, 
-                               startRow = 3, startCol = 1,
+pos1 <- add_formatted_table(wb, "Materiales y colores", MARRO_GRANDE_MATERIAL_COLOR,
+                               startRow = FILA_TABLA_MATERIAL, startCol = COL_MARRO_GRANDE,
                                tableName = "MARRO_GRANDE_MATERIAL_COLOR",
-                               tableTitle = "Marro grande", 
                                currencyCols = "Facturación",
                                percentCols = c("Participación", "Acumulado"),
                                numberCols = NULL,
                                color = "celeste")
 
-# Tabla 2 
-pos2 <- add_formatted_table(wb, "Materiales y colores", MARRO_CHICA_MATERIAL_COLOR, 
-                                startRow = pos1$end_row + 5, startCol = 1,
+# Tabla 2
+pos2 <- add_formatted_table(wb, "Materiales y colores", MARRO_CHICA_MATERIAL_COLOR,
+                                startRow = FILA_TABLA_MATERIAL, startCol = COL_MARRO_CHICA,
                                tableName = "MARRO_CHICA_MATERIAL_COLOR",
-                               tableTitle = "Marro chica",
                                currencyCols = "Facturación",
                                percentCols = c("Participación", "Acumulado"),
                                numberCols = NULL,
                                color = "celeste")
+
+# A:E y K:O son las bandas donde van los gráficos: el ancho define su tamaño
+setColWidths(wb, "Materiales y colores",
+             cols = c(1:5, 6, 11:15, 16),
+             widths = c(15.1, 13.5, 14.6, 12.6, 17.9, 29.6,
+                        14.2, 16.2, 13.5, 14.6, 15.5, 24.3))
 
 # # Tabla 3
 # pos3 <- add_formatted_table(wb, "Materiales y colores", CINTURON_MATERIAL_COLOR, 
@@ -1388,23 +1591,20 @@ addStyle(wb, "Proveedores externos",
          rows = 1, cols = 1)
 
 # Agregar tablas
-# Tabla 1
-pos1 <- add_formatted_table(wb, "Proveedores externos", PROVEEDOR_EXTERNO_TOTAL, 
-                               startRow = 3, startCol = 1,
+# Tabla 1: baja a FILA_TABLA_PROVEEDOR y las filas 3:19 quedan para el gráfico
+pos1 <- add_formatted_table(wb, "Proveedores externos", PROVEEDOR_EXTERNO_TOTAL,
+                               startRow = FILA_TABLA_PROVEEDOR, startCol = 1,
                                tableName = "PROVEEDOR_EXTERNO_TOTAL",
                                currencyCols = "Facturación",
                                percentCols = "Participación",
                                numberCols = "Unidades",
                                color = "naranja")
 
-# Tabla 2 
-pos2 <- add_formatted_table(wb, "Proveedores externos", PROVEEDOR_EXTERNO_RUBROS_TOTAL, 
-                               startRow = pos1$end_row + 5, startCol = 1,
-                               tableName = "PROVEEDOR_EXTERNO_RUBROS_TOTAL",
-                               currencyCols = "Facturación",
-                               percentCols = "Participación",
-                               numberCols = "Unidades",
-                               color = "naranja")
+# La tabla de rubros entre proveedores externos (PROVEEDOR_EXTERNO_RUBROS_TOTAL) no va
+# más en la hoja: se venía borrando a mano todos los meses. Su total se sigue usando para
+# el título del gráfico, vía PARTICIPACION_PROVEEDORES_EXTERNOS.
+
+setColWidths(wb, "Proveedores externos", cols = c(1, 3), widths = c(46.5, 12.1))
 
 
 
@@ -1413,13 +1613,38 @@ cols_ends_with_x <- names(NACIONALIDAD_ENTERA)[endsWith(names(NACIONALIDAD_ENTER
 cols_ends_with_y <- names(NACIONALIDAD_ENTERA)[endsWith(names(NACIONALIDAD_ENTERA), ".y")]
 
 addWorksheet(wb, "Nacionalidades")
-next_row <- add_formatted_table(wb, "Nacionalidades", NACIONALIDAD_ENTERA, 
-                               startRow = 1, startCol = 1,
-                               tableName = "NACIONALIDAD_ENTERA",
+
+# Encabezado de dos niveles: "Unidades" sobre las 6 columnas de cantidad y "Facturación"
+# sobre las 6 de plata. Va como rango y no como tabla de Excel porque los nombres de
+# tienda se repiten en las dos mitades.
+n_tiendas <- length(cols_ends_with_x)
+writeData(wb, "Nacionalidades", "Unidades",
+          startRow = FILA_TABLA_NACION, startCol = 2)
+mergeCells(wb, "Nacionalidades", cols = 2:(1 + n_tiendas + 1), rows = FILA_TABLA_NACION)
+writeData(wb, "Nacionalidades", "Facturación",
+          startRow = FILA_TABLA_NACION, startCol = n_tiendas + 3)
+mergeCells(wb, "Nacionalidades",
+           cols = (n_tiendas + 3):(2 * n_tiendas + 3), rows = FILA_TABLA_NACION)
+addStyle(wb, "Nacionalidades",
+         createStyle(textDecoration = "bold", halign = "center",
+                     border = "TopBottomLeftRight"),
+         rows = FILA_TABLA_NACION, cols = c(2, n_tiendas + 3), gridExpand = TRUE)
+
+# Los encabezados van sin el sufijo .x / .y del join
+nombres_nacionalidad <- c("País",
+                          sub("\\.x$", "", cols_ends_with_x), "Total",
+                          sub("\\.y$", "", cols_ends_with_y), "Total")
+
+next_row <- add_plain_table(wb, "Nacionalidades", NACIONALIDAD_ENTERA,
+                               startRow = FILA_TABLA_NACION + 1, startCol = 1,
+                               headerNames = nombres_nacionalidad,
                                currencyCols = c(cols_ends_with_y, "Total facturación"),
                                percentCols = NULL,
                                numberCols = c(cols_ends_with_x, "Total cantidad"),
+                               totalRow = "Total general",
                                color = "lila")
+
+setColWidths(wb, "Nacionalidades", cols = 13, widths = 15.2)
 
 
 
@@ -1432,12 +1657,17 @@ addStyle(wb, "Otros",
          rows = 1, cols = 1)
 
 # Tabla 1: GRABADOS_TOTAL
-pos1 <- add_formatted_table(wb, "Otros", GRABADOS_TOTAL, 
-                         startRow = 3, startCol = 1,
-                         tableName = "GRABADOS_TOTAL",
+# La descripción se combina de A a E (son nombres largos) y Unidades/Facturación quedan
+# en F y G; el ancho de A:C lo fijan las tablas de PRECIOS de más abajo, así que no se
+# puede ensanchar A. Al haber celdas combinadas va como rango, no como tabla de Excel.
+pos1 <- add_plain_table(wb, "Otros", GRABADOS_TOTAL,
+                         startRow = 3, startCol = 1, cols = c(1, 6, 7),
                          currencyCols = "Facturación",
                          percentCols = NULL,
-                         numberCols = "Unidades")
+                         numberCols = "Unidades",
+                         totalRow = "Total")
+
+for (r in 3:(3 + nrow(GRABADOS_TOTAL))) mergeCells(wb, "Otros", cols = 1:5, rows = r)
 
 # Tabla 2: CONSERJES
 # pos2 <- add_formatted_table(wb, "Otros", CONSERJES, 
@@ -1453,16 +1683,25 @@ pos3 <- add_formatted_table(wb, "Otros", TABLA_TAX_FREE_TOTAL,
                          startRow = pos1$end_row + 5, startCol = 1,
                          tableName = "TABLA_TAX_FREE",
                          tableTitle = "TAX FREE",
-                         currencyCols = c("Venta total", "Tax free", "Venta extranjeros"),
+                         # La columna se llama "Tax Free" con F mayúscula; decía "Tax free"
+                         # y por eso quedaba sin formato moneda.
+                         currencyCols = c("Venta total", "Tax Free", "Venta extranjeros"),
                          percentCols = c("Participación TF", "Participación Ext"),
                          numberCols = NULL)
 
 # Tablas 4 y 5: Precios unitarios (una al lado de la otra)
+# El título "PRECIOS" va suelto una fila más arriba para que cada tabla pueda llevar su
+# propio rótulo ("Marro grande" / "Marro chica") justo encima.
+fila_precios <- pos3$end_row + 4
+writeData(wb, "Otros", "PRECIOS", startRow = fila_precios, startCol = 1)
+addStyle(wb, "Otros", createStyle(textDecoration = "bold", halign = "left"),
+         rows = fila_precios, cols = 1)
+
 # Tabla 4: PRECIO_UNITARIO_MARRO_GRANDE (izquierda)
-pos_left <- add_formatted_table(wb, "Otros", PRECIO_UNITARIO_MARRO_GRANDE, 
-                              startRow = pos3$end_row + 5, startCol = 1,
+pos_left <- add_formatted_table(wb, "Otros", PRECIO_UNITARIO_MARRO_GRANDE,
+                              startRow = fila_precios + 1, startCol = 1,
                               tableName = "PRECIO_MARRO_GRANDE",
-                              tableTitle = "PRECIOS",
+                              tableTitle = "Marro grande",
                               currencyCols = c("Precio", "Facturación"),
                               percentCols = c("Participación", "Acumulado"),
                               numberCols = "Cantidad")
@@ -1479,10 +1718,11 @@ currency_cols <- c("Precio", "Facturación")[c("Precio", "Facturación") %in% co
 percent_cols <- c("Participación", "Acumulado")[c("Participación", "Acumulado") %in% cols_existentes]
 number_cols <- "Cantidad"["Cantidad" %in% cols_existentes]
 
-pos_right <- add_formatted_table(wb, "Otros", PRECIO_UNITARIO_MARRO_CHICA, 
-                               startRow = pos_left$start_row, 
+pos_right <- add_formatted_table(wb, "Otros", PRECIO_UNITARIO_MARRO_CHICA,
+                               startRow = fila_precios + 1,
                                startCol = start_col_right,
                                tableName = "PRECIO_MARRO_CHICA",
+                               tableTitle = "Marro chica",
                                currencyCols = currency_cols,
                                percentCols = percent_cols,
                                numberCols = number_cols)
@@ -1498,13 +1738,21 @@ addStyle(wb, "Valor stock",
          rows = 1, cols = 1)
 
 # Tabla 1: STOCK_VALOR_TOTAL
-pos1 <- add_formatted_table(wb, "Valor stock", STOCK_VALOR_TOTAL, 
+# Los nombres de las columnas son los de las tiendas tal como vienen del pivot ("Barracas",
+# "Florida Depósito", "San Telmo 1", ...). Antes se listaban a mano en mayúsculas, no
+# matcheaba ninguno y la tabla quedaba sin formato moneda. Se toman todas menos RUBRO,
+# así sigue andando si cambian las tiendas.
+pos1 <- add_formatted_table(wb, "Valor stock", STOCK_VALOR_TOTAL,
                           startRow = 3, startCol = 1,
                           tableName = "STOCK_VALOR_TOTAL",
-                          currencyCols = c("TIENDA", "FLORIDA", "FRENCH", "GÜEMES", "RECOLETA", "SAN TELMO"),
+                          currencyCols = setdiff(names(STOCK_VALOR_TOTAL), "RUBRO"),
                           percentCols = NULL,
                           numberCols = NULL,
                           color = "aguamarina")
+
+# Con el formato moneda los importes no entraban y salían como ###
+setColWidths(wb, "Valor stock", cols = 1:ncol(STOCK_VALOR_TOTAL),
+             widths = c(15, rep(16, ncol(STOCK_VALOR_TOTAL) - 1)))
 
 
 # Hoja 10: stock sin ventas
@@ -1672,6 +1920,18 @@ pos11 <- add_formatted_table(wb, "AUX", tabla_historica_FAMILIA,
 
 
 # 4. Guardar el archivo ----
-saveWorkbook(wb, paste0("Reporte_ventas/Reporte_Ventas_CUERO_", mes, ".xlsx"), overwrite = TRUE)
+archivo_reporte <- paste0("Reporte_ventas/Reporte_Ventas_CUERO_", mes, ".xlsx")
+saveWorkbook(wb, archivo_reporte, overwrite = TRUE)
+
+
+# 5. Agregar los gráficos ----
+# Los 14 gráficos que antes se hacían a mano. Se agregan sobre el archivo ya guardado
+# porque openxlsx no sabe hacer gráficos nativos: el script lo reabre con openxlsx2 y
+# los inserta. Queda listo para mandar, salvo la columna "EN PRODUCCIÓN" de la hoja SKU,
+# que se completa aparte.
+source("graficos_reporte_cuero.R")
+agregar_graficos_cuero(archivo_reporte,
+                       part_proveedores   = PARTICIPACION_PROVEEDORES_EXTERNOS,
+                       fila_tabla_familia = FILA_TABLA_FAMILIA)
 ```
 
